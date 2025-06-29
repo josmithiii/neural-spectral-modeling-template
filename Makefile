@@ -36,30 +36,27 @@ tf test-full pt: ## Run all tests
 td tdense train: ## Train the model (SimpleDenseNet) 
 	time python src/train.py
 
-tmps trainmps: ## Train the model using MPS on a Mac
+tm tmps trainmps: ## Train the model using MPS on a Mac
 	time python src/train.py trainer.accelerator=mps data.num_workers=15
 
-tcnn train-cnn: ## Train with CNN architecture
+tc tcnn train-cnn: ## Train with CNN architecture
 	time python src/train.py model=mnist_cnn
 
-tcnn-mps train-cnn-mps: ## Train CNN with MPS on Mac
+tcm tcnn-mps train-cnn-mps: ## Train CNN with MPS on Mac
 	time python src/train.py model=mnist_cnn trainer.accelerator=mps data.num_workers=15
 
-tquick train-quick: ## Quick training test (SimpleDenseNet, 1 epoch)
+tq tquick train-quick: ## Quick training test (SimpleDenseNet, 1 epoch)
 	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
-tcnn-quick train-cnn-quick: ## Quick CNN training test (1 epoch)
+tcq tcnn-quick train-cnn-quick: ## Quick CNN training test (1 epoch)
 	python src/train.py model=mnist_cnn trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
-compare-arch: ## Compare architectures (quick runs)
+ca compare-arch: ## Compare architectures (quick runs)
 	@echo "=== Training SimpleDenseNet ==="
 	python src/train.py trainer.max_epochs=3 tags="[arch_comparison,dense]"
 	@echo "=== Training SimpleCNN ==="
 	python src/train.py model=mnist_cnn trainer.max_epochs=3 tags="[arch_comparison,cnn]"
 	@echo "=== Check logs/ directory for results comparison ==="
 
-texample: ## Run example experiment config (reproducible baseline)
-	time python src/train.py experiment=example
-
-train-example: ## Run example experiment config (reproducible baseline)
+te texample train-example: ## Run example experiment config (reproducible baseline)
 	time python src/train.py experiment=example

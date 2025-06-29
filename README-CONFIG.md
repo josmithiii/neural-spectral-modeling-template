@@ -74,11 +74,11 @@ python src/train.py
 python src/train.py model=mnist_cnn
 
 # Compare with identical hyperparameters
-python src/train.py trainer.max_epochs=10                    # SimpleDenseNet
-python src/train.py model=mnist_cnn trainer.max_epochs=10    # SimpleCNN
+python src/train.py trainer.max_epochs=10                  # SimpleDenseNet
+python src/train.py model=mnist_cnn trainer.max_epochs=10  # SimpleCNN
 ```
 
-### 3. Added Make Targets
+### 3. New Convenience Make Targets
 
 **New Training Targets:**
 
@@ -100,7 +100,7 @@ See the [Makefile](./Makefile) for details, and write your own!
 | `make tcnn-quick` | Quick CNN test | 1 epoch, 10 batches |
 | `make compare-arch` | Side-by-side comparison | 3 epochs each |
 
-**View All Targets:**
+**View All Make Targets and their Abbreviations:**
 ```bash
 make help
 ```
@@ -116,7 +116,7 @@ The `./configs/experiment/` directory contains **complete experiment configurati
 - **Version control**: Lock in configurations that work well
 - **Single command execution**: Run complex setups with one command
 
-**When to Use Experiment Configs:**
+**When to Use Command-Line Hydra Overrides or Experiment Configs:**
 
 | Use Case | Individual Configs | Experiment Configs |
 |----------|-------------------|-------------------|
