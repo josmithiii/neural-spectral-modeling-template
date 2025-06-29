@@ -169,9 +169,10 @@ make texample
 # - Version controlled configuration
 ```
 
-## 📁 File Organization
+## 📁 Files Added
 
-### New Files Added
+### For New Model Architecture
+
 ```
 configs/model/
 └── mnist_cnn.yaml              # CNN model configuration
@@ -179,11 +180,11 @@ configs/model/
 src/models/components/
 └── simple_cnn.py               # CNN architecture implementation
 
-Makefile                        # Enhanced with new targets
+Makefile                        # Added convenience make targets (for poor typists)
 README-CONFIG.md                # This documentation
 ```
 
-### Configuration Structure
+### Configuration for New Model Architecture
 
 **Model Configuration Pattern:**
 ```yaml
@@ -223,8 +224,17 @@ make t
 # Train with CNN architecture  
 make tcnn
 
-# Quick testing
+# Quick testing of SimpleDenseNet and SimpleCNN for reasonable typists (or test scripts)
+make train-quick && make train-cnn-quick
+
+# Quick testing for poor typists
 make tquick && make tcnn-quick
+
+# Quick testing for extra lousy typists
+make tq && make tcq
+
+# Quick testing for basket cases (all architectures)
+make tqall
 ```
 
 ### Advanced Configuration

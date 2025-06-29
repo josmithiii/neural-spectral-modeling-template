@@ -48,8 +48,10 @@ tcm tcnn-mps train-cnn-mps: ## Train CNN with MPS on Mac
 tq tquick train-quick: ## Quick training test (SimpleDenseNet, 1 epoch)
 	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
-tcq tcnn-quick train-cnn-quick: ## Quick CNN training test (1 epoch)
+tcq tcnn-quick train-cnn-quick: ## Quick SimpleCNN training test (1 epoch)
 	python src/train.py model=mnist_cnn trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
+
+tqall train-all-quick: tq tcq ## Quick SimpleDenseNet and SimpleCNN training tests (1 epoch)
 
 ca compare-arch: ## Compare architectures (quick runs)
 	@echo "=== Training SimpleDenseNet ==="
