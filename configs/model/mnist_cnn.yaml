@@ -1,0 +1,29 @@
+_target_: src.models.mnist_module.MNISTLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0001  # slightly higher weight decay for CNN
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+criterion:
+  _target_: torch.nn.CrossEntropyLoss
+
+net:
+  _target_: src.models.components.simple_cnn.SimpleCNN
+  input_channels: 1
+  conv1_channels: 32
+  conv2_channels: 64
+  fc_hidden: 128
+  output_size: 10
+  dropout: 0.25
+
+# compile model for faster training with pytorch 2.0
+compile: false 

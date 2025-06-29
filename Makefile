@@ -33,8 +33,27 @@ test: ## Run not slow tests
 test-full: ## Run all tests
 	pytest
 
-t train: ## Train the model
+t train: ## Train the model (SimpleDenseNet)
 	time python src/train.py
 
 tmps trainmps: ## Train the model using MPS on a Mac
 	time python src/train.py trainer.accelerator=mps data.num_workers=15
+
+tcnn train-cnn: ## Train with CNN architecture
+	time python src/train.py model=mnist_cnn
+
+tcnn-mps train-cnn-mps: ## Train CNN with MPS on Mac
+	time python src/train.py model=mnist_cnn trainer.accelerator=mps data.num_workers=15
+
+tquick train-quick: ## Quick training test (SimpleDenseNet, 1 epoch)
+	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
+
+tcnn-quick train-cnn-quick: ## Quick CNN training test (1 epoch)
+	python src/train.py model=mnist_cnn trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
+
+compare-arch: ## Compare architectures (quick runs)
+	@echo "=== Training SimpleDenseNet ==="
+	python src/train.py trainer.max_epochs=3 tags="[arch_comparison,dense]"
+	@echo "=== Training SimpleCNN ==="
+	python src/train.py model=mnist_cnn trainer.max_epochs=3 tags="[arch_comparison,cnn]"
+	@echo "=== Check logs/ directory for results comparison ==="
