@@ -75,3 +75,9 @@ compare-arch: ## Compare architectures (quick runs)
 	@echo "=== Training SimpleCNN ==="
 	python src/train.py model=mnist_cnn trainer.max_epochs=3 tags="[arch_comparison,cnn]"
 	@echo "=== Check logs/ directory for results comparison ==="
+
+texample: ## Run example experiment config (reproducible baseline)
+	time python src/train.py experiment=example
+
+train-example: ## Run example experiment config (reproducible baseline)
+	time python src/train.py experiment=example

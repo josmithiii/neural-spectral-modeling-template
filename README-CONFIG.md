@@ -87,6 +87,7 @@ python src/train.py model=mnist_cnn trainer.max_epochs=10
 | `make tcnn` or `make train-cnn` | Train SimpleCNN | CNN |
 | `make tmps` or `make trainmps` | Train on Mac GPU (MPS) | Dense |
 | `make tcnn-mps` | Train CNN on Mac GPU | CNN |
+| `make texample` or `make train-example` | Run example experiment config | Dense |
 
 **Quick Testing Targets:**
 
@@ -99,6 +100,70 @@ python src/train.py model=mnist_cnn trainer.max_epochs=10
 **View All Targets:**
 ```bash
 make help
+```
+
+### 4. Experiment Configuration System
+
+**What are Experiment Configs?**
+
+The `./configs/experiment/` directory contains **complete experiment configurations** that define specific, reproducible hyperparameter combinations. These differ from individual config overrides by providing:
+
+- **Complete specification**: All parameters needed for an experiment
+- **Reproducibility**: Fixed seeds and exact parameter combinations
+- **Version control**: Lock in configurations that work well
+- **Single command execution**: Run complex setups with one command
+
+**When to Use Experiment Configs:**
+
+| Use Case | Individual Configs | Experiment Configs |
+|----------|-------------------|-------------------|
+| **Exploration** | ✅ `python src/train.py model=mnist_cnn` | ❌ Too rigid |
+| **Quick testing** | ✅ `make tcnn-quick` | ❌ Overkill |
+| **Reproducible research** | ❌ Parameters can vary | ✅ `make texample` |
+| **Paper results** | ❌ Hard to reproduce exactly | ✅ Fixed seed + params |
+| **Baseline comparisons** | ❌ Inconsistent setup | ✅ Standardized config |
+| **Hyperparameter winners** | ❌ Easy to lose good configs | ✅ Version controlled |
+
+**Example Experiment Structure:**
+```yaml
+# configs/experiment/example.yaml
+defaults:
+  - override /data: mnist
+  - override /model: mnist
+  - override /trainer: default
+
+# Fixed for reproducibility
+seed: 12345
+tags: ["mnist", "simple_dense_net"]
+
+# Specific hyperparameters that work well
+trainer:
+  max_epochs: 10
+  gradient_clip_val: 0.5
+
+model:
+  optimizer:
+    lr: 0.002
+  net:
+    lin1_size: 128
+    lin2_size: 256
+    lin3_size: 64
+
+data:
+  batch_size: 64
+```
+
+**Usage:**
+```bash
+# Run the complete experiment
+python src/train.py experiment=example
+# or
+make texample
+
+# Results are exactly reproducible because:
+# - Fixed seed (12345)
+# - Locked hyperparameters
+# - Version controlled configuration
 ```
 
 ## 📁 File Organization
