@@ -7,14 +7,14 @@ This document describes the extensions and enhancements made to the original Lig
 We've extended the original template with:
 - **Configurable loss functions** via Hydra configuration
 - **Multiple neural network architectures** with easy switching
-- **Enhanced make targets** for streamlined development workflow
+- **Additional make targets** for streamlined development workflow
 - **Non-destructive extensions** following best practices
 
 ## 🎯 Key Features
 
 ### 1. Configurable Loss Functions
 
-**What Changed:** The loss function (criterion) is now configurable through Hydra, following the same pattern as optimizer and scheduler.
+**What Changed:** The loss function ("criterion" in [`configs/model/*.yaml`](./configs/model/)) is now configurable through Hydra, following the same pattern as optimizer and scheduler.
 
 **Before:**
 ```python
@@ -51,8 +51,8 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 
 | Architecture | Parameters | Description | Config File |
 |-------------|------------|-------------|-------------|
-| **SimpleDenseNet** | 68K | Fully-connected network (default) | `configs/model/mnist.yaml` |
-| **SimpleCNN** | 421K | Convolutional neural network | `configs/model/mnist_cnn.yaml` |
+| **SimpleDenseNet** | 68K | Fully-connected network (default) | [`configs/model/mnist.yaml`](./configs/model/mnist.yaml) |
+| **SimpleCNN** | 421K | Convolutional neural network | [`configs/model/mnist_cnn.yaml`](configs/model/mnist_cnn.yaml) |
 
 **File Structure:**
 ```
@@ -74,10 +74,11 @@ python src/train.py
 python src/train.py model=mnist_cnn
 
 # Compare with identical hyperparameters
-python src/train.py model=mnist_cnn trainer.max_epochs=10
+python src/train.py trainer.max_epochs=10                    # SimpleDenseNet
+python src/train.py model=mnist_cnn trainer.max_epochs=10    # SimpleCNN
 ```
 
-### 3. Enhanced Make Targets
+### 3. Added Make Targets
 
 **New Training Targets:**
 
@@ -88,6 +89,8 @@ python src/train.py model=mnist_cnn trainer.max_epochs=10
 | `make tmps` or `make trainmps` | Train on Mac GPU (MPS) | Dense |
 | `make tcnn-mps` | Train CNN on Mac GPU | CNN |
 | `make texample` or `make train-example` | Run example experiment config | Dense |
+
+See the [Makefile](./Makefile) for details, and write your own!
 
 **Quick Testing Targets:**
 
