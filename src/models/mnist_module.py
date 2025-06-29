@@ -44,6 +44,7 @@ class MNISTLitModule(LightningModule):
         net: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler,
+        criterion: torch.nn.Module,
         compile: bool,
     ) -> None:
         """Initialize a `MNISTLitModule`.
@@ -51,17 +52,18 @@ class MNISTLitModule(LightningModule):
         :param net: The model to train.
         :param optimizer: The optimizer to use for training.
         :param scheduler: The learning rate scheduler to use for training.
+        :param criterion: The loss function to use for training.
         """
         super().__init__()
 
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
-        self.save_hyperparameters(logger=False)
+        self.save_hyperparameters(logger=False, ignore=["net", "criterion"])
 
         self.net = net
 
         # loss function
-        self.criterion = torch.nn.CrossEntropyLoss()
+        self.criterion = criterion
 
         # metric objects for calculating and averaging accuracy across batches
         self.train_acc = Accuracy(task="multiclass", num_classes=10)
@@ -214,4 +216,4 @@ class MNISTLitModule(LightningModule):
 
 
 if __name__ == "__main__":
-    _ = MNISTLitModule(None, None, None, None)
+    _ = MNISTLitModule(None, None, None, None, None)
