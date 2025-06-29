@@ -1,4 +1,3 @@
-
 help:  ## Show help
 	@grep -E '^[.a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
@@ -20,11 +19,22 @@ sync: ## Merge changes from main branch to your current branch
 	git pull
 	git pull origin main
 
+a activate: ## Activate the uv environment
+	@echo "Add to ~/.tcshrc: alias a 'echo \"source .venv/bin/activate.csh\" && source .venv/bin/activate.csh'"
+	@echo "Then just type: a"
+
+d deactivate: ## Deactivate the uv environment
+	@echo "Add to ~/.tcshrc: alias d 'echo deactivate && deactivate'"
+	@echo "Then just type: d"
+
 test: ## Run not slow tests
 	pytest -k "not slow"
 
 test-full: ## Run all tests
 	pytest
 
-train: ## Train the model
-	python src/train.py
+t train: ## Train the model
+	time python src/train.py
+
+tmps trainmps: ## Train the model using MPS on a Mac
+	time python src/train.py trainer.accelerator=mps data.num_workers=15

@@ -59,6 +59,7 @@ class MNISTDataModule(LightningDataModule):
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
+        persistent_workers: bool = False,
     ) -> None:
         """Initialize a `MNISTDataModule`.
 
@@ -67,8 +68,11 @@ class MNISTDataModule(LightningDataModule):
         :param batch_size: The batch size. Defaults to `64`.
         :param num_workers: The number of workers. Defaults to `0`.
         :param pin_memory: Whether to pin memory. Defaults to `False`.
+        :param persistent_workers: Whether to use persistent workers. Defaults to `False`.
         """
         super().__init__()
+
+        self.persistent_workers = persistent_workers
 
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
@@ -144,6 +148,7 @@ class MNISTDataModule(LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=True,
+            persistent_workers=self.persistent_workers
         )
 
     def val_dataloader(self) -> DataLoader[Any]:
@@ -157,6 +162,7 @@ class MNISTDataModule(LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
+            persistent_workers=self.persistent_workers
         )
 
     def test_dataloader(self) -> DataLoader[Any]:
@@ -170,6 +176,7 @@ class MNISTDataModule(LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
+            persistent_workers=self.persistent_workers
         )
 
     def teardown(self, stage: Optional[str] = None) -> None:
