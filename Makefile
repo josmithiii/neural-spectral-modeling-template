@@ -27,38 +27,44 @@ d deactivate: ## Deactivate the uv environment
 	@echo "Add to ~/.tcshrc: alias d 'echo deactivate && deactivate'"
 	@echo "Then just type: d"
 
-t test: ## Run not slow tests
-	pytest -k "not slow"
+# TRAINING TARGETS "tr"
 
-tf test-full pt: ## Run all tests
-	pytest
-
-td tdense train: ## Train the model (SimpleDenseNet) 
+train train-sdn: ## Train the default model (SimpleDenseNet) 
 	time python src/train.py
 
-tm tmps trainmps: ## Train the model using MPS on a Mac
+trmps train-mps train-sdn-mps: ## Train the default model using MPS on a Mac
 	time python src/train.py trainer.accelerator=mps data.num_workers=15
 
-tc tcnn train-cnn: ## Train with CNN architecture
+trc train-cnn: ## Train with CNN architecture
 	time python src/train.py model=mnist_cnn
 
-tcm tcnn-mps train-cnn-mps: ## Train CNN with MPS on Mac
+trcm train-cnn-mps: ## Train CNN with MPS on Mac
 	time python src/train.py model=mnist_cnn trainer.accelerator=mps data.num_workers=15
 
-tq tquick train-quick: ## Quick training test (SimpleDenseNet, 1 epoch)
+# TRAIN-QUICKLY TARGETS "tq"
+
+tq train-quick: ## Train quickly SimpleDenseNet, 1 epoch
 	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
-tcq tcnn-quick train-cnn-quick: ## Quick SimpleCNN training test (1 epoch)
+tqc train-quick-cnn: ## Train quickly SimpleCNN, 1 epoch
 	python src/train.py model=mnist_cnn trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
-tqall train-all-quick: tq tcq ## Quick SimpleDenseNet and SimpleCNN training tests (1 epoch)
+tqa train-quick-all: tq tcq ## Train quickly all architectures supported
 
-ca compare-arch: ## Compare architectures (quick runs)
+# TESTING TARGETS "t"
+
+t test: ## Run fast pytest tests
+	pytest -k "not slow"
+
+ta test-all: ## Run all pytest tests
+	pytest
+
+ca compare-arch: ## Compare architectures on quick runs
 	@echo "=== Training SimpleDenseNet ==="
 	python src/train.py trainer.max_epochs=3 tags="[arch_comparison,dense]"
 	@echo "=== Training SimpleCNN ==="
 	python src/train.py model=mnist_cnn trainer.max_epochs=3 tags="[arch_comparison,cnn]"
 	@echo "=== Check logs/ directory for results comparison ==="
 
-te texample train-example: ## Run example experiment config (reproducible baseline)
+te train-example: ## Run example experiment config (reproducible baseline)
 	time python src/train.py experiment=example
