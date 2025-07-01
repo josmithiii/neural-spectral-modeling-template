@@ -29,17 +29,17 @@ d deactivate: ## Deactivate the uv environment
 
 # TRAINING TARGETS "tr"
 
-train train-sdn: ## Train the default model (SimpleDenseNet) 
+tr train train-sdn: ## Train the default model (SimpleDenseNet) 
 	time python src/train.py
 
 trmps train-mps train-sdn-mps: ## Train the default model using MPS on a Mac
-	time python src/train.py trainer.accelerator=mps data.num_workers=15
+	time python src/train.py trainer.accelerator=mps
 
-trc train-cnn: ## Train with CNN architecture
-	time python src/train.py model=mnist_cnn
+trc trcnn train-cnn: ## Train with CNN architecture
+	time python src/train.py model=mnist_cnn_small
 
 trcm train-cnn-mps: ## Train CNN with MPS on Mac
-	time python src/train.py model=mnist_cnn trainer.accelerator=mps data.num_workers=15
+	time python src/train.py model=mnist_cnn_small trainer.accelerator=mps
 
 # TRAIN-QUICKLY TARGETS "tq"
 
