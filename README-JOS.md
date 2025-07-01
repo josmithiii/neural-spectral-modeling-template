@@ -509,3 +509,136 @@ echo See ./logs/train/runs/2025-06-25_21-23-45/
 
 > How about we make "tiny" versions of all three architectures that shoot for ~8000 parameters? It's just three more .yaml files, right?
 
+... The EfficientNet architecture has some fixed overhead that makes it
+hard to get below ~20k parameters. ...
+
+⏺ Perfect! I've created three tiny configuration files. Here's what we have:
+
+  Tiny Model Configurations (~8k Parameters)
+
+  1. mnist_tiny.yaml - SimpleDenseNet
+  - 8,470 parameters
+  - Architecture: 784 → 10 → 20 → 10 → 10
+  - Minimal dense network
+
+  2. mnist_cnn_tiny.yaml - SimpleCNN
+  - 7,546 parameters
+  - Architecture: 1→3→6 conv channels, 24 FC units
+  - Tiny convolutional network
+
+  3. mnist_efficientnet_tiny.yaml - SimpleEfficientNet
+  - 21,880 parameters (minimum practical for EfficientNet)
+  - Architecture: width_mult=0.002, depth_mult=0.3
+  - EfficientNet has architectural overhead that prevents going below ~20k
+
+  Usage
+
+  Train any tiny model:
+  python src/train.py model=mnist_tiny               # DenseNet 8.5k params
+  python src/train.py model=mnist_cnn_tiny           # CNN 7.5k params
+  python src/train.py model=mnist_efficientnet_tiny  # EfficientNet 22k params
+
+  Research Value
+
+  This gives us three parameter regimes to compare architectural efficiency:
+
+  1. ~8k params: Can we hit 99% accuracy with minimal parameters?
+  2. ~68k params: Fair comparison at "comfortable" parameter budget
+  3. Full size: Understanding architectural potential
+
+  The tiny configs will be perfect for testing the research finding that 99% MNIST accuracy is achievable with <8k parameters!
+
+### > What is the research that found that 99% MNIST accuracy is achievable with <8k parameters?
+
+⏺ Web Search(""99% MNIST" "8000 parameters" "minimal model" research paper")
+  ⎿  Did 1 search in 9s
+
+⏺ Web Search("MNIST 99% accuracy minimal parameters "under 10000" research paper CNN optimization")
+  ⎿  Did 1 search in 18s
+
+⏺ Web Search("MNIST minimal CNN 99% accuracy "parameter efficient" GitHub Stack Overflow Kaggle")
+  ⎿  Did 2 searches in 35s
+
+⏺ Based on my search, I found several sources for the claim about 99% MNIST accuracy with <8k parameters, though it appears to come from community research and challenges
+  rather than a single formal academic paper:
+
+  Key Sources Found
+
+  1. Fast.ai Forum Discussion (2019)
+  - Title: "Achieving 99.5% accuracy in MNIST dataset with less than 8000"
+  - Community challenge to beat standard approaches (99.5% with 41k params)
+  - Target: 99.4% with <8k parameters
+
+  2. GitHub Repository: ruslangrimov/mnist-minimal-model
+  - Research goal: "Find the minimal model that can achieve 99% accuracy on MNIST"
+  - Achieved 99.1% accuracy using separable convolutions and efficient techniques
+  - Specifically targets minimal parameter count
+
+  3. Stack Overflow/Data Science Stack Exchange
+  - Multiple discussions on "Getting 99% MNIST accuracy with <10k parameters"
+  - Community solutions using:
+    - Separable convolutions
+    - Policy distillation (84-124% improvement in parameter efficiency)
+    - Batch/Layer normalization
+    - Strategic pooling and kernel size reduction
+
+  4. Kaggle Community Challenges
+  - Multiple notebooks targeting 99% accuracy with minimal parameters
+  - Focus on efficient CNN architectures
+
+  The Research Consensus
+
+  The "research finding" appears to be empirical community knowledge rather than a single paper:
+
+  - Multiple independent efforts have demonstrated 99%+ accuracy with 5k-8k parameters
+  - Techniques: Depthwise separable convolutions, efficient pooling, normalization, distillation
+  - Validated across platforms: GitHub, Kaggle, Stack Overflow, Fast.ai forums
+
+  So while not from a single authoritative paper, it's
+  well-established community knowledge backed by multiple
+  implementations and challenges!
+
+### Maximizing Efficiency
+
+> After I digest the current experiments, I may come back to ask about
+  what we're not doing yet regarding efficient pooling, normalization,
+  and distillation (unless EfficientNet already does some of these - I
+  know it does depthwise separable convolutions)
+
+⏺ You're absolutely right to note what EfficientNet already includes vs what we haven't explored yet.
+
+  EfficientNet Already Has:
+
+  - ✅ Depthwise separable convolutions (MBConv blocks)
+  - ✅ Batch normalization (after every conv layer)
+  - ✅ Squeeze-and-Excitation (channel attention)
+  - ✅ Swish activation (more efficient than ReLU)
+
+  What We Haven't Explored Yet:
+
+  1. Advanced Pooling:
+  - Global Average Pooling instead of flatten+linear (parameter reduction)
+  - Adaptive pooling with learnable parameters
+  - Stochastic pooling during training
+
+  2. Knowledge Distillation:
+  - Train a large "teacher" model, then distill to tiny "student"
+  - 84-124% parameter efficiency gains (from the community research!)
+  - Could potentially get your 8k param models even closer to 99%
+
+  3. Normalization Variants:
+  - Layer normalization vs batch norm
+  - Group normalization for small batch sizes
+  - Weight standardization
+
+  4. Architecture Search Techniques:
+  - Channel pruning after training
+  - Quantization (INT8 vs FP32)
+  - Separable convolutions in SimpleCNN (currently uses standard conv)
+
+  When you're ready to push the efficiency envelope further, knowledge
+  distillation would probably give the biggest bang for buck -
+  training a large EfficientNet teacher to guide your tiny models
+  could be a game-changer!
+
+  Looking forward to seeing how your current experiments turn out first. Happy training! 🚀
