@@ -42,21 +42,21 @@ trcm train-cnn-mps: ## Train CNN with MPS on Mac
 	time python src/train.py model=mnist_cnn_small trainer.accelerator=mps
 
 tram train-all-mps: ## Train all (original 68k-ish sized) architectures with MPS on Mac
-	time python src/train.py model=mnist trainer.accelerator=mps
+	time python src/train.py model=mnist_sdn_small trainer.accelerator=mps
 	time python src/train.py model=mnist_cnn trainer.accelerator=mps
 	time python src/train.py model=mnist_efficientnet trainer.accelerator=mps
 
 trtm train-tiny-mps: ## Train all Tiny architectures with MPS on Mac
-	time python src/train.py model=mnist_tiny trainer.accelerator=mps
+	time python src/train.py model=mnist_sdn_tiny trainer.accelerator=mps
 	time python src/train.py model=mnist_cnn_tiny trainer.accelerator=mps
 	time python src/train.py model=mnist_efficientnet_tiny trainer.accelerator=mps
 
 trsm train-small-mps: ## Train all Small architectures with MPS on Mac
-	time python src/train.py model=mnist_small trainer.accelerator=mps
+	time python src/train.py model=mnist_sdn_small trainer.accelerator=mps
 	time python src/train.py model=mnist_cnn_small trainer.accelerator=mps
 	time python src/train.py model=mnist_efficientnet_small trainer.accelerator=mps
 
-trnm train-nine-mps: tram trtm trsm ## Train Nine cases using MPS on Mac: three architectures and three sizes
+trnm train-nine-mps: tram trsm trtm ## Train Nine cases using MPS on Mac: three architectures and three sizes
 
 # TRAIN-QUICKLY TARGETS "tq"
 

@@ -24,7 +24,7 @@ self.criterion = torch.nn.CrossEntropyLoss()
 
 **After:**
 ```yaml
-# configs/model/mnist.yaml
+# configs/model/mnist_sdn_small.yaml
 criterion:
   _target_: torch.nn.CrossEntropyLoss
 ```

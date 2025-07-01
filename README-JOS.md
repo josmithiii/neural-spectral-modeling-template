@@ -516,7 +516,7 @@ hard to get below ~20k parameters. ...
 
   Tiny Model Configurations (~8k Parameters)
 
-  1. mnist_tiny.yaml - SimpleDenseNet
+  1. mnist_sdn_tiny.yaml - SimpleDenseNet
   - 8,470 parameters
   - Architecture: 784 → 10 → 20 → 10 → 10
   - Minimal dense network
@@ -534,7 +534,7 @@ hard to get below ~20k parameters. ...
   Usage
 
   Train any tiny model:
-  python src/train.py model=mnist_tiny               # DenseNet 8.5k params
+  python src/train.py model=mnist_sdn_tiny           # DenseNet 8.5k params
   python src/train.py model=mnist_cnn_tiny           # CNN 7.5k params
   python src/train.py model=mnist_efficientnet_tiny  # EfficientNet 22k params
 
