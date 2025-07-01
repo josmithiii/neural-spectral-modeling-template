@@ -642,3 +642,6 @@ hard to get below ~20k parameters. ...
   could be a game-changer!
 
   Looking forward to seeing how your current experiments turn out first. Happy training! 🚀
+
+[This was all one long conversation on 2025-06-30 rolling into
+ 2025-07-01 with no indication of context buffer remaining! (Sonnet 4)]
