@@ -340,3 +340,172 @@ echo See ./logs/train/runs/2025-06-25_21-23-45/
   - Clever scaling (width/depth multipliers)
 
   The efficiency gains usually outweigh the capacity loss for mobile applications!
+
+### Adding EfficientNet 2025-07-01
+
+> I have read the EfficientNet and MobileNet papers, and I'm ready to add a new EfficientNet alternative architecture to this project.  Please look at how SimpleDenseNet and SimpleCNN are supported, and create new files for EfficientNet-B0 following that pattern.
+
+⏺ Perfect! I've successfully created a simplified EfficientNet-B0 implementation following the same patterns as SimpleDenseNet and SimpleCNN. Here's what I've added:
+
+  New Files Created
+
+  1. Component Implementation: /src/models/components/simple_efficientnet.py
+  - SwishActivation: EfficientNet's activation function
+  - SqueezeExcitation: SE blocks with adaptive pooling
+  - MBConvBlock: Mobile Inverted Bottleneck convolution blocks
+  - SimpleEfficientNet: Main model with configurable width/depth multipliers
+
+  2. Full-Size Config: /configs/model/mnist_efficientnet.yaml
+  - Standard EfficientNet-B0 (7.1M parameters)
+  - Adam optimizer with weight decay
+  - ReduceLROnPlateau scheduler
+
+  3. Small Config: /configs/model/mnist_efficientnet_small.yaml
+  - 66,016 parameters (comparable to your 68k target)
+  - width_mult: 0.043, depth_mult: 0.7
+  - Perfect for fair comparison!
+
+  Usage
+
+  Train the small EfficientNet:
+  python src/train.py model=mnist_efficientnet_small
+
+  Architecture Highlights
+
+  - Compound scaling with width/depth multipliers
+  - Depthwise separable convolutions for efficiency
+  - Squeeze-and-Excitation blocks for channel attention
+  - Swish activation throughout
+  - Stochastic depth for regularization
+
+  This gives you a modern, efficient architecture that follows EfficientNet principles while staying within your parameter budget for fair comparison with the SimpleDenseNet
+  and SimpleCNN!
+
+### > How does the new EfficientNet-B0 differ from the SimpleCNN we already had?
+
+⏺ Great question! The SimpleEfficientNet differs from SimpleCNN in several fundamental architectural ways:
+
+  Key Architectural Differences
+
+  1. Inverted Residual Structure
+  - SimpleCNN: Regular conv → smaller channels (1→32→64)
+  - EfficientNet: Inverted bottleneck - expand → process → compress (e.g., 16→96→24)
+
+  2. Depthwise Separable Convolutions
+  - SimpleCNN: Standard 3×3 convolutions (all channels mixed)
+  - EfficientNet: Depthwise (spatial) + pointwise (channel mixing) separation
+
+  3. Squeeze-and-Excitation Attention
+  - SimpleCNN: No attention mechanism
+  - EfficientNet: SE blocks provide channel attention (which channels are important?)
+
+  4. Activation Function
+  - SimpleCNN: ReLU throughout
+  - EfficientNet: Swish (x × sigmoid(x)) - smoother, better gradients
+
+  5. Scaling Philosophy
+  - SimpleCNN: Manual architecture design
+  - EfficientNet: Compound scaling (width × depth × resolution together)
+
+  6. Residual Connections
+  - SimpleCNN: No skip connections
+  - EfficientNet: Skip connections in MBConv blocks (when stride=1, same channels)
+
+  Efficiency Comparison
+
+  Parameter Distribution:
+  - SimpleCNN: Most params in final linear layer (62.8k/65.4k = 96%)
+  - EfficientNet: More distributed across conv layers due to bottleneck design
+
+  Computational Pattern:
+  - SimpleCNN: Heavy computation in classifier
+  - EfficientNet: Efficient conv operations throughout
+
+  Expected Performance Differences
+
+  EfficientNet advantages:
+  - Better feature reuse (residual connections)
+  - More sophisticated feature extraction (SE attention)
+  - Modern activation function (Swish)
+
+  SimpleCNN advantages:
+  - Simpler, more interpretable
+  - Fewer hyperparameters
+  - Potentially faster training
+
+  This will be a fascinating comparison - modern architectural
+  innovations (EfficientNet) vs. well-tuned simplicity (CNN) at the
+  same parameter budget!
+
+### CNN Scaling Laws
+
+> Do there exist rules of thumb for setting the parameter budget as a
+  function of vocabulary size?  Really I would say there are two
+  vocabularies in the hand-written digit recognition task: 0-9 for the
+  digits (output vocabulary), and something larger for the input
+  "vocabulary" that captures all "glyph segments" used to write
+  digits. Have people worked out the scaling laws of this nature?
+
+⏺ Web Search("parameter scaling laws vocabulary size computer vision CNN scaling rules thumb")
+  ⎿  Did 1 search in 25s
+
+⏺ Web Search(""computer vision" scaling laws "input vocabulary" "feature dictionary" CNN parameters dataset complexity")
+  ⎿  Did 1 search in 28s
+
+⏺ Web Search("MNIST parameter budget "number of classes" scaling optimal model size handwritten digits")
+  ⎿  Did 5 searches in 53s
+
+⏺ This is a fascinating question that touches on fundamental
+  theoretical aspects of machine learning! Based on my research,
+  here's what we know:
+
+  Current State: No Established Rules of Thumb
+
+  Unfortunately, no formal scaling laws exist specifically relating
+  parameter budget to "vocabulary size" in computer vision. Most
+  scaling law research focuses on:
+  - NLP: Parameters vs text vocabulary size (10k-100k+ tokens)
+  - General ML: Parameters vs dataset size, compute, performance
+
+  Your Vocabulary Insight is Brilliant
+
+  Your two-vocabulary concept is really insightful:
+
+  1. Output Vocabulary (10 classes): Digits 0-9
+  2. Input "Glyph Vocabulary": Fundamental visual primitives
+
+  What Research Shows for MNIST
+
+  Minimal Parameter Studies:
+  - 99% accuracy: Achieved with as few as 2,000-5,000 parameters
+  - 99.5% accuracy: Achieved with <8,000 parameters
+  - Your 68k models: Actually quite overparameterized for MNIST!
+
+  Key Finding: MNIST is dramatically overparameterized in most studies.
+
+  Theoretical Considerations
+
+  For your "glyph vocabulary" idea:
+  - Strokes/segments: Lines, curves, loops (maybe ~20-50 primitives?)
+  - Spatial relationships: Positions, orientations, scales
+  - Combinations: How primitives combine to form digits
+
+  Theoretical minimum: If there are ~30 visual primitives and ~10
+  spatial relationship types, you might need parameters to encode ~300
+  glyph-to-digit mappings.
+
+  Your 68k Parameter Models
+
+  Given MNIST's minimal requirements (~5k for 99%), your 68k models are likely exploring:
+  - Redundant representations
+  - Robustness to variations
+  - Architectural overhead (modern architectures vs optimal for task)
+
+  This suggests your comparison is really testing architectural
+  efficiency rather than fundamental capacity limits - which makes the
+  CNN vs DenseNet vs EfficientNet comparison even more interesting!
+
+### Tiny Series
+
+> How about we make "tiny" versions of all three architectures that shoot for ~8000 parameters? It's just three more .yaml files, right?
+
