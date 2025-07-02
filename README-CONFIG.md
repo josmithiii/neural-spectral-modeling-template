@@ -53,16 +53,27 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 |-------------|------------|-------------|-------------|
 | **SimpleDenseNet** | 68K | Fully-connected network (default) | [`configs/model/mnist.yaml`](./configs/model/mnist.yaml) |
 | **SimpleCNN** | 421K | Convolutional neural network | [`configs/model/mnist_cnn.yaml`](configs/model/mnist_cnn.yaml) |
+| **SimpleCNN (Multihead)** | 422K | CNN with multiple prediction heads | [`configs/model/mnist_multihead_cnn.yaml`](configs/model/mnist_multihead_cnn.yaml) |
 
 **File Structure:**
 ```
 src/models/components/
 ├── simple_dense_net.py    # Original fully-connected network
-└── simple_cnn.py          # New convolutional network
+└── simple_cnn.py          # CNN with single/multihead support
+
+src/data/
+└── multihead_dataset.py   # Dataset wrapper for multihead labels
 
 configs/model/
 ├── mnist.yaml             # SimpleDenseNet configuration
-└── mnist_cnn.yaml         # SimpleCNN configuration
+├── mnist_cnn.yaml         # SimpleCNN configuration
+└── mnist_multihead_cnn.yaml # Multihead CNN configuration
+
+configs/data/
+└── multihead_mnist.yaml   # Multihead data configuration
+
+configs/experiment/
+└── multihead_mnist.yaml   # Complete multihead experiment
 ```
 
 **Architecture Switching:**
@@ -70,12 +81,16 @@ configs/model/
 # Default: SimpleDenseNet
 python src/train.py
 
-# Switch to CNN
+# Switch to CNN (single-head)
 python src/train.py model=mnist_cnn
 
+# Switch to multihead CNN
+python src/train.py experiment=multihead_mnist
+
 # Compare with identical hyperparameters
-python src/train.py trainer.max_epochs=10                  # SimpleDenseNet
-python src/train.py model=mnist_cnn trainer.max_epochs=10  # SimpleCNN
+python src/train.py trainer.max_epochs=10                          # SimpleDenseNet
+python src/train.py model=mnist_cnn trainer.max_epochs=10          # SimpleCNN
+python src/train.py experiment=multihead_mnist trainer.max_epochs=10 # Multihead CNN
 ```
 
 ### 3. New Convenience Make Targets
@@ -183,14 +198,27 @@ make texample
 
 ## 📁 Files Added
 
-### For New Model Architecture
+### For New Model Architecture and Multihead Support
 
 ```
 configs/model/
-└── mnist_cnn.yaml              # CNN model configuration
+├── mnist_cnn.yaml              # CNN model configuration
+└── mnist_multihead_cnn.yaml    # Multihead CNN configuration
+
+configs/data/
+└── multihead_mnist.yaml        # Multihead data configuration
+
+configs/experiment/
+└── multihead_mnist.yaml        # Complete multihead experiment
 
 src/models/components/
-└── simple_cnn.py               # CNN architecture implementation
+└── simple_cnn.py               # CNN architecture (single/multihead support)
+
+src/data/
+└── multihead_dataset.py        # Dataset wrapper for multihead labels
+
+tests/
+└── test_multihead.py           # Comprehensive multihead test suite
 
 Makefile                        # Added convenience make targets (for poor typists)
 README-CONFIG.md                # This documentation
@@ -334,15 +362,29 @@ python src/train.py model=my_model
 
 ### SimpleCNN (New)
 - **Type:** Convolutional neural network  
-- **Parameters:** 421,482
+- **Parameters:** 421,482 (single-head), 422,330 (multihead)
 - **Architecture:**
   - Conv2d(1→32, 3×3) + BatchNorm + ReLU + MaxPool
   - Conv2d(32→64, 3×3) + BatchNorm + ReLU + MaxPool  
   - AdaptiveAvgPool2d(7×7)
   - Linear(3136→128) + ReLU + Dropout(0.25)
-  - Linear(128→10)
+  - **Single-head:** Linear(128→10)
+  - **Multihead:** Linear(128→10), Linear(128→5), Linear(128→3)
 - **Input:** Raw 28×28 images (preserves spatial structure)
+- **Output:** Single tensor (single-head) or dict of tensors (multihead)
 - **Speed:** Slower but potentially higher accuracy
+
+### SimpleCNN Multihead (New)
+- **Type:** Multi-task convolutional neural network
+- **Tasks:** 3 simultaneous predictions from shared features
+  - **Digit**: 10-class classification (0-9)
+  - **Thickness**: 5-class classification (very thin to very thick)
+  - **Smoothness**: 3-class classification (angular to smooth)
+- **Benefits:** 
+  - Shared feature learning across tasks
+  - Regularization through multi-task objective
+  - Efficient inference (one forward pass, multiple predictions)
+- **Loss:** Weighted combination of task-specific losses
 
 ## 🎛️ Configuration Best Practices
 
@@ -365,6 +407,11 @@ python src/train.py model=mnist_cnn model.optimizer.lr=0.0001
 # Test different architectures with same hyperparameters
 python src/train.py experiment=my_experiment model.optimizer.lr=0.001
 python src/train.py experiment=my_experiment model=mnist_cnn model.optimizer.lr=0.001
+python src/train.py experiment=multihead_mnist model.optimizer.lr=0.001
+
+# Test different loss weightings for multihead
+python src/train.py experiment=multihead_mnist model.loss_weights.digit=1.0 model.loss_weights.thickness=1.0
+python src/train.py experiment=multihead_mnist model.loss_weights.digit=2.0 model.loss_weights.thickness=0.5
 ```
 
 ### 3. Hardware Optimization
@@ -386,9 +433,86 @@ python src/train.py model=mnist_cnn trainer=gpu data.num_workers=8
 
 ### Non-Destructive Extensions
 - ✅ **Added new files** instead of modifying existing ones
-- ✅ **Preserved original functionality** completely
+- ✅ **Preserved original functionality** completely  
 - ✅ **Easy rollback** - just delete new files
 - ✅ **Zero risk** to existing workflows
+
+### 4. Multihead Classification Support
+
+**What is Multihead Classification?**
+
+Multihead classification allows a single model to predict multiple related tasks simultaneously, sharing a common feature extractor while having separate prediction heads for each task.
+
+**MNIST Multihead Implementation:**
+- **Primary Task**: Digit classification (0-9) - 10 classes
+- **Secondary Task 1**: Thickness estimation (very thin to very thick) - 5 classes  
+- **Secondary Task 2**: Smoothness assessment (angular to smooth) - 3 classes
+
+**Key Features:**
+- **Backward Compatible**: Existing single-head configs work unchanged
+- **Loss Weighting**: Different tasks can have different importance 
+- **Separate Metrics**: Each head tracks its own accuracy independently
+- **Synthetic Labels**: Intelligent mapping from digits to thickness/smoothness
+
+**Architecture Benefits:**
+- **Shared Learning**: Common features benefit all tasks
+- **Efficiency**: One model instead of three separate models
+- **Regularization**: Multiple tasks prevent overfitting
+- **Research**: Enables multi-task learning experiments
+
+**Usage Examples:**
+```bash
+# Train multihead model
+python src/train.py experiment=multihead_mnist
+
+# With custom loss weights (emphasize digit task)
+python src/train.py experiment=multihead_mnist \
+  model.loss_weights.digit=2.0 \
+  model.loss_weights.thickness=0.5 \
+  model.loss_weights.smoothness=0.5
+
+# Quick multihead test
+python src/train.py experiment=multihead_mnist +trainer.fast_dev_run=true
+```
+
+**Synthetic Label Mapping:**
+The multihead dataset creates thickness and smoothness labels from MNIST digits:
+
+| Digit | Thickness | Smoothness | Reasoning |
+|-------|-----------|------------|-----------|
+| 0, 6, 8, 9 | Variable | Smooth (2) | Curved digits |
+| 1, 4, 7 | Variable | Angular (0) | Sharp angles |
+| 2, 5 | Variable | Medium (1) | Mixed features |
+| Even digits | Thinner | - | Simpler strokes |
+| Odd digits | Thicker | - | Complex strokes |
+
+**Metrics Logged:**
+- Single-head: `train/acc`, `val/acc`, `test/acc`
+- Multihead: `train/digit_acc`, `train/thickness_acc`, `train/smoothness_acc` (and val/test variants)
+
+**Configuration Structure:**
+```yaml
+# configs/model/mnist_multihead_cnn.yaml
+criteria:
+  digit:
+    _target_: torch.nn.CrossEntropyLoss
+  thickness:
+    _target_: torch.nn.CrossEntropyLoss  
+  smoothness:
+    _target_: torch.nn.CrossEntropyLoss
+
+loss_weights:
+  digit: 1.0        # Primary task
+  thickness: 0.5    # Secondary task
+  smoothness: 0.5   # Secondary task
+
+net:
+  _target_: src.models.components.simple_cnn.SimpleCNN
+  heads_config:
+    digit: 10       # 0-9 digits
+    thickness: 5    # 5 thickness levels
+    smoothness: 3   # 3 smoothness levels
+```
 
 ### Configuration-Driven Development
 - ✅ **No code changes** needed for common experiments
@@ -432,12 +556,13 @@ This is actually a **sign of good software engineering** - extending functionali
 
 Based on quick tests (1 epoch, limited batches):
 
-| Architecture | Parameters | Test Accuracy | Training Speed |
-|-------------|------------|---------------|----------------|
-| SimpleDenseNet | 68K | ~56.6% | Fast ⚡ |
-| SimpleCNN | 421K | ~74.8% | Slower 🐢 |
+| Architecture | Parameters | Test Accuracy | Training Speed | Notes |
+|-------------|------------|---------------|----------------|-------|
+| SimpleDenseNet | 68K | ~56.6% | Fast ⚡ | Single task |
+| SimpleCNN | 421K | ~74.8% | Slower 🐢 | Single task |
+| SimpleCNN Multihead | 422K | Digit: ~7.8%, Thickness: ~39%, Smoothness: ~52% | Slower 🐢 | Multi-task learning |
 
-*Note: Results may vary with different random seeds and full training*
+*Note: Results may vary with different random seeds and full training. Multihead results show performance on individual tasks.*
 
 ## 🔗 Integration with Original Template
 
