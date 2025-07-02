@@ -29,10 +29,10 @@ d deactivate: ## Deactivate the uv environment
 
 # TRAINING TARGETS "tr"
 
-tr train train-sdn: ## Train the default model (SimpleDenseNet) 
+tr train train-sdn: ## Train the default model (a small SimpleDenseNet) 
 	time python src/train.py
 
-trmps train-mps train-sdn-mps: ## Train the default model using MPS on a Mac
+trm train-mps train-sdn-mps: ## Train the default model using MPS on a Mac
 	time python src/train.py trainer.accelerator=mps
 
 trc trcnn train-cnn: ## Train with CNN architecture
@@ -85,3 +85,6 @@ ca compare-arch: ## Compare architectures on quick runs
 
 te train-example: ## Run example experiment config (reproducible baseline)
 	time python src/train.py experiment=example
+
+tmhe train-multihead-example: ## Run example experiment config for multihead classification
+	time python src/train.py experiment=multihead_mnist
