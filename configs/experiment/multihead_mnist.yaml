@@ -28,6 +28,15 @@ model:
 data:
   batch_size: 64
 
+# Override callback monitoring metrics for multihead setup
+callbacks:
+  model_checkpoint:
+    monitor: "val/acc_best"
+    mode: "max"
+  early_stopping:
+    monitor: "val/acc_best"
+    mode: "max"
+
 logger:
   wandb:
     tags: ${tags}
