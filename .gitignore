@@ -104,6 +104,7 @@ celerybeat.pid
 # Environments
 .venv
 env/
+.envrc
 venv/
 ENV/
 env.bak/
@@ -139,6 +140,9 @@ dmypy.json
 # JetBrains
 .idea/
 
+# Claude Code
+.claude/
+
 # Data & Models
 *.h5
 *.tar
@@ -152,3 +156,6 @@ configs/local/default.yaml
 
 # Aim logging
 .aim
+
+# Temporarily saved past versions:
+archive/
