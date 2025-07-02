@@ -1,4 +1,4 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional, Union
 
 import torch
 from lightning import LightningModule
@@ -44,45 +44,66 @@ class MNISTLitModule(LightningModule):
         net: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler,
-        criterion: torch.nn.Module,
-        compile: bool,
+        criterion: Optional[torch.nn.Module] = None,
+        criteria: Optional[Dict[str, torch.nn.Module]] = None,
+        loss_weights: Optional[Dict[str, float]] = None,
+        compile: bool = False,
     ) -> None:
         """Initialize a `MNISTLitModule`.
 
         :param net: The model to train.
         :param optimizer: The optimizer to use for training.
         :param scheduler: The learning rate scheduler to use for training.
-        :param criterion: The loss function to use for training.
+        :param criterion: The loss function to use for training (backward compatibility).
+        :param criteria: Dict of loss functions for multihead training.
+        :param loss_weights: Optional weights for combining losses from different heads.
+        :param compile: Whether to compile the model.
         """
         super().__init__()
-
+        
+        # Backward compatibility handling
+        if criteria is None and criterion is not None:
+            criteria = {'digit': criterion}
+        elif criteria is None:
+            raise ValueError("Must provide either 'criterion' or 'criteria'")
+        
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
-        self.save_hyperparameters(logger=False, ignore=["net", "criterion"])
+        self.save_hyperparameters(logger=False, ignore=["net", "criterion", "criteria"])
 
         self.net = net
-
-        # loss function
-        self.criterion = criterion
-
-        # metric objects for calculating and averaging accuracy across batches
-        self.train_acc = Accuracy(task="multiclass", num_classes=10)
-        self.val_acc = Accuracy(task="multiclass", num_classes=10)
-        self.test_acc = Accuracy(task="multiclass", num_classes=10)
-
-        # for averaging loss across batches
+        self.criteria = criteria
+        self.loss_weights = loss_weights or {name: 1.0 for name in criteria.keys()}
+        self.is_multihead = len(criteria) > 1
+        
+        # Dynamic metric creation based on network heads config
+        if hasattr(net, 'heads_config'):
+            head_configs = net.heads_config
+        else:
+            # Fallback for backward compatibility
+            head_configs = {'digit': 10}
+        
+        # Metrics for each head
+        self.train_metrics = torch.nn.ModuleDict()
+        self.val_metrics = torch.nn.ModuleDict()
+        self.test_metrics = torch.nn.ModuleDict()
+        
+        for head_name, num_classes in head_configs.items():
+            self.train_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
+            self.val_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
+            self.test_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
+        
+        # Loss tracking
         self.train_loss = MeanMetric()
         self.val_loss = MeanMetric()
         self.test_loss = MeanMetric()
-
-        # for tracking best so far validation accuracy
         self.val_acc_best = MaxMetric()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor):
         """Perform a forward pass through the model `self.net`.
 
         :param x: A tensor of images.
-        :return: A tensor of logits.
+        :return: A tensor of logits (single head) or dict of logits (multihead).
         """
         return self.net(x)
 
@@ -91,89 +112,124 @@ class MNISTLitModule(LightningModule):
         # by default lightning executes validation step sanity checks before training starts,
         # so it's worth to make sure validation metrics don't store results from these checks
         self.val_loss.reset()
-        self.val_acc.reset()
+        for metric in self.val_metrics.values():
+            metric.reset()
         self.val_acc_best.reset()
 
-    def model_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor]
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def model_step(self, batch):
         """Perform a single model step on a batch of data.
 
-        :param batch: A batch of data (a tuple) containing the input tensor of images and target labels.
+        :param batch: A batch of data containing the input tensor of images and target labels.
 
         :return: A tuple containing (in order):
             - A tensor of losses.
-            - A tensor of predictions.
-            - A tensor of target labels.
+            - A dict of predictions per head.
+            - A dict of target labels per head.
         """
         x, y = batch
         logits = self.forward(x)
-        loss = self.criterion(logits, y)
-        preds = torch.argmax(logits, dim=1)
-        return loss, preds, y
+        
+        if self.is_multihead:
+            # Multihead case: y is dict, logits is dict
+            losses = {}
+            for head_name in self.criteria.keys():
+                losses[head_name] = self.criteria[head_name](logits[head_name], y[head_name])
+            
+            total_loss = sum(self.loss_weights[name] * loss for name, loss in losses.items())
+            
+            preds = {
+                head_name: torch.argmax(logits_head, dim=1) 
+                for head_name, logits_head in logits.items()
+            }
+            
+            return total_loss, preds, y
+        else:
+            # Single head case: y is tensor, logits is tensor (backward compatibility)
+            head_name = next(iter(self.criteria.keys()))
+            loss = self.criteria[head_name](logits, y)
+            preds = torch.argmax(logits, dim=1)
+            
+            return loss, {head_name: preds}, {head_name: y}
 
-    def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch, batch_idx: int) -> torch.Tensor:
         """Perform a single training step on a batch of data from the training set.
 
-        :param batch: A batch of data (a tuple) containing the input tensor of images and target
-            labels.
+        :param batch: A batch of data containing the input tensor of images and target labels.
         :param batch_idx: The index of the current batch.
         :return: A tensor of losses between model predictions and targets.
         """
-        loss, preds, targets = self.model_step(batch)
-
-        # update and log metrics
+        loss, preds_dict, targets_dict = self.model_step(batch)
+        
+        # Update metrics
         self.train_loss(loss)
-        self.train_acc(preds, targets)
+        for head_name in preds_dict.keys():
+            self.train_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
+        
+        # Log metrics
         self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        # return loss or backpropagation will fail
+        for head_name in preds_dict.keys():
+            metric_name = f"train/{head_name}_acc" if self.is_multihead else "train/acc"
+            self.log(metric_name, self.train_metrics[f"{head_name}_acc"], 
+                    on_step=False, on_epoch=True, prog_bar=True)
+        
         return loss
 
     def on_train_epoch_end(self) -> None:
         "Lightning hook that is called when a training epoch ends."
         pass
 
-    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
+    def validation_step(self, batch, batch_idx: int) -> None:
         """Perform a single validation step on a batch of data from the validation set.
 
-        :param batch: A batch of data (a tuple) containing the input tensor of images and target
-            labels.
+        :param batch: A batch of data containing the input tensor of images and target labels.
         :param batch_idx: The index of the current batch.
         """
-        loss, preds, targets = self.model_step(batch)
-
-        # update and log metrics
+        loss, preds_dict, targets_dict = self.model_step(batch)
+        
+        # Update metrics
         self.val_loss(loss)
-        self.val_acc(preds, targets)
+        for head_name in preds_dict.keys():
+            self.val_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
+        
+        # Log metrics
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val/acc", self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
+        for head_name in preds_dict.keys():
+            metric_name = f"val/{head_name}_acc" if self.is_multihead else "val/acc"
+            self.log(metric_name, self.val_metrics[f"{head_name}_acc"], 
+                    on_step=False, on_epoch=True, prog_bar=True)
 
     def on_validation_epoch_end(self) -> None:
-        "Lightning hook that is called when a validation epoch ends."
-        acc = self.val_acc.compute()  # get current val acc
-        self.val_acc_best(acc)  # update best so far val acc
-        # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
-        # otherwise metric would be reset by lightning after each epoch
+        """Lightning hook that is called when a validation epoch ends."""
+        if self.is_multihead:
+            # For multihead, track best accuracy of primary task (digit)
+            acc = self.val_metrics["digit_acc"].compute()
+        else:
+            # For single head, track the only accuracy
+            head_name = next(iter(self.criteria.keys()))
+            acc = self.val_metrics[f"{head_name}_acc"].compute()
+        
+        self.val_acc_best(acc)
         self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
 
-    def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
+    def test_step(self, batch, batch_idx: int) -> None:
         """Perform a single test step on a batch of data from the test set.
 
-        :param batch: A batch of data (a tuple) containing the input tensor of images and target
-            labels.
+        :param batch: A batch of data containing the input tensor of images and target labels.
         :param batch_idx: The index of the current batch.
         """
-        loss, preds, targets = self.model_step(batch)
-
-        # update and log metrics
+        loss, preds_dict, targets_dict = self.model_step(batch)
+        
+        # Update metrics  
         self.test_loss(loss)
-        self.test_acc(preds, targets)
+        for head_name in preds_dict.keys():
+            self.test_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
+        
+        # Log metrics
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("test/acc", self.test_acc, on_step=False, on_epoch=True, prog_bar=True)
+        for head_name in preds_dict.keys():
+            metric_name = f"test/{head_name}_acc" if self.is_multihead else "test/acc"
+            self.log(metric_name, self.test_metrics[f"{head_name}_acc"], 
+                    on_step=False, on_epoch=True, prog_bar=True)
 
     def on_test_epoch_end(self) -> None:
         """Lightning hook that is called when a test epoch ends."""

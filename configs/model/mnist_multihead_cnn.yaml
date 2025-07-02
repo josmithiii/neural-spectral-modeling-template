@@ -1,0 +1,43 @@
+_target_: src.models.mnist_module.MNISTLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+# Different criterion per head (or use same for all)
+criteria:
+  digit:
+    _target_: torch.nn.CrossEntropyLoss
+  thickness:
+    _target_: torch.nn.CrossEntropyLoss
+  smoothness:
+    _target_: torch.nn.CrossEntropyLoss
+
+# Loss weighting (optional)
+loss_weights:
+  digit: 1.0
+  thickness: 0.5
+  smoothness: 0.5
+
+net:
+  _target_: src.models.components.simple_cnn.SimpleCNN
+  input_channels: 1
+  conv1_channels: 32
+  conv2_channels: 64
+  fc_hidden: 128
+  heads_config:
+    digit: 10
+    thickness: 5
+    smoothness: 3
+  dropout: 0.25
+
+compile: false
