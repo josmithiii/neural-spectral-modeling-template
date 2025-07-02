@@ -645,3 +645,32 @@ hard to get below ~20k parameters. ...
 
 [This was all one long conversation on 2025-06-30 rolling into
  2025-07-01 with no indication of context buffer remaining! (Sonnet 4)]
+
+2025-07-01-15-00
+
+
+  Model Comparison Results
+
+  | Model                    | Parameters | Test Accuracy | Training Time    | Cost-Effectiveness |
+  |--------------------------|------------|---------------|------------------|--------------------|
+  | CNN                      | 421K       | 99.0%         | 63.5s            | ⭐⭐⭐                |
+  | EfficientNet             | 7.2M       | 98.9%         | 433.8s (7.2 min) | ⭐                  |
+  | EfficientNet Tiny        | 21.9K      | 98.3%         | 201.6s           | ⭐⭐                 |
+  | CNN Tiny                 | 7.5K       | 97.9%         | 59.1s            | ⭐⭐⭐                |
+  | DEFAULT (SimpleDenseNet) | 68K        | 97.5%         | 58.3s            | ⭐⭐⭐                |
+  | SDN Tiny                 | 8.5K       | 94.3%         | 56.8s            | ⭐⭐                 |
+
+  Analysis
+
+  Most cost-effective for this problem: CNN (421K params)
+  - Achieves highest accuracy (99.0%)
+  - Fast training (~1 minute)
+  - Good parameter efficiency
+
+  Key insights:
+  1. Diminishing returns: EfficientNet (7.2M params) takes 7x longer but only marginally improves over CNN
+  2. Sweet spot: The basic CNN hits the best accuracy/time trade-off
+  3. Tiny models: CNN Tiny (7.5K) achieves 97.9% with minimal parameters
+  4. Overkill: EfficientNet is unnecessarily complex for MNIST
+
+  For MNIST specifically, the CNN model offers the best balance of accuracy and efficiency. The tiny variants are excellent for resource-constrained scenarios.
