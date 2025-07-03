@@ -19,7 +19,7 @@ self.criterion = torch.nn.CrossEntropyLoss()
 
 **After:**
 ```yaml
-# configs/model/mnist_sdn_small.yaml
+# configs/model/mnist_sdn_68k.yaml
 criterion:
   _target_: torch.nn.CrossEntropyLoss
 ```
@@ -48,9 +48,9 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 
 | Architecture | Parameters | Description | Config File |
 |-------------|------------|-------------|-------------|
-| **SimpleDenseNet** | 68K | Fully-connected network (default) | [`configs/model/mnist.yaml`](./configs/model/mnist.yaml) |
-| **SimpleCNN** | 421K | Convolutional neural network | [`configs/model/mnist_cnn.yaml`](configs/model/mnist_cnn.yaml) |
-| **SimpleCNN (Multihead)** | 422K | CNN with multiple prediction heads | [`configs/model/mnist_multihead_cnn.yaml`](configs/model/mnist_multihead_cnn.yaml) |
+| **SimpleDenseNet** | 68K | Fully-connected network (default) | [`configs/model/mnist_sdn_68k.yaml`](./configs/model/mnist_sdn_68k.yaml) |
+| **SimpleCNN** | 421K | Convolutional neural network | [`configs/model/mnist_cnn_421k.yaml`](configs/model/mnist_cnn_421k.yaml) |
+| **SimpleCNN (Multihead)** | 422K | CNN with multiple prediction heads | [`configs/model/mnist_multihead_cnn_422k.yaml`](configs/model/mnist_multihead_cnn_422k.yaml) |
 
 **File Structure:**
 ```
@@ -63,13 +63,13 @@ src/data/
 └── multihead_dataset.py   # Dataset wrapper for multihead labels
 
 configs/model/
-├── mnist.yaml             # SimpleDenseNet configuration
-├── mnist_cnn.yaml         # SimpleCNN configuration
-└── mnist_multihead_cnn.yaml # Multihead CNN configuration
+├── mnist_sdn_68k.yaml     # SimpleDenseNet configuration
+├── mnist_cnn_421k.yaml    # SimpleCNN configuration
+└── mnist_multihead_cnn_422k.yaml # Multihead CNN configuration
 
 configs/data/
-├── mnist_sdn_small.yaml   # Standard MNIST data configuration ~ 68K parameters
-├── mnist_cnn_small.yaml   # Replaces SimpleDenseNet with comparable CNN
+├── mnist_sdn_68k.yaml     # Standard MNIST data configuration ~ 68K parameters
+├── mnist_cnn_8k.yaml      # Replaces SimpleDenseNet with comparable CNN
 ├── multihead_mnist.yaml   # Multihead SDN Small
 └── ...
 
@@ -204,8 +204,8 @@ make texample
 
 ```
 configs/model/
-├── mnist_cnn.yaml              # CNN model configuration
-└── mnist_multihead_cnn.yaml    # Multihead CNN configuration
+├── mnist_cnn_421k.yaml         # CNN model configuration
+└── mnist_multihead_cnn_422k.yaml # Multihead CNN configuration
 
 configs/data/
 └── multihead_mnist.yaml        # Multihead data configuration
@@ -494,7 +494,7 @@ The multihead dataset creates thickness and smoothness labels from MNIST digits:
 
 **Configuration Structure:**
 ```yaml
-# configs/model/mnist_multihead_cnn.yaml
+# configs/model/mnist_multihead_cnn_422k.yaml
 criteria:
   digit:
     _target_: torch.nn.CrossEntropyLoss
