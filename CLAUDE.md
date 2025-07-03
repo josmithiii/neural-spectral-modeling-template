@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Lightning-Hydra-Template for deep learning projects using PyTorch Lightning and Hydra configuration management. The template provides a clean, organized structure for rapid ML experimentation with minimal boilerplate.
+This is an extended Lightning-Hydra-Template for deep learning projects using PyTorch Lightning and Hydra configuration management. The template provides a clean, organized structure for rapid ML experimentation with minimal boilerplate.  In this template project we've extended the original template as described in ./README-CONFIG.md
 
 ## Core Technologies
 
@@ -31,6 +31,7 @@ python src/train.py experiment=example
 # Makefile shortcuts
 make train          # or make t - basic training
 make trainmps       # or make tmps - train with MPS on Mac
+make help           # generate the list of make targets
 ```
 
 ### Testing
@@ -41,7 +42,7 @@ make test
 
 # Run all tests
 pytest
-make test-full
+make test-all
 
 # Run specific test file
 pytest tests/test_train.py
@@ -64,7 +65,7 @@ python src/eval.py ckpt_path="/path/to/checkpoint.ckpt"
 ```bash
 source .venv/bin/activate.csh
 ```
-- If 'rootutils' is not found, then the environment was not activated.
+- If 'rootutils' is not found, that means the environment was not activated.
 
 ## Architecture Overview
 
@@ -128,4 +129,4 @@ source .venv/bin/activate.csh
 - User works with signal processing and sound synthesis but is new to ML implementation details
 - User values fast iteration and minimal boilerplate for research
 - Makefile provides convenient shortcuts for common tasks
-- MPS (Metal Performance Shaders) support for Mac training available
+- MPS (Metal Performance Shaders) support for Mac training available and nearly always used by user
