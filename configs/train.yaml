@@ -47,3 +47,6 @@ ckpt_path: null
 
 # seed for random number generators in pytorch, numpy and python.random
 seed: null
+
+# metric to optimize during hyperparameter search
+optimized_metric: "val/acc"
