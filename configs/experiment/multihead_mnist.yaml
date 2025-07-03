@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: multihead_mnist
-  - override /model: mnist_multihead_cnn
+  - override /model: mnist_multihead_cnn_422k
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
