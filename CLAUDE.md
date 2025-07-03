@@ -65,7 +65,9 @@ python src/eval.py ckpt_path="/path/to/checkpoint.ckpt"
 ```bash
 source .venv/bin/activate.csh
 ```
-- If 'rootutils' is not found, that means the environment was not activated.
+
+## Troubleshooting Notes
+- When you see "No module named 'rootutils'", it means we need to say `source .venv/bin/activate`
 
 ## Architecture Overview
 

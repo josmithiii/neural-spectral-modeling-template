@@ -19,9 +19,9 @@ criterion:
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
   input_channels: 1
-  conv1_channels: 10
-  conv2_channels: 20
-  fc_hidden: 64
+  conv1_channels: 3
+  conv2_channels: 6
+  fc_hidden: 25
   output_size: 10
   dropout: 0.25
 
