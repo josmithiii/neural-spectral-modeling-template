@@ -1,10 +1,31 @@
+# JOS Extensions to Lightning-Hydra Template
+
+This document describes the extensions and enhancements made to the original Lightning-Hydra template, focusing on improved configurability and architecture flexibility.
+
+## Overview
+
+We've extended the original template with:
+- **Configurable loss functions** via Hydra configuration
+- **Multiple neural network architectures** with easy switching
+- **Additional make targets** for streamlined development workflow
+- **Non-destructive extensions** following best practices
+- **Multihead Classification** with backward compatibility for original single-head usage
+
+## Documentation
+- [README-CONFIG.md](./README-CONFIG.md)
+
+---
+
+## Bootstrap
+
 ```tcsh
 uv venv
 uv pip install -r requirements.txt
 
 make train
 echo It worked! 31.202u 7.701s 0:33.96 114.5%	0+0k 0+0io 2pf+0w
-echo See ./logs/train/runs/2025-06-25_20-57-53/train.log
+echo See ./archive/trnm-log-2025-06-30.txt
+logs/train/runs/2025-06-25_20-57-53/train.log
 echo Also interesting: ./logs/train/runs/2025-06-25_20-57-53/config_tree.log
 
 make trainmps

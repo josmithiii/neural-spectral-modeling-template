@@ -1,20 +1,15 @@
 # Configuration Extensions for Lightning-Hydra Template
 
-This document describes the extensions and enhancements made to the original Lightning-Hydra template, focusing on improved configurability and architecture flexibility.
-
-## Overview
-
-We've extended the original template with:
-- **Configurable loss functions** via Hydra configuration
-- **Multiple neural network architectures** with easy switching
-- **Additional make targets** for streamlined development workflow
-- **Non-destructive extensions** following best practices
+## Overview: [README-JOS.md](./README-JOS.md)
 
 ## 🎯 Key Features
 
 ### 1. Configurable Loss Functions
 
-**What Changed:** The loss function ("criterion" in [`configs/model/*.yaml`](./configs/model/)) is now configurable through Hydra, following the same pattern as optimizer and scheduler.
+**What Changed:** The loss function ("criterion" in
+[`configs/model/*.yaml`](./configs/model/)) is now _configurable_
+through Hydra, following the same pattern as the optimizer and
+scheduler.
 
 **Before:**
 ```python
@@ -28,6 +23,8 @@ self.criterion = torch.nn.CrossEntropyLoss()
 criterion:
   _target_: torch.nn.CrossEntropyLoss
 ```
+
+**Loss-Function Choices:** [PyTorch Loss Functions](https://docs.pytorch.org/docs/stable/nn.html#loss-functions)
 
 **Benefits:**
 - Easy experimentation with different loss functions
@@ -59,7 +56,8 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 ```
 src/models/components/
 ├── simple_dense_net.py    # Original fully-connected network
-└── simple_cnn.py          # CNN with single/multihead support
+├── simple_cnn.py          # CNN with single/multihead support
+└── simple_efficientnet.py # EfficientNet CNN for large problems
 
 src/data/
 └── multihead_dataset.py   # Dataset wrapper for multihead labels
@@ -70,9 +68,13 @@ configs/model/
 └── mnist_multihead_cnn.yaml # Multihead CNN configuration
 
 configs/data/
-└── multihead_mnist.yaml   # Multihead data configuration
+├── mnist_sdn_small.yaml   # Standard MNIST data configuration ~ 68K parameters
+├── mnist_cnn_small.yaml   # Replaces SimpleDenseNet with comparable CNN
+├── multihead_mnist.yaml   # Multihead SDN Small
+└── ...
 
 configs/experiment/
+├── example.yaml           # SimpleDenseNet experiment example
 └── multihead_mnist.yaml   # Complete multihead experiment
 ```
 
