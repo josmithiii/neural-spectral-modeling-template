@@ -115,11 +115,23 @@ ca compare-arch: ## Compare architectures on quick runs
 te train-example: ## Run example experiment config (reproducible baseline)
 	time python src/train.py experiment=example
 
-tve train-vit-example: ## Run ViT experiment config (reproducible baseline)
+tve train-vit-example: ## Run ViT experiment config
 	time python src/train.py experiment=vit_mnist
 
-tvem train-vit-example-mps: ## Run ViT experiment config (reproducible baseline) on MPS
+tvem train-vit-example-mps: ## Run ViT experiment config on MPS
 	time python src/train.py experiment=vit_mnist trainer.accelerator=mps
+
+tve995 train-vit-example-995: ## Run ViT experiment config (reproducible 99.5% MNIST baseline) on MPS - warning: 200 epochs!
+	echo "For 98.9% results: time python src/train.py experiment=vit_mnist_995"
+	time python src/train.py model=mnist_vit_995_v2 trainer.max_epochs=200
+
+tve995m train-vit-example-995-mps: ## Run ViT experiment config (reproducible 99.5% MNIST baseline) on MPS - warning: 200 epochs!
+	echo "For 98.9% results: time python src/train.py experiment=vit_mnist_995 trainer.accelerator=mps"
+	time python src/train.py model=mnist_vit_995_v2 trainer.max_epochs=200 trainer.accelerator=mps
+
+tve995m3 train-vit-example-995-mps-v3: ## Run ViT experiment config v3 - 99.5% for sure?
+	time python src/train.py model=mnist_vit_995_v3 data=mnist_vit_995 trainer.max_epochs=200 trainer.accelerator=mps
 
 tmhe train-multihead-example: ## Run example experiment config for multihead classification
 	time python src/train.py experiment=multihead_mnist
+
