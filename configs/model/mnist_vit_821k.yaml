@@ -1,0 +1,30 @@
+_target_: src.models.mnist_module.MNISTLitModule
+
+net:
+  _target_: src.models.components.vision_transformer.VisionTransformer
+  n_channels: 1
+  image_size: 28
+  patch_size: 4
+  embed_dim: 128
+  n_layers: 6
+  n_attention_heads: 8
+  forward_mul: 2
+  output_size: 10
+  dropout: 0.1
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.01
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 100
+  eta_min: 1e-5
+
+criterion:
+  _target_: torch.nn.CrossEntropyLoss
+
+compile: false

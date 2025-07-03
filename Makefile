@@ -41,6 +41,30 @@ trc trcnn train-cnn: ## Train with CNN architecture
 trcm train-cnn-mps: ## Train CNN with MPS on Mac
 	time python src/train.py model=mnist_cnn_small trainer.accelerator=mps
 
+trv trvit train-vit: ## Train with ViT architecture 
+	time python src/train.py model=mnist_vit_210k
+
+trvm train-vit-mps: ## Train ViT with MPS on Mac
+	time python src/train.py model=mnist_vit_210k trainer.accelerator=mps
+
+trvs train-vit-small: ## Train small ViT (~38K params)
+	time python src/train.py model=mnist_vit_38k
+
+trvsm train-vit-small-mps: ## Train small ViT with MPS on Mac
+	time python src/train.py model=mnist_vit_38k trainer.accelerator=mps
+
+trvl train-vit-large: ## Train large ViT (~821K params)
+	time python src/train.py model=mnist_vit_821k
+
+trvlm train-vit-large-mps: ## Train large ViT with MPS on Mac
+	time python src/train.py model=mnist_vit_821k trainer.accelerator=mps
+
+trvp train-vit-pytorch: ## Train ViT using PyTorch layers
+	time python src/train.py model=mnist_vit_pytorch
+
+trvpm train-vit-pytorch-mps: ## Train ViT using PyTorch layers with MPS
+	time python src/train.py model=mnist_vit_pytorch trainer.accelerator=mps
+
 tram train-all-mps: ## Train all (original 68k-ish sized) architectures with MPS on Mac
 	time python src/train.py model=mnist_sdn_small trainer.accelerator=mps
 	time python src/train.py model=mnist_cnn trainer.accelerator=mps
@@ -66,7 +90,10 @@ tq train-quick: ## Train quickly SimpleDenseNet, 1 epoch
 tqc train-quick-cnn: ## Train quickly SimpleCNN, 1 epoch
 	python src/train.py model=mnist_cnn trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
-tqa train-quick-all: tq tcq ## Train quickly all architectures supported
+tqv train-quick-vit: ## Train quickly ViT, 1 epoch
+	python src/train.py model=mnist_vit_38k trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
+
+tqa train-quick-all: tq tqc tqv ## Train quickly all architectures supported
 
 # TESTING TARGETS "t"
 
@@ -81,10 +108,15 @@ ca compare-arch: ## Compare architectures on quick runs
 	python src/train.py trainer.max_epochs=3 tags="[arch_comparison,dense]"
 	@echo "=== Training SimpleCNN ==="
 	python src/train.py model=mnist_cnn trainer.max_epochs=3 tags="[arch_comparison,cnn]"
+	@echo "=== Training ViT ==="
+	python src/train.py model=mnist_vit_38k trainer.max_epochs=3 tags="[arch_comparison,vit]"
 	@echo "=== Check logs/ directory for results comparison ==="
 
 te train-example: ## Run example experiment config (reproducible baseline)
 	time python src/train.py experiment=example
+
+tve train-vit-example: ## Run ViT experiment config (reproducible baseline)
+	time python src/train.py experiment=vit_mnist
 
 tmhe train-multihead-example: ## Run example experiment config for multihead classification
 	time python src/train.py experiment=multihead_mnist
