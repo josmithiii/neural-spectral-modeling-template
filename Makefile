@@ -118,5 +118,8 @@ te train-example: ## Run example experiment config (reproducible baseline)
 tve train-vit-example: ## Run ViT experiment config (reproducible baseline)
 	time python src/train.py experiment=vit_mnist
 
+tvem train-vit-example-mps: ## Run ViT experiment config (reproducible baseline) on MPS
+	time python src/train.py experiment=vit_mnist trainer.accelerator=mps
+
 tmhe train-multihead-example: ## Run example experiment config for multihead classification
 	time python src/train.py experiment=multihead_mnist
