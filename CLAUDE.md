@@ -62,14 +62,9 @@ python src/eval.py ckpt_path="/path/to/checkpoint.ckpt"
 
 ### Environment Management
 ```bash
-# Setup with uv (recommended by user)
-uv venv
-uv pip install -r requirements.txt
-
-# Or with conda
-conda env create -f environment.yaml -n myenv
-conda activate myenv
+source .venv/bin/activate.csh
 ```
+- If 'rootutils' is not found, then the environment was not activated.
 
 ## Architecture Overview
 
