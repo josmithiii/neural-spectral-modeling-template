@@ -48,16 +48,19 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 
 | Architecture | Parameters | Description | Config File |
 |-------------|------------|-------------|-------------|
-| **SimpleDenseNet** | 68K | Fully-connected network (default) | [`configs/model/mnist_sdn_68k.yaml`](./configs/model/mnist_sdn_68k.yaml) |
-| **SimpleCNN** | 421K | Convolutional neural network | [`configs/model/mnist_cnn_421k.yaml`](configs/model/mnist_cnn_421k.yaml) |
+| **SimpleDenseNet** | 8K, 68K | Fully-connected network | [`configs/model/mnist_sdn_68k.yaml`](./configs/model/mnist_sdn_68k.yaml) etc. |
+| **SimpleCNN** | 8K, 421K | Convolutional Neural Network (CNN) | [`configs/model/mnist_cnn_421k.yaml`](configs/model/mnist_cnn_421k.yaml) etc. |
+| **EfficientNet (CNN)** | 22K, 7M | Super efficient CNN at scale | [`configs/model/mnist_efficientnet_7m.yaml`](configs/model/mnist_efficientnet_7m.yaml) etc.|
 | **SimpleCNN (Multihead)** | 422K | CNN with multiple prediction heads | [`configs/model/mnist_multihead_cnn_422k.yaml`](configs/model/mnist_multihead_cnn_422k.yaml) |
+| **Vision Transformer (ViT)** | 38K, 210K, 821K | Transformer on embedded patches | [`configs/model/mnist_multihead_cnn_210k.yaml`](configs/model/mnist_multihead_cnn_210k.yaml) |
 
 **File Structure:**
 ```
 src/models/components/
 ├── simple_dense_net.py    # Original fully-connected network
 ├── simple_cnn.py          # CNN with single/multihead support
-└── simple_efficientnet.py # EfficientNet CNN for large problems
+├── simple_efficientnet.py # EfficientNet CNN for large problems
+└── vision_transformer.py  # Vision Transformer (also prefers large problems)
 
 src/data/
 └── multihead_dataset.py   # Dataset wrapper for multihead labels
