@@ -105,7 +105,6 @@ python src/train.py experiment=multihead_mnist trainer.max_epochs=10 # Multihead
 | `make trmps` or `make train-mps` or `make train-sdn-mps` | Train SimpleDenseNet on Mac GPU (MPS) | Dense |
 | `make trc` or `make train-cnn` | Train SimpleCNN | CNN |
 | `make trcm` or `make train-cnn-mps` | Train SimpleCNN on Mac GPU | CNN |
-| `make te` or `make train-example` | Run example experiment config | Dense |
 
 **Quick Testing Targets:**
 
@@ -115,6 +114,15 @@ python src/train.py experiment=multihead_mnist trainer.max_epochs=10 # Multihead
 | `make tqc` or `make train-quick-cnn` | Quick CNN test | 1 epoch, 10 batches |
 | `make tqa` or `make train-quick-all` | Train quickly all architectures | Both (tq + tqc) |
 | `make ca` or `make compare-arch` | Side-by-side comparison | 3 epochs each |
+
+**Reproducible Experiments:**
+
+| `make esdn` or `make exp-sdn` | Run example experiment config on SDN | Dense |
+| `make evit` or `make exp-vit` | Experiment using Vision Transformer | ViT |
+| `make emhc` or `make exp-multihead-cnn` | Experiment using MultiHead CNN | CNN |
+| `make help | grep exp` | List all available experiments | Various |
+
+See [Experiment Configuration System](#experiment-config) below for more about Experiments.
 
 **Other Targets:**
 
@@ -134,6 +142,7 @@ python src/train.py experiment=multihead_mnist trainer.max_epochs=10 # Multihead
 make help
 ```
 
+<a name="experiment-config"></a>
 ### 4. Experiment Configuration System
 
 **What are Experiment Configs?**
