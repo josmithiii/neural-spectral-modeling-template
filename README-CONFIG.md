@@ -6,10 +6,7 @@
 
 ### 1. Configurable Loss Functions
 
-**What Changed:** The loss function ("criterion" in
-[`configs/model/*.yaml`](./configs/model/)) is now _configurable_
-through Hydra, following the same pattern as the optimizer and
-scheduler.
+**What Changed:** The loss function ("criterion" in [`configs/model/*.yaml`](./configs/model/)) is now configurable through Hydra, following the same pattern as the optimizer and scheduler.
 
 **Before:**
 ```python
@@ -24,13 +21,9 @@ criterion:
   _target_: torch.nn.CrossEntropyLoss
 ```
 
-**Loss-Function Choices:** [PyTorch Loss Functions](https://docs.pytorch.org/docs/stable/nn.html#loss-functions)
+**Available Loss Functions:** [PyTorch Loss Functions](https://docs.pytorch.org/docs/stable/nn.html#loss-functions)
 
-**Benefits:**
-- Easy experimentation with different loss functions
-- No code changes required for loss function switching
-- Consistent with Hydra configuration philosophy
-- Parameters are logged and version controlled
+**Benefits:** Easy experimentation with different loss functions without code changes, consistent with Hydra configuration philosophy, and parameters are logged and version controlled.
 
 **Usage Examples:**
 ```bash
@@ -52,7 +45,7 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 | **SimpleCNN** | 8K, 421K | Convolutional Neural Network (CNN) | [`configs/model/mnist_cnn_421k.yaml`](configs/model/mnist_cnn_421k.yaml) etc. |
 | **EfficientNet (CNN)** | 22K, 7M | Super efficient CNN at scale | [`configs/model/mnist_efficientnet_7m.yaml`](configs/model/mnist_efficientnet_7m.yaml) etc.|
 | **SimpleCNN (Multihead)** | 422K | CNN with multiple prediction heads | [`configs/model/mnist_multihead_cnn_422k.yaml`](configs/model/mnist_multihead_cnn_422k.yaml) |
-| **Vision Transformer (ViT)** | 38K, 210K, 821K | Transformer on embedded patches | [`configs/model/mnist_multihead_cnn_210k.yaml`](configs/model/mnist_multihead_cnn_210k.yaml) |
+| **Vision Transformer (ViT)** | 38K, 210K, 821K | Transformer on embedded patches | [`configs/model/mnist_vit_210k.yaml`](configs/model/mnist_vit_210k.yaml) |
 
 **File Structure:**
 ```
@@ -70,9 +63,9 @@ src/data/
 configs/model/              # See Architecture Options above
 
 configs/data/
-├── mnist.yaml              # Config for extended original MNIST data loader for SDN with 68K parameters
-├── mnist_vit_995.yaml      # Config Vision Transformer data loader for SOTA benchmark replication
-└── multihead_mnist.yaml    # Config for Multihead CNN data loader
+├── mnist.yaml              # Config for original MNIST data loader
+├── mnist_vit_995.yaml      # Config for Vision Transformer data loader (SOTA benchmark)
+└── multihead_mnist.yaml    # Config for multihead CNN data loader
 
 configs/experiment/
 ├── example.yaml             # Original SimpleDenseNet experiment example
@@ -87,7 +80,7 @@ configs/experiment/
 python src/train.py
 
 # Switch to CNN (single-head)
-zpython src/train.py model=mnist_cnn_421k
+python src/train.py model=mnist_cnn_421k
 
 # Train multihead CNN experiment
 python src/train.py experiment=multihead_cnn_mnist
@@ -105,7 +98,7 @@ python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multi
 | Target | Description | Architecture |
 |--------|-------------|--------------|
 | `make train` or `make train-sdn` | Train SimpleDenseNet (default) | Dense |
-| `make trmps` or `make train-mps` or `make train-sdn-mps` | Train SimpleDenseNet on Mac GPU (MPS) | Dense |
+| `make trm` or `make train-mps` or `make train-sdn-mps` | Train SimpleDenseNet on Mac GPU (MPS) | Dense |
 | `make trc` or `make train-cnn` | Train SimpleCNN | CNN |
 | `make trcm` or `make train-cnn-mps` | Train SimpleCNN on Mac GPU | CNN |
 
@@ -120,9 +113,9 @@ python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multi
 
 **Reproducible Experiments:**
 
-| `make esdn` or `make exp-sdn` | Run example experiment config on SDN | Dense |
-| `make evit` or `make exp-vit` | Experiment using Vision Transformer | ViT |
-| `make emhc` or `make exp-multihead-cnn` | Experiment using MultiHead CNN | CNN |
+| `make example` | Run example experiment config | Dense |
+| `make vit-mnist` | Experiment using Vision Transformer | ViT |
+| `make multihead-cnn-mnist` | Experiment using MultiHead CNN | CNN |
 | `make help | grep exp` | List all available experiments | Various |
 
 See [Experiment Configuration System](#experiment-config) below for more about Experiments.
@@ -202,7 +195,7 @@ data:
 # Run the complete experiment
 python src/train.py experiment=example
 # or
-make texample
+make example
 
 # Results are exactly reproducible because:
 # - Fixed seed (12345)
@@ -406,9 +399,6 @@ python src/train.py model=my_model
 ```bash
 # Use descriptive tags for easy comparison
 python src/train.py tags="[experiment_name,architecture_type,hyperparam_set]"
-
-# Example
-python src/train.py model=mnist_cnn tags="[cnn_baseline,conv_arch,default_hp]"
 ```
 
 ### 2. Systematic Hyperparameter Search
@@ -431,13 +421,13 @@ python src/train.py experiment=multihead_mnist model.loss_weights.digit=2.0 mode
 ### 3. Hardware Optimization
 ```bash
 # CPU training (default)
-make tcnn
+make trc
 
 # GPU training
 python src/train.py model=mnist_cnn trainer=gpu
 
 # Mac GPU (MPS) training  
-make tcnn-mps
+make trcm
 
 # With more workers for faster data loading
 python src/train.py model=mnist_cnn trainer=gpu data.num_workers=8
@@ -446,10 +436,10 @@ python src/train.py model=mnist_cnn trainer=gpu data.num_workers=8
 ## 🔍 Development Philosophy
 
 ### Non-Destructive Extensions
-- ✅ **Added new files** instead of modifying existing ones
-- ✅ **Preserved original functionality** completely  
-- ✅ **Easy rollback** - just delete new files
-- ✅ **Zero risk** to existing workflows
+- Added new files instead of modifying existing ones
+- Preserved original functionality completely  
+- Easy rollback - just delete new files
+- Zero risk to existing workflows
 
 ### 4. Multihead Classification Support
 
@@ -468,11 +458,7 @@ Multihead classification allows a single model to predict multiple related tasks
 - **Separate Metrics**: Each head tracks its own accuracy independently
 - **Synthetic Labels**: Intelligent mapping from digits to thickness/smoothness
 
-**Architecture Benefits:**
-- **Shared Learning**: Common features benefit all tasks
-- **Efficiency**: One model instead of three separate models
-- **Regularization**: Multiple tasks prevent overfitting
-- **Research**: Enables multi-task learning experiments
+**Architecture Benefits:** Shared learning across tasks, efficiency (one model vs. three), regularization through multi-task learning, and enables multi-task learning experiments.
 
 **Usage Examples:**
 ```bash
@@ -529,19 +515,13 @@ net:
 ```
 
 ### Configuration-Driven Development
-- ✅ **No code changes** needed for common experiments
-- ✅ **Version-controlled configurations** for reproducibility  
-- ✅ **Hydra best practices** followed throughout
-- ✅ **Consistent patterns** across all components
+- No code changes needed for common experiments
+- Version-controlled configurations for reproducibility  
+- Hydra best practices followed throughout
+- Consistent patterns across all components
 
 ### Why No Git Diffs Initially?
-When we first added these features, git showed no diffs because we followed best practices:
-- Created **new files** rather than modifying existing tracked files
-- Used **additive development** approach
-- Maintained **backward compatibility** 
-- Git diffs only show changes to **existing tracked files**, not new untracked files
-
-This is actually a **sign of good software engineering** - extending functionality without breaking existing systems.
+When we first added these features, git showed no diffs because we created new files rather than modifying existing tracked files. This additive development approach maintained backward compatibility - a sign of good software engineering.
 
 ## 🚀 Quick Start
 
@@ -581,11 +561,11 @@ Based on quick tests (1 epoch, limited batches):
 ## 🔗 Integration with Original Template
 
 All original Lightning-Hydra template features remain fully functional:
-- ✅ All original make targets work
-- ✅ Hydra configuration system enhanced, not replaced
-- ✅ Lightning module structure preserved
-- ✅ Testing framework compatible
-- ✅ Logging and callbacks unchanged
+- All original make targets work
+- Hydra configuration system enhanced, not replaced
+- Lightning module structure preserved
+- Testing framework compatible
+- Logging and callbacks unchanged
 
 The extensions seamlessly integrate with existing workflows while adding powerful new capabilities for architecture experimentation and systematic ML research.
 
