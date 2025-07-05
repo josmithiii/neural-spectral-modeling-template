@@ -48,7 +48,7 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 
 | Architecture | Parameters | Description | Config File |
 |-------------|------------|-------------|-------------|
-| **SimpleDenseNet** | 8K, 68K | Fully-connected network | [`configs/model/mnist_sdn_68k.yaml`](./configs/model/mnist_sdn_68k.yaml) etc. |
+| **SimpleDenseNet (SDN)** | 8K, 68K | Fully-connected network | [`configs/model/mnist_sdn_68k.yaml`](./configs/model/mnist_sdn_68k.yaml) etc. |
 | **SimpleCNN** | 8K, 421K | Convolutional Neural Network (CNN) | [`configs/model/mnist_cnn_421k.yaml`](configs/model/mnist_cnn_421k.yaml) etc. |
 | **EfficientNet (CNN)** | 22K, 7M | Super efficient CNN at scale | [`configs/model/mnist_efficientnet_7m.yaml`](configs/model/mnist_efficientnet_7m.yaml) etc.|
 | **SimpleCNN (Multihead)** | 422K | CNN with multiple prediction heads | [`configs/model/mnist_multihead_cnn_422k.yaml`](configs/model/mnist_multihead_cnn_422k.yaml) |
@@ -57,28 +57,28 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 **File Structure:**
 ```
 src/models/components/
-├── simple_dense_net.py    # Original fully-connected network
-├── simple_cnn.py          # CNN with single/multihead support
-├── simple_efficientnet.py # EfficientNet CNN for large problems
-└── vision_transformer.py  # Vision Transformer (also prefers large problems)
+├── simple_dense_net.py     # Original fully-connected network
+├── simple_cnn.py           # CNN with single/multihead support
+├── simple_efficientnet.py  # EfficientNet CNN for large problems
+└── vision_transformer.py   # Vision Transformer (also prefers large problems)
 
 src/data/
-└── multihead_dataset.py   # Dataset wrapper for multihead labels
+├── mnist_datamodule.py     # Original MNIST data loading module with added multihead support
+├── multihead_dataset.py    # Dataset wrapper for multihead labels
+└── mnist_vit_datamodule.py # Specialized ViT dataloader with custom normalization and augmentation
 
-configs/model/
-├── mnist_sdn_68k.yaml     # SimpleDenseNet configuration
-├── mnist_cnn_421k.yaml    # SimpleCNN configuration
-└── mnist_multihead_cnn_422k.yaml # Multihead CNN configuration
+configs/model/              # See Architecture Options above
 
 configs/data/
-├── mnist_sdn_68k.yaml     # Standard MNIST data configuration ~ 68K parameters
-├── mnist_cnn_8k.yaml      # Replaces SimpleDenseNet with comparable CNN
-├── multihead_mnist.yaml   # Multihead SDN Small
-└── ...
+├── mnist.yaml              # Config for extended original MNIST data loader for SDN with 68K parameters
+├── mnist_vit_995.yaml      # Config Vision Transformer data loader for SOTA benchmark replication
+└── multihead_mnist.yaml    # Config for Multihead CNN data loader
 
 configs/experiment/
-├── example.yaml           # SimpleDenseNet experiment example
-└── multihead_mnist.yaml   # Complete multihead experiment
+├── example.yaml             # Original SimpleDenseNet experiment example
+├── multihead_cnn_mnist.yaml # Multihead CNN experiment on MNIST
+├── vit_mnist.yaml           # Simple ViT experiment
+└── vit_mnist_995.yaml       # SOTA ViT on MNIST experiment, 200 epochs, 210K params
 ```
 
 **Architecture Switching:**
@@ -87,15 +87,15 @@ configs/experiment/
 python src/train.py
 
 # Switch to CNN (single-head)
-python src/train.py model=mnist_cnn
+zpython src/train.py model=mnist_cnn_421k
 
-# Switch to multihead CNN
-python src/train.py experiment=multihead_mnist
+# Train multihead CNN experiment
+python src/train.py experiment=multihead_cnn_mnist
 
-# Compare with identical hyperparameters
-python src/train.py trainer.max_epochs=10                          # SimpleDenseNet
-python src/train.py model=mnist_cnn trainer.max_epochs=10          # SimpleCNN
-python src/train.py experiment=multihead_mnist trainer.max_epochs=10 # Multihead CNN
+# Compare with identical hyperparameters such as 10 epochs for all
+python src/train.py trainer.max_epochs=10                                # SimpleDenseNet
+python src/train.py model=mnist_cnn_421k trainer.max_epochs=10           # SimpleCNN
+python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multihead CNN
 ```
 
 ### 3. New Convenience Make Targets
