@@ -36,14 +36,11 @@ tr train train-sdn: ## Train the default model (a small SimpleDenseNet)
 trc trcnn train-cnn: ## Train with CNN architecture
 	time python src/train.py model=mnist_cnn_small
 
-
-trv trvit train-vit: ## Train with ViT architecture 
-	time python src/train.py model=mnist_vit_210k
-
-
 trvs train-vit-small: ## Train small ViT (~38K params)
 	time python src/train.py model=mnist_vit_38k
 
+trvm train-vit-medium: ## Train with ViT architecture (~210K params)
+	time python src/train.py model=mnist_vit_210k
 
 trvl train-vit-large: ## Train large ViT (~821K params)
 	time python src/train.py model=mnist_vit_821k
@@ -51,9 +48,6 @@ trvl train-vit-large: ## Train large ViT (~821K params)
 
 trvp train-vit-pytorch: ## Train ViT using PyTorch layers
 	time python src/train.py model=mnist_vit_pytorch
-
-
-
 
 
 
