@@ -58,7 +58,7 @@ src/models/components/
 src/data/
 ├── mnist_datamodule.py     # Original MNIST data loading module with added multihead support
 ├── multihead_dataset.py    # Dataset wrapper for multihead labels
-└── mnist_vit_datamodule.py # Specialized ViT dataloader with custom normalization and augmentation
+└── mnist_vit_995_datamodule.py # Specialized ViT dataloader with custom normalization and augmentation
 
 configs/model/              # See Architecture Options above
 
@@ -98,9 +98,7 @@ python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multi
 | Target | Description | Architecture |
 |--------|-------------|--------------|
 | `make train` or `make train-sdn` | Train SimpleDenseNet (default) | Dense |
-| `make trm` or `make train-mps` or `make train-sdn-mps` | Train SimpleDenseNet on Mac GPU (MPS) | Dense |
 | `make trc` or `make train-cnn` | Train SimpleCNN | CNN |
-| `make trcm` or `make train-cnn-mps` | Train SimpleCNN on Mac GPU | CNN |
 
 **Quick Testing Targets:**
 
@@ -287,8 +285,7 @@ python src/train.py model=mnist_cnn \
   model.net.conv1_channels=64 \
   model.net.dropout=0.5
 
-# Mac GPU training with CNN
-make trcm
+# All training automatically uses best available accelerator (MPS on Mac, GPU on Linux, CPU fallback)
 
 # Architecture comparison with tags
 python src/train.py trainer.max_epochs=5 tags="[comparison,dense]"
@@ -420,17 +417,16 @@ python src/train.py experiment=multihead_mnist model.loss_weights.digit=2.0 mode
 
 ### 3. Hardware Optimization
 ```bash
-# CPU training (default)
+# Training automatically uses best available accelerator (MPS/GPU/CPU)
 make trc
 
-# GPU training
-python src/train.py model=mnist_cnn trainer=gpu
-
-# Mac GPU (MPS) training  
-make trcm
+# Force specific accelerator if needed
+python src/train.py model=mnist_cnn trainer.accelerator=cpu
+python src/train.py model=mnist_cnn trainer.accelerator=gpu  
+python src/train.py model=mnist_cnn trainer.accelerator=mps
 
 # With more workers for faster data loading
-python src/train.py model=mnist_cnn trainer=gpu data.num_workers=8
+python src/train.py model=mnist_cnn data.num_workers=8
 ```
 
 ## 🔍 Development Philosophy

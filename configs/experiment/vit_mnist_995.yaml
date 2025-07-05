@@ -1,7 +1,13 @@
 # @package _global_
 
-# to execute this experiment run:
-# python train.py experiment=mnist_vit_995
+# To execute this experiment run (in the top-level directory):
+#
+#   python src/train.py experiment=mnist_vit_995
+#
+# This is equivalent to running
+#
+#   python src/train.py model=mnist_vit_995 data=mnist_vit_995 trainer.max_epochs=200 \
+#          trainer.min_epochs=10 trainer.gradient_clip_val=1.0 data.batch_size=128 seed=12345 tags="[mnist,vit,995,optimized]"
 
 defaults:
   - override /data: mnist_vit_995

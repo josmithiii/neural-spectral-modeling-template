@@ -32,55 +32,30 @@ d deactivate: ## Deactivate the uv environment
 tr train train-sdn: ## Train the default model (a small SimpleDenseNet) 
 	time python src/train.py
 
-trm train-mps train-sdn-mps: ## Train the default model using MPS on a Mac
-	time python src/train.py trainer.accelerator=mps
 
 trc trcnn train-cnn: ## Train with CNN architecture
 	time python src/train.py model=mnist_cnn_small
 
-trcm train-cnn-mps: ## Train CNN with MPS on Mac
-	time python src/train.py model=mnist_cnn_small trainer.accelerator=mps
 
 trv trvit train-vit: ## Train with ViT architecture 
 	time python src/train.py model=mnist_vit_210k
 
-trvm train-vit-mps: ## Train ViT with MPS on Mac
-	time python src/train.py model=mnist_vit_210k trainer.accelerator=mps
 
 trvs train-vit-small: ## Train small ViT (~38K params)
 	time python src/train.py model=mnist_vit_38k
 
-trvsm train-vit-small-mps: ## Train small ViT with MPS on Mac
-	time python src/train.py model=mnist_vit_38k trainer.accelerator=mps
 
 trvl train-vit-large: ## Train large ViT (~821K params)
 	time python src/train.py model=mnist_vit_821k
 
-trvlm train-vit-large-mps: ## Train large ViT with MPS on Mac
-	time python src/train.py model=mnist_vit_821k trainer.accelerator=mps
 
 trvp train-vit-pytorch: ## Train ViT using PyTorch layers
 	time python src/train.py model=mnist_vit_pytorch
 
-trvpm train-vit-pytorch-mps: ## Train ViT using PyTorch layers with MPS
-	time python src/train.py model=mnist_vit_pytorch trainer.accelerator=mps
 
-tram train-all-mps: ## Train all (original 68k-ish sized) architectures with MPS on Mac
-	time python src/train.py model=mnist_sdn_small trainer.accelerator=mps
-	time python src/train.py model=mnist_cnn trainer.accelerator=mps
-	time python src/train.py model=mnist_efficientnet trainer.accelerator=mps
 
-trtm train-tiny-mps: ## Train all Tiny architectures with MPS on Mac
-	time python src/train.py model=mnist_sdn_tiny trainer.accelerator=mps
-	time python src/train.py model=mnist_cnn_tiny trainer.accelerator=mps
-	time python src/train.py model=mnist_efficientnet_tiny trainer.accelerator=mps
 
-trsm train-small-mps: ## Train all Small architectures with MPS on Mac
-	time python src/train.py model=mnist_sdn_small trainer.accelerator=mps
-	time python src/train.py model=mnist_cnn_small trainer.accelerator=mps
-	time python src/train.py model=mnist_efficientnet_small trainer.accelerator=mps
 
-trnm train-nine-mps: tram trsm trtm ## Train Nine cases using MPS on Mac: three architectures and three sizes
 
 # TRAIN-QUICKLY TARGETS "tq"
 
@@ -120,11 +95,10 @@ e esdn exp-sdn: ## Run original example experiment (reproducible baseline)
 evit exp-vit: ## Run ViT experiment
 	time python src/train.py experiment=vit_mnist
 
-evm exp-vit-mps: ## Run ViT experiment config on MPS
-	time python src/train.py experiment=vit_mnist trainer.accelerator=mps
 
-ev995m exp-vit-995-mps: ## Run ViT experiment achieving SOTA 99.5% validation accuracy on Mac MPS
-	time python src/train.py model=mnist_vit_995 data=mnist_vit_995 trainer.max_epochs=200 trainer.accelerator=mps
+ev995 exp-vit-995: ## Run ViT experiment achieving SOTA 99.5% validation accuracy
+	time python src/train.py experiment=mnist_vit_995
+	# == python src/train.py model=mnist_vit_995 data=mnist_vit_995 trainer.max_epochs=200 trainer.min_epochs=10 trainer.gradient_clip_val=1.0 data.batch_size=128 seed=12345 tags="[mnist,vit,995,optimized]"
 
 emhc exp-multihead-cnn: ## Run MultiHead CNN classification experiment
 	time python src/train.py experiment=multihead_cnn_mnist
