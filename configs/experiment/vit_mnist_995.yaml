@@ -4,7 +4,7 @@
 # python train.py experiment=mnist_vit_995
 
 defaults:
-  - override /data: mnist
+  - override /data: mnist_vit_995
   - override /model: mnist_vit_995
   - override /callbacks: default
   - override /trainer: default
