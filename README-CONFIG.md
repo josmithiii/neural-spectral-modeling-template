@@ -46,6 +46,7 @@ python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 | **EfficientNet (CNN)** | 22K, 7M | Super efficient CNN at scale | [`configs/model/mnist_efficientnet_7m.yaml`](configs/model/mnist_efficientnet_7m.yaml) etc.|
 | **SimpleCNN (Multihead)** | 422K | CNN with multiple prediction heads | [`configs/model/mnist_multihead_cnn_422k.yaml`](configs/model/mnist_multihead_cnn_422k.yaml) |
 | **Vision Transformer (ViT)** | 38K, 210K, 821K | Transformer on embedded patches | [`configs/model/mnist_vit_210k.yaml`](configs/model/mnist_vit_210k.yaml) |
+| **ConvNeXt-V2** | 18K, 73K, 288K, 725K | Modern CNN with Global Response Normalization | [`configs/model/mnist_convnext_68k.yaml`](configs/model/mnist_convnext_68k.yaml) |
 
 **File Structure:**
 ```
@@ -53,7 +54,8 @@ src/models/components/
 ├── simple_dense_net.py     # Original fully-connected network
 ├── simple_cnn.py           # CNN with single/multihead support
 ├── simple_efficientnet.py  # EfficientNet CNN for large problems
-└── vision_transformer.py   # Vision Transformer (also prefers large problems)
+├── vision_transformer.py   # Vision Transformer (also prefers large problems)
+└── convnext_v2.py          # ConvNeXt-V2 modern CNN architecture
 
 src/data/
 ├── mnist_datamodule.py     # Original MNIST data loading module with added multihead support
@@ -71,7 +73,8 @@ configs/experiment/
 ├── example.yaml             # Original SimpleDenseNet experiment example
 ├── multihead_cnn_mnist.yaml # Multihead CNN experiment on MNIST
 ├── vit_mnist.yaml           # Simple ViT experiment
-└── vit_mnist_995.yaml       # SOTA ViT on MNIST experiment, 200 epochs, 210K params
+├── vit_mnist_995.yaml       # SOTA ViT on MNIST experiment, 200 epochs, 210K params
+└── convnext_mnist.yaml      # ConvNeXt-V2 experiment on MNIST
 ```
 
 **Architecture Switching:**
@@ -88,6 +91,7 @@ python src/train.py experiment=multihead_cnn_mnist
 # Compare with identical hyperparameters such as 10 epochs for all
 python src/train.py trainer.max_epochs=10                                # SimpleDenseNet
 python src/train.py model=mnist_cnn_421k trainer.max_epochs=10           # SimpleCNN
+python src/train.py model=mnist_convnext_68k trainer.max_epochs=10       # ConvNeXt-V2
 python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multihead CNN
 ```
 
@@ -99,6 +103,9 @@ python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multi
 |--------|-------------|--------------|
 | `make train` or `make train-sdn` | Train SimpleDenseNet (default) | Dense |
 | `make trc` or `make train-cnn` | Train SimpleCNN | CNN |
+| `make trcns` or `make train-convnext-small` | Train ConvNeXt-V2 Small (~73K) | ConvNeXt-V2 |
+| `make trcnm` or `make train-convnext-medium` | Train ConvNeXt-V2 Medium (~288K) | ConvNeXt-V2 |
+| `make trcnl` or `make train-convnext-large` | Train ConvNeXt-V2 Large (~725K) | ConvNeXt-V2 |
 
 **Quick Testing Targets:**
 
@@ -106,14 +113,16 @@ python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multi
 |--------|-------------|----------|
 | `make tq` or `make train-quick` | Quick SimpleDenseNet test | 1 epoch, 10 batches |
 | `make tqc` or `make train-quick-cnn` | Quick CNN test | 1 epoch, 10 batches |
-| `make tqa` or `make train-quick-all` | Train quickly all architectures | Both (tq + tqc) |
-| `make ca` or `make compare-arch` | Side-by-side comparison | 3 epochs each |
+| `make tqcn` or `make train-quick-convnext` | Quick ConvNeXt-V2 test | 1 epoch, 10 batches |
+| `make tqa` or `make train-quick-all` | Train quickly all architectures | All (tq + tqc + tqcn) |
+| `make ca` or `make compare-arch` | Side-by-side comparison | 3 epochs each (includes ConvNeXt) |
 
 **Reproducible Experiments:**
 
 | `make example` | Run example experiment config | Dense |
-| `make vit-mnist` | Experiment using Vision Transformer | ViT |
-| `make multihead-cnn-mnist` | Experiment using MultiHead CNN | CNN |
+| `make evit` or `make exp-vit` | Experiment using Vision Transformer | ViT |
+| `make excn` or `make exp-convnext` | Experiment using ConvNeXt-V2 | ConvNeXt-V2 |
+| `make emhc` or `make exp-multihead-cnn` | Experiment using MultiHead CNN | CNN |
 | `make help | grep exp` | List all available experiments | Various |
 
 See [Experiment Configuration System](#experiment-config) below for more about Experiments.
@@ -271,6 +280,10 @@ make train
 
 # Train with CNN architecture
 make trc
+
+# Train with ConvNeXt-V2 architecture
+make trcns   # Small (~73K params)
+make trcnm   # Medium (~288K params)
 ```
 See the [Makefile](./Makefile) for the rest.
 
@@ -313,7 +326,7 @@ class MyNetwork(nn.Module):
     def __init__(self, input_size: int = 784, output_size: int = 10):
         super().__init__()
         # Your architecture here
-        
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Your forward pass
         return output
@@ -365,11 +378,11 @@ python src/train.py model=my_model
 - **Speed:** Fast training and inference
 
 ### SimpleCNN (New)
-- **Type:** Convolutional neural network  
+- **Type:** Convolutional neural network
 - **Parameters:** 421,482 (single-head), 422,330 (multihead)
 - **Architecture:**
   - Conv2d(1→32, 3×3) + BatchNorm + ReLU + MaxPool
-  - Conv2d(32→64, 3×3) + BatchNorm + ReLU + MaxPool  
+  - Conv2d(32→64, 3×3) + BatchNorm + ReLU + MaxPool
   - AdaptiveAvgPool2d(7×7)
   - Linear(3136→128) + ReLU + Dropout(0.25)
   - **Single-head:** Linear(128→10)
@@ -384,11 +397,28 @@ python src/train.py model=my_model
   - **Digit**: 10-class classification (0-9)
   - **Thickness**: 5-class classification (very thin to very thick)
   - **Smoothness**: 3-class classification (angular to smooth)
-- **Benefits:** 
+- **Benefits:**
   - Shared feature learning across tasks
   - Regularization through multi-task objective
   - Efficient inference (one forward pass, multiple predictions)
 - **Loss:** Weighted combination of task-specific losses
+
+### ConvNeXt-V2 (New)
+- **Type:** Modern convolutional neural network with Global Response Normalization
+- **Parameters:** 18K (tiny), 73K (small), 288K (base), 725K (large)
+- **Architecture:**
+  - **Stem:** 2×2 conv stride 2 (MNIST) or 4×4 conv stride 4 (ImageNet)
+  - **4 Stages:** Progressive downsampling with residual blocks
+  - **ConvNeXt Block:** 7×7 depthwise conv → LayerNorm → 4× MLP expansion → GRN → pointwise conv
+  - **Global Response Normalization (GRN):** Key innovation for training stability
+  - **Adaptive stem:** Automatically adjusts for 28×28 (MNIST) vs 224×224 (ImageNet) inputs
+- **Input:** Raw 28×28 images (preserves spatial structure like CNN)
+- **Benefits:**
+  - Modern architectural improvements over standard CNNs
+  - Training stability through GRN normalization
+  - Scalable design from tiny to large models
+  - Efficient inference with competitive accuracy
+- **Speed:** Similar to CNN, faster than ViT for smaller models
 
 ## 🎛️ Configuration Best Practices
 
@@ -402,12 +432,13 @@ python src/train.py tags="[experiment_name,architecture_type,hyperparam_set]"
 ```bash
 # Test different learning rates
 python src/train.py model=mnist_cnn model.optimizer.lr=0.01
-python src/train.py model=mnist_cnn model.optimizer.lr=0.001  
+python src/train.py model=mnist_cnn model.optimizer.lr=0.001
 python src/train.py model=mnist_cnn model.optimizer.lr=0.0001
 
 # Test different architectures with same hyperparameters
 python src/train.py experiment=my_experiment model.optimizer.lr=0.001
 python src/train.py experiment=my_experiment model=mnist_cnn model.optimizer.lr=0.001
+python src/train.py experiment=my_experiment model=mnist_convnext_68k model.optimizer.lr=0.001
 python src/train.py experiment=multihead_mnist model.optimizer.lr=0.001
 
 # Test different loss weightings for multihead
@@ -422,7 +453,7 @@ make trc
 
 # Force specific accelerator if needed
 python src/train.py model=mnist_cnn trainer.accelerator=cpu
-python src/train.py model=mnist_cnn trainer.accelerator=gpu  
+python src/train.py model=mnist_cnn trainer.accelerator=gpu
 python src/train.py model=mnist_cnn trainer.accelerator=mps
 
 # With more workers for faster data loading
@@ -433,7 +464,7 @@ python src/train.py model=mnist_cnn data.num_workers=8
 
 ### Non-Destructive Extensions
 - Added new files instead of modifying existing ones
-- Preserved original functionality completely  
+- Preserved original functionality completely
 - Easy rollback - just delete new files
 - Zero risk to existing workflows
 
@@ -445,12 +476,12 @@ Multihead classification allows a single model to predict multiple related tasks
 
 **MNIST Multihead Implementation:**
 - **Primary Task**: Digit classification (0-9) - 10 classes
-- **Secondary Task 1**: Thickness estimation (very thin to very thick) - 5 classes  
+- **Secondary Task 1**: Thickness estimation (very thin to very thick) - 5 classes
 - **Secondary Task 2**: Smoothness assessment (angular to smooth) - 3 classes
 
 **Key Features:**
 - **Backward Compatible**: Existing single-head configs work unchanged
-- **Loss Weighting**: Different tasks can have different importance 
+- **Loss Weighting**: Different tasks can have different importance
 - **Separate Metrics**: Each head tracks its own accuracy independently
 - **Synthetic Labels**: Intelligent mapping from digits to thickness/smoothness
 
@@ -493,7 +524,7 @@ criteria:
   digit:
     _target_: torch.nn.CrossEntropyLoss
   thickness:
-    _target_: torch.nn.CrossEntropyLoss  
+    _target_: torch.nn.CrossEntropyLoss
   smoothness:
     _target_: torch.nn.CrossEntropyLoss
 
@@ -512,7 +543,7 @@ net:
 
 ### Configuration-Driven Development
 - No code changes needed for common experiments
-- Version-controlled configurations for reproducibility  
+- Version-controlled configurations for reproducibility
 - Hydra best practices followed throughout
 - Consistent patterns across all components
 
@@ -526,10 +557,11 @@ When we first added these features, git showed no diffs because we created new f
    source .venv/bin/activate  # or: conda activate myenv
    ```
 
-2. **Test both architectures:**
+2. **Test all architectures:**
    ```bash
    make tq       # Test SimpleDenseNet
    make tqc      # Test SimpleCNN
+   make tqcn     # Test ConvNeXt-V2
    ```
 
 3. **Full training comparison:**
@@ -550,6 +582,7 @@ Based on quick tests (1 epoch, limited batches):
 |-------------|------------|---------------|----------------|-------|
 | SimpleDenseNet | 68K | ~56.6% | Fast ⚡ | Single task |
 | SimpleCNN | 421K | ~74.8% | Slower 🐢 | Single task |
+| ConvNeXt-V2 | 73K | ~68.3% | Medium 🚀 | Modern CNN with GRN |
 | SimpleCNN Multihead | 422K | Digit: ~7.8%, Thickness: ~39%, Smoothness: ~52% | Slower 🐢 | Multi-task learning |
 
 *Note: Results may vary with different random seeds and full training. Multihead results show performance on individual tasks.*
@@ -567,4 +600,4 @@ The extensions seamlessly integrate with existing workflows while adding powerfu
 
 ---
 
-*This documentation covers the configuration extensions to the Lightning-Hydra template. See the original README.md for base template documentation.* 
+*This documentation covers the configuration extensions to the Lightning-Hydra template. See the original README.md for base template documentation.*
