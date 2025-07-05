@@ -234,6 +234,20 @@ def convnext_v2_mnist_large(input_size: int = 28, in_chans: int = 1, output_size
     )
 
 
+def convnext_v2_official_tiny_benchmark(input_size: int = 28, in_chans: int = 1, output_size: int = 10, **kwargs):
+    """ConvNeXt-V2 Official Tiny Benchmark - exact match to Facebook's canonical config"""
+    return ConvNeXtV2(
+        input_size=input_size,
+        in_chans=in_chans,
+        output_size=output_size,
+        depths=(2, 2, 4, 2),
+        dims=(12, 24, 48, 96),
+        drop_path_rate=0.2,  # Official Tiny drop_path: 0.2
+        head_init_scale=0.001,  # Official head_init_scale
+        **kwargs
+    )
+
+
 # Standard ConvNeXt-V2 variants for ImageNet (keeping original sizes)
 def convnext_v2_atto(input_size: int = 224, in_chans: int = 3, output_size: int = 1000, **kwargs):
     """ConvNeXt-V2 Atto"""

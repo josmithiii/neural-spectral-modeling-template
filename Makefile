@@ -114,3 +114,6 @@ emhc exp-multihead-cnn: ## Run MultiHead CNN classification experiment
 excn exp-convnext: ## Run ConvNeXt-V2 experiment
 	time python src/train.py experiment=convnext_mnist
 
+ecnb exp-convnext-benchmark: ## Run official ConvNeXt V2-Tiny benchmark (acid test)
+	time python src/train.py experiment=convnext_v2_official_tiny_benchmark
+
