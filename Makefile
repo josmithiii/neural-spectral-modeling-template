@@ -49,6 +49,15 @@ trvl train-vit-large: ## Train large ViT (~821K params)
 trvp train-vit-pytorch: ## Train ViT using PyTorch layers
 	time python src/train.py model=mnist_vit_pytorch
 
+trcns train-convnext-small: ## Train ConvNeXt-V2 small (~68K params)
+	time python src/train.py model=mnist_convnext_68k
+
+trcnm train-convnext-medium: ## Train ConvNeXt-V2 medium (~210K params)
+	time python src/train.py model=mnist_convnext_210k
+
+trcnl train-convnext-large: ## Train ConvNeXt-V2 large (~821K params)
+	time python src/train.py model=mnist_convnext_821k
+
 
 
 # TRAIN-QUICKLY TARGETS "tq"
@@ -62,7 +71,10 @@ tqc train-quick-cnn: ## Train quickly SimpleCNN, 1 epoch
 tqv train-quick-vit: ## Train quickly ViT, 1 epoch
 	python src/train.py model=mnist_vit_38k trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
-tqa train-quick-all: tq tqc tqv ## Train quickly all architectures supported
+tqcn train-quick-convnext: ## Train quickly ConvNeXt-V2, 1 epoch
+	python src/train.py model=mnist_convnext_68k trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
+
+tqa train-quick-all: tq tqc tqv tqcn ## Train quickly all architectures supported
 
 # TESTING TARGETS "t"
 
@@ -79,6 +91,8 @@ ca compare-arch: ## Compare architectures on quick runs
 	python src/train.py model=mnist_cnn trainer.max_epochs=3 tags="[arch_comparison,cnn]"
 	@echo "=== Training ViT ==="
 	python src/train.py model=mnist_vit_38k trainer.max_epochs=3 tags="[arch_comparison,vit]"
+	@echo "=== Training ConvNeXt-V2 ==="
+	python src/train.py model=mnist_convnext_68k trainer.max_epochs=3 tags="[arch_comparison,convnext]"
 	@echo "=== Check logs/ directory for results comparison ==="
 
 # EXPERIMENTS "e" - Reproducible Configuration Examples
@@ -96,4 +110,7 @@ ev995 exp-vit-995: ## Run ViT experiment achieving SOTA 99.5% validation accurac
 
 emhc exp-multihead-cnn: ## Run MultiHead CNN classification experiment
 	time python src/train.py experiment=multihead_cnn_mnist
+
+excn exp-convnext: ## Run ConvNeXt-V2 experiment
+	time python src/train.py experiment=convnext_mnist
 

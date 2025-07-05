@@ -1,0 +1,24 @@
+_target_: src.models.mnist_module.MNISTLitModule
+
+net:
+  _target_: src.models.components.convnext_v2.convnext_v2_mnist_large
+  input_size: 28
+  in_chans: 1
+  output_size: 10
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.01
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 100
+  eta_min: 1e-5
+
+criterion:
+  _target_: torch.nn.CrossEntropyLoss
+
+compile: false
