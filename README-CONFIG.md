@@ -403,6 +403,24 @@ python src/train.py model=my_model
   - Efficient inference (one forward pass, multiple predictions)
 - **Loss:** Weighted combination of task-specific losses
 
+### Vision Transformer (ViT) (New)
+- **Type:** Transformer architecture applied to images via patch embeddings
+- **Parameters:** 38K (tiny), 210K (small), 821K (base)
+- **Architecture:**
+  - **Patch Embedding:** 28×28 images → 7×7 patches → 16 patches → embedded vectors
+  - **Positional Encoding:** Learnable position embeddings for each patch
+  - **Transformer Blocks:** Multi-head self-attention + MLP with residual connections
+  - **Classification Head:** Global average pooling + linear projection
+  - **Normalization:** LayerNorm throughout (not BatchNorm)
+- **Input:** Raw 28×28 images divided into 7×7 patches
+- **Benefits:**
+  - Attention mechanism captures long-range dependencies
+  - Highly parallelizable training
+  - Scales well with data and model size
+  - State-of-the-art results on large datasets
+- **Speed:** Slower than CNN for small models, competitive at scale
+- **SOTA Configuration:** 210K parameters, 200 epochs, custom normalization and augmentation
+
 ### ConvNeXt-V2 (New)
 - **Type:** Modern convolutional neural network with Global Response Normalization
 - **Parameters:** 18K (tiny), 73K (small), 288K (base), 725K (large)
@@ -547,8 +565,6 @@ net:
 - Hydra best practices followed throughout
 - Consistent patterns across all components
 
-### Why No Git Diffs Initially?
-When we first added these features, git showed no diffs because we created new files rather than modifying existing tracked files. This additive development approach maintained backward compatibility - a sign of good software engineering.
 
 ## 🚀 Quick Start
 
@@ -600,4 +616,4 @@ The extensions seamlessly integrate with existing workflows while adding powerfu
 
 ---
 
-*This documentation covers the configuration extensions to the Lightning-Hydra template. See the original README.md for base template documentation.*
+*This documentation covers the configuration extensions to the Lightning-Hydra template. See the original [README.md](README.md) for base template documentation.*
