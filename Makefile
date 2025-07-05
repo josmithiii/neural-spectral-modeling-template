@@ -84,6 +84,21 @@ t test: ## Run fast pytest tests
 ta test-all: ## Run all pytest tests
 	pytest
 
+td test-diagram: ## Generate model architecture diagrams (text + graphical)
+	python enhanced_model_diagrams.py
+
+tda test-diagram-all: ## Generate diagrams for all model architectures
+	python enhanced_model_diagrams.py -c mnist_cnn_8k
+	python enhanced_model_diagrams.py -c mnist_vit_38k
+	python enhanced_model_diagrams.py -c mnist_convnext_68k
+	python enhanced_model_diagrams.py -c mnist_sdn_8k
+
+tdl test-diagram-list: ## List available model configs for diagrams
+	python enhanced_model_diagrams.py --list-configs
+
+tds test-diagram-simple: ## Generate simple text-only diagrams
+	python simple_model_diagram.py
+
 ca compare-arch: ## Compare architectures on quick runs
 	@echo "=== Training SimpleDenseNet ==="
 	python src/train.py trainer.max_epochs=3 tags="[arch_comparison,dense]"
