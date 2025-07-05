@@ -1,6 +1,21 @@
-<div align="center">
+# Lightning-Hydra-Template **Extended**
 
-# Lightning-Hydra-Template
+## Extensions
+
+Original Lightning-Hydra-Template extended with:
+- **Configurable loss functions** via Hydra configuration
+- **Multiple neural network architectures** with easy switching (CNN, EfficientNet, ViT, ConvNeXt-V2)
+- **Multihead Classification** with backward compatibility for original single-head usage
+- **New convenience make targets** for streamlined development and testing workflow
+- **Original Lightning-Hydra-Template Compatibility** for pre-existing configs, models, and datasets
+
+See the all-new [README-CONFIG.md](./README-CONFIG.md) file for details
+
+---
+
+# Begin Original **Lightning-Hydra-Template** README.md
+
+<div align="center">
 
 [![python](https://img.shields.io/badge/-Python_3.8_%7C_3.9_%7C_3.10-blue?logo=python&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)

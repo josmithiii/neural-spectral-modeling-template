@@ -1,20 +1,4 @@
-# JOS Extensions to Lightning-Hydra Template
-
-This document describes the extensions and enhancements made to the original Lightning-Hydra template, focusing on improved configurability and architecture flexibility.
-
-## Overview
-
-We've extended the original template with:
-- **Configurable loss functions** via Hydra configuration
-- **Multiple neural network architectures** with easy switching
-- **Additional make targets** for streamlined development workflow
-- **Non-destructive extensions** following best practices
-- **Multihead Classification** with backward compatibility for original single-head usage
-
-## Documentation
-- [README-CONFIG.md](./README-CONFIG.md)
-
----
+# JOS Notes to Self
 
 ## Bootstrap
 
