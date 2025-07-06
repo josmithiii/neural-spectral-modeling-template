@@ -1,0 +1,39 @@
+# @package _global_
+
+# CIFAR-100 CNN Benchmark
+# Expected performance: ~55-70% accuracy with proper training
+
+defaults:
+  - override /data: cifar100
+  - override /model: cifar100_cnn_64k
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["cifar100", "cnn", "benchmark", "64k_params", "fine_grained"]
+
+seed: 42
+
+trainer:
+  min_epochs: 30
+  max_epochs: 100
+  gradient_clip_val: 1.0
+
+model:
+  optimizer:
+    lr: 0.001
+    weight_decay: 0.0001
+  scheduler:
+    patience: 10
+    factor: 0.5
+
+data:
+  batch_size: 128
+  num_workers: 4
+  pin_memory: true
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "cifar100_benchmark"
+  aim:
+    experiment: "cifar100_benchmark"

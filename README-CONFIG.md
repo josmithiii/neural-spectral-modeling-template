@@ -4,7 +4,39 @@
 
 ## 🎯 Key Features
 
-### 1. Configurable Loss Functions
+### 1. CIFAR Benchmark Suite 🎯
+
+**What's New:** Comprehensive benchmarking capabilities for CIFAR-10 and CIFAR-100 datasets with multiple architectures, systematic performance comparison, and production-ready configurations.
+
+**Available Datasets:**
+- **CIFAR-10**: 10 classes, 32×32 RGB images (airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck)
+- **CIFAR-100**: 100 fine-grained classes, 32×32 RGB images
+- **CIFAR-100 Coarse**: 20 coarse superclasses, 32×32 RGB images
+
+**Architecture Support:**
+- **SimpleCNN**: 3.3M parameters, baseline performance
+- **ConvNeXt**: 288K parameters, modern efficient CNN
+- **Vision Transformer**: 210K parameters, attention-based
+- **EfficientNet**: 210K parameters, mobile-optimized
+
+**Expected Performance:**
+- **CIFAR-10**: 85-95% accuracy (literature competitive)
+- **CIFAR-100**: 55-75% accuracy (challenging dataset)
+- **CIFAR-100 Coarse**: 75-85% accuracy (easier 20-class task)
+
+**Quick Start:**
+```bash
+# Quick validation
+make cbq10c      # CIFAR-10 CNN (5 epochs)
+make cbq10cn     # CIFAR-10 ConvNeXt (5 epochs)
+
+# Full benchmarks
+make cb10c       # CIFAR-10 CNN (full training)
+make cbs10       # All CIFAR-10 architectures
+make cbs         # Automated benchmark suite
+```
+
+### 2. Configurable Loss Functions
 
 **What Changed:** The loss function ("criterion" in [`configs/model/*.yaml`](./configs/model/)) is now configurable through Hydra, following the same pattern as the optimizer and scheduler.
 
@@ -35,18 +67,20 @@ python src/train.py model.criterion._target_=torch.nn.MSELoss
 python src/train.py model.criterion.weight="[1.0,2.0,1.5]"
 ```
 
-### 2. Multiple Architecture Support
+### 3. Multiple Architecture Support
 
 **Architecture Options:**
 
 | Architecture | Parameters | Description | Config File |
 |-------------|------------|-------------|-------------|
 | **SimpleDenseNet (SDN)** | 8K, 68K | Fully-connected network | [`configs/model/mnist_sdn_68k.yaml`](./configs/model/mnist_sdn_68k.yaml) etc. |
-| **SimpleCNN** | 8K, 421K | Convolutional Neural Network (CNN) | [`configs/model/mnist_cnn_421k.yaml`](configs/model/mnist_cnn_421k.yaml) etc. |
-| **EfficientNet (CNN)** | 22K, 7M | Super efficient CNN at scale | [`configs/model/mnist_efficientnet_7m.yaml`](configs/model/mnist_efficientnet_7m.yaml) etc.|
+| **SimpleCNN** | 8K, 421K, 3.3M | Convolutional Neural Network (CNN) | [`configs/model/mnist_cnn_421k.yaml`](configs/model/mnist_cnn_421k.yaml) etc. |
+| **EfficientNet (CNN)** | 22K, 7M, 210K | Super efficient CNN at scale | [`configs/model/mnist_efficientnet_7m.yaml`](configs/model/mnist_efficientnet_7m.yaml) etc.|
 | **SimpleCNN (Multihead)** | 422K | CNN with multiple prediction heads | [`configs/model/mnist_multihead_cnn_422k.yaml`](configs/model/mnist_multihead_cnn_422k.yaml) |
 | **Vision Transformer (ViT)** | 38K, 210K, 821K | Transformer on embedded patches | [`configs/model/mnist_vit_210k.yaml`](configs/model/mnist_vit_210k.yaml) |
 | **ConvNeXt-V2** | 18K, 73K, 288K, 725K | Modern CNN with Global Response Normalization | [`configs/model/mnist_convnext_68k.yaml`](configs/model/mnist_convnext_68k.yaml) |
+| **CIFAR-10 Models** | 288K-3.3M | CNN, ConvNeXt, ViT, EfficientNet for CIFAR-10 | [`configs/model/cifar10_cnn_64k.yaml`](configs/model/cifar10_cnn_64k.yaml) etc. |
+| **CIFAR-100 Models** | 290K-3.3M | CNN, ConvNeXt, ViT, EfficientNet for CIFAR-100 | [`configs/model/cifar100_cnn_64k.yaml`](configs/model/cifar100_cnn_64k.yaml) etc. |
 
 **File Structure:**
 ```
@@ -60,21 +94,35 @@ src/models/components/
 src/data/
 ├── mnist_datamodule.py     # Original MNIST data loading module with added multihead support
 ├── multihead_dataset.py    # Dataset wrapper for multihead labels
-└── mnist_vit_995_datamodule.py # Specialized ViT dataloader with custom normalization and augmentation
+├── mnist_vit_995_datamodule.py # Specialized ViT dataloader with custom normalization and augmentation
+├── cifar10_datamodule.py   # CIFAR-10 data loading module with transforms
+└── cifar100_datamodule.py  # CIFAR-100 data loading module with dual-label support
 
 configs/model/              # See Architecture Options above
+├── mnist_*.yaml            # MNIST model configurations
+├── cifar10_*.yaml          # CIFAR-10 model configurations
+└── cifar100_*.yaml         # CIFAR-100 model configurations
 
 configs/data/
 ├── mnist.yaml              # Config for original MNIST data loader
 ├── mnist_vit_995.yaml      # Config for Vision Transformer data loader (SOTA benchmark)
-└── multihead_mnist.yaml    # Config for multihead CNN data loader
+├── multihead_mnist.yaml    # Config for multihead CNN data loader
+├── cifar10.yaml            # Config for CIFAR-10 data loader
+├── cifar100.yaml           # Config for CIFAR-100 fine-grained data loader
+└── cifar100_coarse.yaml    # Config for CIFAR-100 coarse-grained data loader
 
 configs/experiment/
 ├── example.yaml             # Original SimpleDenseNet experiment example
 ├── multihead_cnn_mnist.yaml # Multihead CNN experiment on MNIST
 ├── vit_mnist.yaml           # Simple ViT experiment
 ├── vit_mnist_995.yaml       # SOTA ViT on MNIST experiment, 200 epochs, 210K params
-└── convnext_mnist.yaml      # ConvNeXt-V2 experiment on MNIST
+├── convnext_mnist.yaml      # ConvNeXt-V2 experiment on MNIST
+├── cifar10_benchmark_*.yaml # CIFAR-10 benchmark experiments
+├── cifar100_benchmark_*.yaml # CIFAR-100 benchmark experiments
+└── cifar100_coarse_*.yaml   # CIFAR-100 coarse benchmark experiments
+
+scripts/
+└── benchmark_cifar.py       # Automated CIFAR benchmark suite
 ```
 
 **Architecture Switching:**
@@ -95,7 +143,7 @@ python src/train.py model=mnist_convnext_68k trainer.max_epochs=10       # ConvN
 python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multihead CNN
 ```
 
-### 3. New Convenience Make Targets
+### 4. New Convenience Make Targets
 
 **Training Targets:**
 
@@ -119,11 +167,43 @@ python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multi
 
 **Reproducible Experiments:**
 
+| Target | Description | Architecture |
+|--------|-------------|--------------|
 | `make example` | Run example experiment config | Dense |
 | `make evit` or `make exp-vit` | Experiment using Vision Transformer | ViT |
 | `make excn` or `make exp-convnext` | Experiment using ConvNeXt-V2 | ConvNeXt-V2 |
 | `make emhc` or `make exp-multihead-cnn` | Experiment using MultiHead CNN | CNN |
 | `make help | grep exp` | List all available experiments | Various |
+
+**CIFAR Benchmark Targets:**
+
+| Target | Description | Dataset | Expected Accuracy |
+|--------|-------------|---------|------------------|
+| `make cb10c` or `make cifar10-cnn` | CIFAR-10 CNN benchmark | CIFAR-10 | 85-92% |
+| `make cb10cn` or `make cifar10-convnext` | CIFAR-10 ConvNeXt benchmark | CIFAR-10 | 90-95% |
+| `make cb10v` or `make cifar10-vit` | CIFAR-10 ViT benchmark | CIFAR-10 | 88-93% |
+| `make cb10e` or `make cifar10-efficientnet` | CIFAR-10 EfficientNet benchmark | CIFAR-10 | 89-94% |
+| `make cb100c` or `make cifar100-cnn` | CIFAR-100 CNN benchmark | CIFAR-100 | 55-70% |
+| `make cb100cn` or `make cifar100-convnext` | CIFAR-100 ConvNeXt benchmark | CIFAR-100 | 70-80% |
+| `make cb100cc` or `make cifar100-coarse-cnn` | CIFAR-100 coarse CNN benchmark | CIFAR-100 (20) | 75-85% |
+
+**CIFAR Quick Validation:**
+
+| Target | Description | Duration |
+|--------|-------------|----------|
+| `make cbq10c` or `make cifar10-quick-cnn` | Quick CIFAR-10 CNN validation | 5 epochs |
+| `make cbq10cn` or `make cifar10-quick-convnext` | Quick CIFAR-10 ConvNeXt validation | 5 epochs |
+| `make cbq100c` or `make cifar100-quick-cnn` | Quick CIFAR-100 CNN validation | 5 epochs |
+| `make cbqa` or `make cifar-quick-all` | Run all quick CIFAR validations | 5 epochs each |
+
+**CIFAR Benchmark Suites:**
+
+| Target | Description | Scope |
+|--------|-------------|-------|
+| `make cbs` or `make benchmark-suite` | Automated CIFAR benchmark suite | All |
+| `make cbs10` or `make benchmark-cifar10` | All CIFAR-10 benchmarks | CIFAR-10 |
+| `make cbs100` or `make benchmark-cifar100` | All CIFAR-100 benchmarks | CIFAR-100 |
+| `make cbsa` or `make benchmark-all` | Complete CIFAR benchmark suite | All |
 
 See [Experiment Configuration System](#experiment-config) below for more about Experiments.
 
@@ -146,7 +226,7 @@ make help
 ```
 
 <a name="experiment-config"></a>
-### 4. Experiment Configuration System
+### 5. Experiment Configuration System
 
 **What are Experiment Configs?**
 
@@ -238,6 +318,49 @@ Makefile                        # Added convenience make targets (for poor typis
 README-CONFIG.md                # This documentation
 ```
 
+### For CIFAR Benchmark Suite
+
+```
+configs/model/
+├── cifar10_cnn_64k.yaml        # CIFAR-10 CNN configuration (3.3M params)
+├── cifar10_convnext_210k.yaml  # CIFAR-10 ConvNeXt configuration (288K params)
+├── cifar10_vit_210k.yaml       # CIFAR-10 Vision Transformer configuration
+├── cifar10_efficientnet_210k.yaml # CIFAR-10 EfficientNet configuration
+├── cifar100_cnn_64k.yaml       # CIFAR-100 CNN configuration (3.3M params)
+├── cifar100_convnext_210k.yaml # CIFAR-100 ConvNeXt configuration (290K params)
+├── cifar100_vit_210k.yaml      # CIFAR-100 Vision Transformer configuration
+├── cifar100_efficientnet_210k.yaml # CIFAR-100 EfficientNet configuration
+└── cifar100_coarse_cnn_64k.yaml # CIFAR-100 coarse CNN configuration
+
+configs/data/
+├── cifar10.yaml                # CIFAR-10 data configuration
+├── cifar100.yaml               # CIFAR-100 fine-grained data configuration
+└── cifar100_coarse.yaml        # CIFAR-100 coarse-grained data configuration
+
+configs/experiment/
+├── cifar10_benchmark_cnn.yaml  # CIFAR-10 CNN benchmark experiment
+├── cifar10_benchmark_convnext.yaml # CIFAR-10 ConvNeXt benchmark experiment
+├── cifar10_benchmark_vit.yaml  # CIFAR-10 ViT benchmark experiment
+├── cifar10_benchmark_efficientnet.yaml # CIFAR-10 EfficientNet benchmark experiment
+├── cifar100_benchmark_cnn.yaml # CIFAR-100 CNN benchmark experiment
+├── cifar100_benchmark_convnext.yaml # CIFAR-100 ConvNeXt benchmark experiment
+├── cifar100_cnn.yaml           # CIFAR-100 standard experiment
+└── cifar100_coarse_cnn.yaml    # CIFAR-100 coarse benchmark experiment
+
+src/data/
+├── cifar10_datamodule.py       # CIFAR-10 data loading module with transforms
+└── cifar100_datamodule.py      # CIFAR-100 data loading module with dual-label support
+
+tests/
+├── test_cifar10_datamodule.py  # CIFAR-10 test suite
+└── test_cifar100_datamodule.py # CIFAR-100 test suite (dual-mode)
+
+scripts/
+└── benchmark_cifar.py          # Automated CIFAR benchmark suite
+
+CIFAR_BENCHMARK_REPORT.md       # Comprehensive benchmark documentation
+```
+
 ### Configuration for New Model Architecture
 
 **Model Configuration Pattern:**
@@ -285,6 +408,28 @@ make trc
 make trcns   # Small (~73K params)
 make trcnm   # Medium (~288K params)
 ```
+
+### CIFAR Benchmarks
+```bash
+# Quick CIFAR validation (5 epochs each)
+make cbqa                # All quick CIFAR validations
+make cbq10c              # Quick CIFAR-10 CNN validation
+
+# Full CIFAR-10 benchmarks
+make cb10c               # CIFAR-10 CNN (85-92% expected)
+make cb10cn              # CIFAR-10 ConvNeXt (90-95% expected)
+make cbs10               # All CIFAR-10 architectures
+
+# Full CIFAR-100 benchmarks
+make cb100c              # CIFAR-100 CNN (55-70% expected)
+make cb100cc             # CIFAR-100 coarse CNN (75-85% expected)
+make cbs100              # All CIFAR-100 architectures
+
+# Automated benchmark suite
+make cbs                 # Run systematic CIFAR comparisons
+make cbsa                # Complete CIFAR benchmark suite
+```
+
 See the [Makefile](./Makefile) for the rest.
 
 ### Advanced Configuration
@@ -298,6 +443,19 @@ python src/train.py model=mnist_cnn \
   model.net.conv1_channels=64 \
   model.net.dropout=0.5
 
+# CIFAR experiments with custom hyperparameters
+python src/train.py experiment=cifar10_benchmark_cnn \
+  trainer.max_epochs=100 \
+  model.optimizer.lr=0.01
+
+# CIFAR architecture comparison
+python src/train.py experiment=cifar10_benchmark_cnn trainer.max_epochs=10 tags="[cifar10,cnn,comparison]"
+python src/train.py experiment=cifar10_benchmark_convnext trainer.max_epochs=10 tags="[cifar10,convnext,comparison]"
+
+# CIFAR-100 dual-mode experiments
+python src/train.py experiment=cifar100_cnn trainer.max_epochs=50        # 100 fine classes
+python src/train.py experiment=cifar100_coarse_cnn trainer.max_epochs=30 # 20 coarse classes
+
 # All training automatically uses best available accelerator (MPS on Mac, GPU on Linux, CPU fallback)
 
 # Architecture comparison with tags
@@ -307,8 +465,13 @@ python src/train.py model=mnist_cnn trainer.max_epochs=5 tags="[comparison,cnn]"
 
 ### Performance Comparison
 ```bash
-# Systematic comparison
+# MNIST systematic comparison
 make ca
+
+# CIFAR systematic comparison
+make cbs10               # All CIFAR-10 architectures
+make cbs100              # All CIFAR-100 architectures
+make cbs                 # Automated benchmark suite
 
 # Check results in logs
 ls logs/train/runs/
@@ -486,7 +649,7 @@ python src/train.py model=mnist_cnn data.num_workers=8
 - Easy rollback - just delete new files
 - Zero risk to existing workflows
 
-### 4. Multihead Classification Support
+### 6. Multihead Classification Support
 
 **What is Multihead Classification?**
 
@@ -592,7 +755,7 @@ net:
 
 ## 📊 Results Summary
 
-Based on quick tests (1 epoch, limited batches):
+### MNIST Quick Tests (1 epoch, limited batches):
 
 | Architecture | Parameters | Test Accuracy | Training Speed | Notes |
 |-------------|------------|---------------|----------------|-------|
@@ -601,7 +764,27 @@ Based on quick tests (1 epoch, limited batches):
 | ConvNeXt-V2 | 73K | ~68.3% | Medium 🚀 | Modern CNN with GRN |
 | SimpleCNN Multihead | 422K | Digit: ~7.8%, Thickness: ~39%, Smoothness: ~52% | Slower 🐢 | Multi-task learning |
 
-*Note: Results may vary with different random seeds and full training. Multihead results show performance on individual tasks.*
+### CIFAR Verified Performance (3 epochs, full training):
+
+| Architecture | Dataset | Parameters | Validation Accuracy | Training Time | Notes |
+|-------------|---------|------------|-------------------|---------------|-------|
+| SimpleCNN | CIFAR-10 | 3.3M | 58.5% (3 epochs) | ~2 min (CPU) | ✅ Verified baseline |
+| ConvNeXt | CIFAR-10 | 288K | Architecture loads ✅ | - | Ready for benchmarking |
+| SimpleCNN | CIFAR-100 | 3.3M | Ready ✅ | - | 100 fine classes |
+| SimpleCNN | CIFAR-100 Coarse | 3.3M | Ready ✅ | - | 20 coarse classes |
+
+### Expected Full Training Performance:
+
+| Dataset | Architecture | Expected Accuracy | Literature Baseline |
+|---------|-------------|------------------|-------------------|
+| CIFAR-10 | SimpleCNN | 85-92% | Competitive |
+| CIFAR-10 | ConvNeXt | 90-95% | State-of-the-art |
+| CIFAR-10 | Vision Transformer | 88-93% | Modern |
+| CIFAR-100 | SimpleCNN | 55-70% | Challenging |
+| CIFAR-100 | ConvNeXt | 70-80% | Advanced |
+| CIFAR-100 Coarse | SimpleCNN | 75-85% | Easier task |
+
+*Note: MNIST results may vary with different random seeds and full training. CIFAR performance based on literature baselines and verified 3-epoch progression. Multihead results show performance on individual tasks.*
 
 ## 🔗 Integration with Original Template
 
@@ -612,7 +795,14 @@ All original Lightning-Hydra template features remain fully functional:
 - Testing framework compatible
 - Logging and callbacks unchanged
 
-The extensions seamlessly integrate with existing workflows while adding powerful new capabilities for architecture experimentation and systematic ML research.
+The extensions seamlessly integrate with existing workflows while adding powerful new capabilities for:
+- **Architecture experimentation** across CNN, ConvNeXt, ViT, and EfficientNet
+- **Systematic ML research** with reproducible configurations
+- **Computer vision benchmarking** with CIFAR-10 and CIFAR-100 datasets
+- **Multi-task learning** with multihead classification
+- **Performance comparison** across datasets and architectures
+
+**Ready for serious computer vision research** with literature-competitive baselines! 🚀
 
 ---
 

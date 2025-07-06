@@ -1,0 +1,31 @@
+# @package _global_
+
+# CIFAR-10 Vision Transformer Benchmark
+# Expected performance: ~88-93% accuracy with proper training
+
+defaults:
+  - override /data: cifar10
+  - override /model: cifar10_vit_210k
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["cifar10", "vit", "transformer", "benchmark", "210k_params"]
+
+seed: 42
+
+trainer:
+  min_epochs: 20
+  max_epochs: 50
+  gradient_clip_val: 1.0
+
+data:
+  batch_size: 128
+  num_workers: 4
+  pin_memory: true
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "cifar10_benchmark"
+  aim:
+    experiment: "cifar10_benchmark"

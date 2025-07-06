@@ -132,3 +132,65 @@ excn exp-convnext: ## Run ConvNeXt-V2 experiment
 ecnb exp-convnext-benchmark: ## Run official ConvNeXt V2-Tiny benchmark (acid test)
 	time python src/train.py experiment=convnext_v2_official_tiny_benchmark
 
+# CIFAR BENCHMARKS "cb" - Computer Vision Dataset Experiments
+
+cb10c cifar10-cnn: ## Run CIFAR-10 CNN benchmark (85-92% expected accuracy)
+	time python src/train.py experiment=cifar10_benchmark_cnn
+
+cb10cn cifar10-convnext: ## Run CIFAR-10 ConvNeXt benchmark (90-95% expected accuracy)
+	time python src/train.py experiment=cifar10_benchmark_convnext
+
+cb10v cifar10-vit: ## Run CIFAR-10 Vision Transformer benchmark (88-93% expected accuracy)
+	time python src/train.py experiment=cifar10_benchmark_vit
+
+cb10e cifar10-efficientnet: ## Run CIFAR-10 EfficientNet benchmark (89-94% expected accuracy)
+	time python src/train.py experiment=cifar10_benchmark_efficientnet
+
+cb100c cifar100-cnn: ## Run CIFAR-100 CNN benchmark (55-70% expected accuracy)
+	time python src/train.py experiment=cifar100_benchmark_cnn
+
+cb100cn cifar100-convnext: ## Run CIFAR-100 ConvNeXt benchmark (70-80% expected accuracy)
+	time python src/train.py experiment=cifar100_benchmark_convnext
+
+cb100v cifar100-vit: ## Run CIFAR-100 Vision Transformer benchmark (65-75% expected accuracy)
+	time python src/train.py experiment=cifar100_vit_210k
+
+cb100e cifar100-efficientnet: ## Run CIFAR-100 EfficientNet benchmark (68-78% expected accuracy)
+	time python src/train.py experiment=cifar100_efficientnet_210k
+
+cb100cc cifar100-coarse-cnn: ## Run CIFAR-100 coarse (20-class) CNN benchmark (75-85% expected accuracy)
+	time python src/train.py experiment=cifar100_coarse_cnn
+
+cb100ccn cifar100-coarse-convnext: ## Run CIFAR-100 coarse ConvNeXt benchmark (80-90% expected accuracy)
+	time python src/train.py experiment=cifar100_coarse_convnext
+
+# CIFAR QUICK BENCHMARKS "cbq" - Fast Validation Runs
+
+cbq10c cifar10-quick-cnn: ## Quick CIFAR-10 CNN validation (5 epochs)
+	python src/train.py experiment=cifar10_benchmark_cnn trainer.max_epochs=5
+
+cbq10cn cifar10-quick-convnext: ## Quick CIFAR-10 ConvNeXt validation (5 epochs)
+	python src/train.py experiment=cifar10_benchmark_convnext trainer.max_epochs=5
+
+cbq100c cifar100-quick-cnn: ## Quick CIFAR-100 CNN validation (5 epochs)
+	python src/train.py experiment=cifar100_benchmark_cnn trainer.max_epochs=5
+
+cbq100cc cifar100-quick-coarse: ## Quick CIFAR-100 coarse validation (5 epochs)
+	python src/train.py experiment=cifar100_coarse_cnn trainer.max_epochs=5
+
+cbqa cifar-quick-all: cbq10c cbq10cn cbq100c cbq100cc ## Run all quick CIFAR validations
+
+# CIFAR BENCHMARK SUITES "cbs" - Systematic Comparisons
+
+cbs benchmark-suite: ## Run automated CIFAR benchmark suite
+	python scripts/benchmark_cifar.py
+
+cbs10 benchmark-cifar10: cb10c cb10cn cb10v cb10e ## Run all CIFAR-10 benchmarks
+	@echo "=== CIFAR-10 benchmark suite complete ==="
+
+cbs100 benchmark-cifar100: cb100c cb100cn cb100v cb100e cb100cc cb100ccn ## Run all CIFAR-100 benchmarks
+	@echo "=== CIFAR-100 benchmark suite complete ==="
+
+cbsa benchmark-all: cbs10 cbs100 ## Run complete CIFAR benchmark suite
+	@echo "=== Complete CIFAR benchmark suite finished ==="
+

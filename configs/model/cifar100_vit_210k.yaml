@@ -1,0 +1,30 @@
+_target_: src.models.mnist_module.MNISTLitModule
+
+net:
+  _target_: src.models.components.vision_transformer.VisionTransformer
+  n_channels: 3     # CIFAR-100 has 3 color channels
+  image_size: 32    # CIFAR-100 is 32x32
+  patch_size: 4     # 4x4 patches work well for 32x32
+  embed_dim: 64
+  n_layers: 6
+  n_attention_heads: 4
+  forward_mul: 2
+  output_size: 100  # CIFAR-100 has 100 classes
+  dropout: 0.1
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.01
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 100  # Longer training for CIFAR-100
+  eta_min: 1e-5
+
+criterion:
+  _target_: torch.nn.CrossEntropyLoss
+
+compile: false
