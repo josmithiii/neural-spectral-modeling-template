@@ -183,7 +183,7 @@ cbqa cifar-quick-all: cbq10c cbq10cn cbq100c cbq100cc ## Run all quick CIFAR val
 # CIFAR BENCHMARK SUITES "cbs" - Systematic Comparisons
 
 cbs benchmark-suite: ## Run automated CIFAR benchmark suite
-	python scripts/benchmark_cifar.py
+	python benchmarks/scripts/benchmark_cifar.py
 
 cbs10 benchmark-cifar10: cb10c cb10cn cb10v cb10e ## Run all CIFAR-10 benchmarks
 	@echo "=== CIFAR-10 benchmark suite complete ==="

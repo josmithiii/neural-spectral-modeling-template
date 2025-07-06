@@ -355,10 +355,11 @@ tests/
 ├── test_cifar10_datamodule.py  # CIFAR-10 test suite
 └── test_cifar100_datamodule.py # CIFAR-100 test suite (dual-mode)
 
-scripts/
-└── benchmark_cifar.py          # Automated CIFAR benchmark suite
-
-CIFAR_BENCHMARK_REPORT.md       # Comprehensive benchmark documentation
+benchmarks/
+├── CIFAR_BENCHMARK_REPORT.md   # Comprehensive benchmark documentation
+├── scripts/
+│   └── benchmark_cifar.py      # Automated CIFAR benchmark suite
+└── results/                    # Future benchmark results storage
 ```
 
 ### Configuration for New Model Architecture
@@ -427,6 +428,7 @@ make cbs100              # All CIFAR-100 architectures
 
 # Automated benchmark suite
 make cbs                 # Run systematic CIFAR comparisons
+python benchmarks/scripts/benchmark_cifar.py  # Direct script execution
 make cbsa                # Complete CIFAR benchmark suite
 ```
 
