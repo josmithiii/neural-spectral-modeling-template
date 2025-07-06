@@ -97,7 +97,7 @@ class CIFAR100DataModule(LightningDataModule):
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
-        persistent_workers: bool = False,
+        persistent_workers: bool = True,
         use_coarse_labels: bool = False,
     ) -> None:
         """Initialize a `CIFAR100DataModule`.

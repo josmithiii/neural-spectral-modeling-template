@@ -17,7 +17,7 @@ class MNISTViTDataModule(LightningDataModule):
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
-        persistent_workers: bool = False,
+        persistent_workers: bool = True,
     ) -> None:
         """Initialize a `MNISTViTDataModule`.
 
@@ -43,7 +43,7 @@ class MNISTViTDataModule(LightningDataModule):
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5])     # ViT normalization
         ])
-        
+
         self.val_test_transforms = transforms.Compose([
             transforms.Resize([28, 28]),
             transforms.ToTensor(),
@@ -80,7 +80,7 @@ class MNISTViTDataModule(LightningDataModule):
         if not self.data_train and not self.data_val and not self.data_test:
             trainset = MNIST(self.hparams.data_dir, train=True, transform=self.train_transforms)
             testset = MNIST(self.hparams.data_dir, train=False, transform=self.val_test_transforms)
-            
+
             dataset = ConcatDataset(datasets=[trainset, testset])
             self.data_train, self.data_val, self.data_test = random_split(
                 dataset=dataset,

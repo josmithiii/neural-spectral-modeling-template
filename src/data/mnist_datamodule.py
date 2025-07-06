@@ -59,7 +59,7 @@ class MNISTDataModule(LightningDataModule):
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
-        persistent_workers: bool = False,
+        persistent_workers: bool = True,
         multihead: bool = False,
     ) -> None:
         """Initialize a `MNISTDataModule`.
@@ -139,13 +139,13 @@ class MNISTDataModule(LightningDataModule):
         if not self.data_train and not self.data_val and not self.data_test:
             trainset = MNIST(self.hparams.data_dir, train=True, transform=self.transforms)
             testset = MNIST(self.hparams.data_dir, train=False, transform=self.transforms)
-            
+
             # Conditionally wrap with multihead dataset
             if self.hparams.multihead:
                 from src.data.multihead_dataset import MultiheadMNISTDataset
                 trainset = MultiheadMNISTDataset(trainset)
                 testset = MultiheadMNISTDataset(testset)
-            
+
             dataset = ConcatDataset(datasets=[trainset, testset])
             self.data_train, self.data_val, self.data_test = random_split(
                 dataset=dataset,
@@ -205,14 +205,14 @@ class MNISTDataModule(LightningDataModule):
     def _multihead_collate_fn(batch):
         """Custom collate function for multihead labels."""
         images = torch.stack([item[0] for item in batch])
-        
+
         # Collect labels for each head
         labels_dict = {}
         head_names = batch[0][1].keys()
-        
+
         for head_name in head_names:
             labels_dict[head_name] = torch.tensor([item[1][head_name] for item in batch])
-        
+
         return images, labels_dict
 
     def teardown(self, stage: Optional[str] = None) -> None:

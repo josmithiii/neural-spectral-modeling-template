@@ -64,7 +64,7 @@ class CIFAR10DataModule(LightningDataModule):
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
-        persistent_workers: bool = False,
+        persistent_workers: bool = True,
     ) -> None:
         """Initialize a `CIFAR10DataModule`.
 

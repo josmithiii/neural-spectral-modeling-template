@@ -168,16 +168,16 @@ cb100ccn cifar100-coarse-convnext: ## Run CIFAR-100 coarse ConvNeXt benchmark (8
 # CIFAR QUICK BENCHMARKS "cbq" - Fast Validation Runs
 
 cbq10c cifar10-quick-cnn: ## Quick CIFAR-10 CNN validation (5 epochs)
-	python src/train.py experiment=cifar10_benchmark_cnn trainer.max_epochs=5
+	python src/train.py experiment=cifar10_benchmark_cnn trainer.max_epochs=5 trainer.min_epochs=1
 
 cbq10cn cifar10-quick-convnext: ## Quick CIFAR-10 ConvNeXt validation (5 epochs)
-	python src/train.py experiment=cifar10_benchmark_convnext trainer.max_epochs=5
+	python src/train.py experiment=cifar10_benchmark_convnext trainer.max_epochs=5 trainer.min_epochs=1
 
 cbq100c cifar100-quick-cnn: ## Quick CIFAR-100 CNN validation (5 epochs)
-	python src/train.py experiment=cifar100_benchmark_cnn trainer.max_epochs=5
+	python src/train.py experiment=cifar100_benchmark_cnn trainer.max_epochs=5 trainer.min_epochs=1
 
 cbq100cc cifar100-quick-coarse: ## Quick CIFAR-100 coarse validation (5 epochs)
-	python src/train.py experiment=cifar100_coarse_cnn trainer.max_epochs=5
+	python src/train.py experiment=cifar100_coarse_cnn trainer.max_epochs=5 trainer.min_epochs=1
 
 cbqa cifar-quick-all: cbq10c cbq10cn cbq100c cbq100cc ## Run all quick CIFAR validations
 
