@@ -141,6 +141,12 @@ cb10c cifar10-cnn: ## Run CIFAR-10 CNN benchmark (85-92% expected accuracy)
 cb10cn cifar10-convnext: ## Run CIFAR-10 ConvNeXt benchmark (90-95% expected accuracy)
 	time python src/train.py experiment=cifar10_benchmark_convnext
 
+cb10cn64 cifar10-convnext-64k-optimized: ## Run CIFAR-10 ConvNeXt 64K optimized for small images
+	time python src/train.py experiment=cifar10_convnext_64k_optimized
+
+cb10cn128 cifar10-convnext-128k-optimized: ## Run CIFAR-10 ConvNeXt 128K optimized for small images
+	time python src/train.py experiment=cifar10_convnext_128k_optimized
+
 cb10v cifar10-vit: ## Run CIFAR-10 Vision Transformer benchmark (88-93% expected accuracy)
 	time python src/train.py experiment=cifar10_benchmark_vit
 
@@ -172,6 +178,12 @@ cbq10c cifar10-quick-cnn: ## Quick CIFAR-10 CNN validation (5 epochs)
 
 cbq10cn cifar10-quick-convnext: ## Quick CIFAR-10 ConvNeXt validation (5 epochs)
 	python src/train.py experiment=cifar10_benchmark_convnext trainer.max_epochs=5 trainer.min_epochs=1
+
+cbq10cn64 cifar10-quick-convnext-64k: ## Quick CIFAR-10 ConvNeXt 64K optimized validation (5 epochs)
+	python src/train.py experiment=cifar10_convnext_64k_optimized trainer.max_epochs=5 trainer.min_epochs=1
+
+cbq10cn128 cifar10-quick-convnext-128k: ## Quick CIFAR-10 ConvNeXt 128K optimized validation (5 epochs)
+	python src/train.py experiment=cifar10_convnext_128k_optimized trainer.max_epochs=5 trainer.min_epochs=1
 
 cbq100c cifar100-quick-cnn: ## Quick CIFAR-100 CNN validation (5 epochs)
 	python src/train.py experiment=cifar100_benchmark_cnn trainer.max_epochs=5 trainer.min_epochs=1

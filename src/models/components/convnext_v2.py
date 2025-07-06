@@ -66,11 +66,13 @@ class Block(nn.Module):
     Args:
         dim (int): Number of input channels.
         drop_path (float): Stochastic depth rate. Default: 0.0
+        kernel_size (int): Kernel size for depthwise convolution. Default: 7
     """
 
-    def __init__(self, dim: int, drop_path: float = 0.0):
+    def __init__(self, dim: int, drop_path: float = 0.0, kernel_size: int = 7):
         super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        padding = kernel_size // 2
+        self.dwconv = nn.Conv2d(dim, dim, kernel_size=kernel_size, padding=padding, groups=dim)
         self.norm = LayerNorm(dim, eps=1e-6)
         self.pwconv1 = nn.Linear(dim, 4 * dim)
         self.act = nn.GELU()
@@ -104,6 +106,7 @@ class ConvNeXtV2(nn.Module):
         dims (tuple(int)): Feature dimension at each stage. Default: [48, 96, 192, 384]
         drop_path_rate (float): Stochastic depth rate. Default: 0.0
         head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.0
+        kernel_size (int): Kernel size for depthwise convolutions. Default: 7
     """
 
     def __init__(
@@ -115,6 +118,7 @@ class ConvNeXtV2(nn.Module):
         dims: tuple = (48, 96, 192, 384),
         drop_path_rate: float = 0.0,
         head_init_scale: float = 1.0,
+        kernel_size: int = 7,
     ):
         super().__init__()
         self.input_size = input_size
@@ -127,6 +131,11 @@ class ConvNeXtV2(nn.Module):
 
         # Stem layer - adapted for different input sizes
         if input_size == 28:  # MNIST
+            stem = nn.Sequential(
+                nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
+                LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
+            )
+        elif input_size == 32:  # CIFAR-10/100 - use smaller stride for better feature preservation
             stem = nn.Sequential(
                 nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
                 LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
@@ -152,7 +161,7 @@ class ConvNeXtV2(nn.Module):
         cur = 0
         for i in range(4):
             stage = nn.Sequential(
-                *[Block(dim=dims[i], drop_path=dp_rates[cur + j]) for j in range(depths[i])]
+                *[Block(dim=dims[i], drop_path=dp_rates[cur + j], kernel_size=kernel_size) for j in range(depths[i])]
             )
             self.stages.append(stage)
             cur += depths[i]
@@ -341,5 +350,48 @@ def convnext_v2_huge(input_size: int = 224, in_chans: int = 3, output_size: int 
         output_size=output_size,
         depths=(3, 3, 27, 3),
         dims=(352, 704, 1408, 2816),
+        **kwargs
+    )
+
+
+# CIFAR-10 optimized variants with smaller kernels and reduced stride
+def convnext_v2_cifar10_64k(input_size: int = 32, in_chans: int = 3, output_size: int = 10, **kwargs):
+    """ConvNeXt-V2 optimized for CIFAR-10 (~64K parameters)
+
+    Key optimizations for 32x32 images:
+    - 2x2 stride-2 stem (vs 4x4 stride-4)
+    - 3x3 depthwise convolutions (vs 7x7)
+    - Reduced weight decay and drop path
+    - Smaller channel dimensions
+    """
+    return ConvNeXtV2(
+        input_size=input_size,
+        in_chans=in_chans,
+        output_size=output_size,
+        depths=(2, 2, 4, 2),
+        dims=(8, 16, 32, 64),
+        drop_path_rate=0.05,  # Reduced from 0.1
+        kernel_size=3,  # Smaller kernel for 32x32 images
+        **kwargs
+    )
+
+
+def convnext_v2_cifar10_128k(input_size: int = 32, in_chans: int = 3, output_size: int = 10, **kwargs):
+    """ConvNeXt-V2 optimized for CIFAR-10 (~128K parameters)
+
+    Key optimizations for 32x32 images:
+    - 2x2 stride-2 stem (vs 4x4 stride-4)
+    - 3x3 depthwise convolutions (vs 7x7)
+    - Reduced weight decay and drop path
+    - Medium channel dimensions
+    """
+    return ConvNeXtV2(
+        input_size=input_size,
+        in_chans=in_chans,
+        output_size=output_size,
+        depths=(2, 2, 6, 2),
+        dims=(12, 24, 48, 96),
+        drop_path_rate=0.05,  # Reduced from 0.1
+        kernel_size=3,  # Smaller kernel for 32x32 images
         **kwargs
     )
