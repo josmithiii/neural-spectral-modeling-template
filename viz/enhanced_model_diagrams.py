@@ -13,8 +13,9 @@ from hydra.core.global_hydra import GlobalHydra
 from omegaconf import DictConfig
 import argparse
 
-# Add src to path for imports
-sys.path.append(str(Path(__file__).parent / "src"))
+# Set up project root and imports
+import rootutils
+root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from src.models.components.simple_cnn import SimpleCNN
 
@@ -160,7 +161,7 @@ def generate_from_config(config_name: str, output_dir: str = "diagrams"):
     GlobalHydra.instance().clear()
 
     # Get absolute path to configs directory
-    config_dir = str(Path(__file__).parent / "configs")
+    config_dir = str(Path(__file__).parent.parent / "configs")
 
     try:
         # Initialize Hydra with the configs directory

@@ -7,8 +7,9 @@ from pathlib import Path
 import sys
 import os
 
-# Add src to path for imports
-sys.path.append(str(Path(__file__).parent / "src"))
+# Set up project root and imports
+import rootutils
+root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from src.models.components.simple_cnn import SimpleCNN
 
