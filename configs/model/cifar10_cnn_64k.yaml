@@ -24,6 +24,7 @@ net:
   fc_hidden: 512
   output_size: 10
   dropout: 0.5  # Higher dropout for CIFAR-10
+  input_size: 32  # CIFAR-10 image size
 
 # compile model for faster training with pytorch 2.0
 compile: false
