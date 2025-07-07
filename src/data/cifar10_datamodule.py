@@ -171,9 +171,9 @@ class CIFAR10DataModule(LightningDataModule):
 
             # Conditionally wrap with multihead dataset
             if self.hparams.multihead:
-                from src.data.multihead_cifar_dataset import MultiheadCIFARDataset
-                trainset = MultiheadCIFARDataset(trainset, 'cifar10')
-                testset = MultiheadCIFARDataset(testset, 'cifar10')
+                from src.data.multihead_dataset import MultiheadDataset
+                trainset = MultiheadDataset(trainset, 'cifar10')
+                testset = MultiheadDataset(testset, 'cifar10')
 
             dataset = ConcatDataset(datasets=[trainset, testset])
             self.data_train, self.data_val, self.data_test = random_split(

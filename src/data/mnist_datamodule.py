@@ -142,9 +142,9 @@ class MNISTDataModule(LightningDataModule):
 
             # Conditionally wrap with multihead dataset
             if self.hparams.multihead:
-                from src.data.multihead_dataset import MultiheadMNISTDataset
-                trainset = MultiheadMNISTDataset(trainset)
-                testset = MultiheadMNISTDataset(testset)
+                from src.data.multihead_dataset import MultiheadDataset
+                trainset = MultiheadDataset(trainset, 'mnist')
+                testset = MultiheadDataset(testset, 'mnist')
 
             dataset = ConcatDataset(datasets=[trainset, testset])
             self.data_train, self.data_val, self.data_test = random_split(
