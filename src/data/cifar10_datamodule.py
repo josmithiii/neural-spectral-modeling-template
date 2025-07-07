@@ -65,6 +65,7 @@ class CIFAR10DataModule(LightningDataModule):
         num_workers: int = 0,
         pin_memory: bool = False,
         persistent_workers: bool = True,
+        multihead: bool = False,
     ) -> None:
         """Initialize a `CIFAR10DataModule`.
 
@@ -74,6 +75,7 @@ class CIFAR10DataModule(LightningDataModule):
         :param num_workers: The number of workers. Defaults to `0`.
         :param pin_memory: Whether to pin memory. Defaults to `False`.
         :param persistent_workers: Whether to use persistent workers. Defaults to `False`.
+        :param multihead: Whether to enable multihead mode. Defaults to `False`.
         """
         super().__init__()
 
@@ -109,12 +111,20 @@ class CIFAR10DataModule(LightningDataModule):
         self.batch_size_per_device = batch_size
 
     @property
-    def num_classes(self) -> int:
+    def num_classes(self):
         """Get the number of classes.
 
-        :return: The number of CIFAR-10 classes (10).
+        :return: The number of CIFAR-10 classes (10) or dict for multihead mode.
         """
-        return 10
+        if self.hparams.multihead:
+            return {
+                'class': 10,
+                'domain': 2,
+                'mobility': 3,
+                'size': 3
+            }
+        else:
+            return 10  # Backward compatibility
 
     @property
     def class_names(self) -> list:
@@ -159,6 +169,12 @@ class CIFAR10DataModule(LightningDataModule):
             trainset = CIFAR10(self.hparams.data_dir, train=True, transform=self.train_transforms)
             testset = CIFAR10(self.hparams.data_dir, train=False, transform=self.transforms)
 
+            # Conditionally wrap with multihead dataset
+            if self.hparams.multihead:
+                from src.data.multihead_cifar_dataset import MultiheadCIFARDataset
+                trainset = MultiheadCIFARDataset(trainset, 'cifar10')
+                testset = MultiheadCIFARDataset(testset, 'cifar10')
+
             dataset = ConcatDataset(datasets=[trainset, testset])
             self.data_train, self.data_val, self.data_test = random_split(
                 dataset=dataset,
@@ -171,6 +187,7 @@ class CIFAR10DataModule(LightningDataModule):
 
         :return: The train dataloader.
         """
+        collate_fn = self._multihead_collate_fn if self.hparams.multihead else None
         return DataLoader(
             dataset=self.data_train,
             batch_size=self.batch_size_per_device,
@@ -178,6 +195,7 @@ class CIFAR10DataModule(LightningDataModule):
             pin_memory=self.hparams.pin_memory,
             shuffle=True,
             persistent_workers=self.persistent_workers,
+            collate_fn=collate_fn
         )
 
     def val_dataloader(self) -> DataLoader[Any]:
@@ -185,6 +203,7 @@ class CIFAR10DataModule(LightningDataModule):
 
         :return: The validation dataloader.
         """
+        collate_fn = self._multihead_collate_fn if self.hparams.multihead else None
         return DataLoader(
             dataset=self.data_val,
             batch_size=self.batch_size_per_device,
@@ -192,6 +211,7 @@ class CIFAR10DataModule(LightningDataModule):
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
             persistent_workers=self.persistent_workers,
+            collate_fn=collate_fn
         )
 
     def test_dataloader(self) -> DataLoader[Any]:
@@ -199,6 +219,7 @@ class CIFAR10DataModule(LightningDataModule):
 
         :return: The test dataloader.
         """
+        collate_fn = self._multihead_collate_fn if self.hparams.multihead else None
         return DataLoader(
             dataset=self.data_test,
             batch_size=self.batch_size_per_device,
@@ -206,7 +227,22 @@ class CIFAR10DataModule(LightningDataModule):
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
             persistent_workers=self.persistent_workers,
+            collate_fn=collate_fn
         )
+
+    @staticmethod
+    def _multihead_collate_fn(batch):
+        """Custom collate function for multihead labels."""
+        images = torch.stack([item[0] for item in batch])
+
+        # Collect labels for each head
+        labels_dict = {}
+        head_names = batch[0][1].keys()
+
+        for head_name in head_names:
+            labels_dict[head_name] = torch.tensor([item[1][head_name] for item in batch])
+
+        return images, labels_dict
 
     def teardown(self, stage: Optional[str] = None) -> None:
         """Lightning hook for cleaning up after `trainer.fit()`, `trainer.validate()`,

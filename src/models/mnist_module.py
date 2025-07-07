@@ -60,13 +60,13 @@ class MNISTLitModule(LightningModule):
         :param compile: Whether to compile the model.
         """
         super().__init__()
-        
+
         # Backward compatibility handling
         if criteria is None and criterion is not None:
             criteria = {'digit': criterion}
         elif criteria is None:
             raise ValueError("Must provide either 'criterion' or 'criteria'")
-        
+
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
         self.save_hyperparameters(logger=False, ignore=["net", "criterion", "criteria"])
@@ -75,24 +75,24 @@ class MNISTLitModule(LightningModule):
         self.criteria = criteria
         self.loss_weights = loss_weights or {name: 1.0 for name in criteria.keys()}
         self.is_multihead = len(criteria) > 1
-        
+
         # Dynamic metric creation based on network heads config
         if hasattr(net, 'heads_config'):
             head_configs = net.heads_config
         else:
             # Fallback for backward compatibility
             head_configs = {'digit': 10}
-        
+
         # Metrics for each head
         self.train_metrics = torch.nn.ModuleDict()
         self.val_metrics = torch.nn.ModuleDict()
         self.test_metrics = torch.nn.ModuleDict()
-        
+
         for head_name, num_classes in head_configs.items():
             self.train_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
             self.val_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
             self.test_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
-        
+
         # Loss tracking
         self.train_loss = MeanMetric()
         self.val_loss = MeanMetric()
@@ -128,27 +128,27 @@ class MNISTLitModule(LightningModule):
         """
         x, y = batch
         logits = self.forward(x)
-        
+
         if self.is_multihead:
             # Multihead case: y is dict, logits is dict
             losses = {}
             for head_name in self.criteria.keys():
                 losses[head_name] = self.criteria[head_name](logits[head_name], y[head_name])
-            
+
             total_loss = sum(self.loss_weights[name] * loss for name, loss in losses.items())
-            
+
             preds = {
-                head_name: torch.argmax(logits_head, dim=1) 
+                head_name: torch.argmax(logits_head, dim=1)
                 for head_name, logits_head in logits.items()
             }
-            
+
             return total_loss, preds, y
         else:
             # Single head case: y is tensor, logits is tensor (backward compatibility)
             head_name = next(iter(self.criteria.keys()))
             loss = self.criteria[head_name](logits, y)
             preds = torch.argmax(logits, dim=1)
-            
+
             return loss, {head_name: preds}, {head_name: y}
 
     def training_step(self, batch, batch_idx: int) -> torch.Tensor:
@@ -159,19 +159,19 @@ class MNISTLitModule(LightningModule):
         :return: A tensor of losses between model predictions and targets.
         """
         loss, preds_dict, targets_dict = self.model_step(batch)
-        
+
         # Update metrics
         self.train_loss(loss)
         for head_name in preds_dict.keys():
             self.train_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
-        
+
         # Log metrics
         self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
             metric_name = f"train/{head_name}_acc" if self.is_multihead else "train/acc"
-            self.log(metric_name, self.train_metrics[f"{head_name}_acc"], 
+            self.log(metric_name, self.train_metrics[f"{head_name}_acc"],
                     on_step=False, on_epoch=True, prog_bar=True)
-        
+
         return loss
 
     def on_train_epoch_end(self) -> None:
@@ -185,29 +185,30 @@ class MNISTLitModule(LightningModule):
         :param batch_idx: The index of the current batch.
         """
         loss, preds_dict, targets_dict = self.model_step(batch)
-        
+
         # Update metrics
         self.val_loss(loss)
         for head_name in preds_dict.keys():
             self.val_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
-        
+
         # Log metrics
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
             metric_name = f"val/{head_name}_acc" if self.is_multihead else "val/acc"
-            self.log(metric_name, self.val_metrics[f"{head_name}_acc"], 
+            self.log(metric_name, self.val_metrics[f"{head_name}_acc"],
                     on_step=False, on_epoch=True, prog_bar=True)
 
     def on_validation_epoch_end(self) -> None:
         """Lightning hook that is called when a validation epoch ends."""
         if self.is_multihead:
-            # For multihead, track best accuracy of primary task (digit)
-            acc = self.val_metrics["digit_acc"].compute()
+            # For multihead, track best accuracy of primary task (first head)
+            primary_head = next(iter(self.criteria.keys()))
+            acc = self.val_metrics[f"{primary_head}_acc"].compute()
         else:
             # For single head, track the only accuracy
             head_name = next(iter(self.criteria.keys()))
             acc = self.val_metrics[f"{head_name}_acc"].compute()
-        
+
         self.val_acc_best(acc)
         self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
 
@@ -218,17 +219,17 @@ class MNISTLitModule(LightningModule):
         :param batch_idx: The index of the current batch.
         """
         loss, preds_dict, targets_dict = self.model_step(batch)
-        
-        # Update metrics  
+
+        # Update metrics
         self.test_loss(loss)
         for head_name in preds_dict.keys():
             self.test_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
-        
+
         # Log metrics
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
             metric_name = f"test/{head_name}_acc" if self.is_multihead else "test/acc"
-            self.log(metric_name, self.test_metrics[f"{head_name}_acc"], 
+            self.log(metric_name, self.test_metrics[f"{head_name}_acc"],
                     on_step=False, on_epoch=True, prog_bar=True)
 
     def on_test_epoch_end(self) -> None:

@@ -124,8 +124,11 @@ ev995 exp-vit-995: ## Run ViT experiment achieving SOTA 99.5% validation accurac
 	time python src/train.py experiment=mnist_vit_995
 	# == python src/train.py model=mnist_vit_995 data=mnist_vit_995 trainer.max_epochs=200 trainer.min_epochs=10 trainer.gradient_clip_val=1.0 data.batch_size=128 seed=12345 tags="[mnist,vit,995,optimized]"
 
-emhc exp-multihead-cnn: ## Run MultiHead CNN classification experiment
+emhcm exp-multihead-cnn-mnist: ## Run MultiHead CNN MNIST classification experiment
 	time python src/train.py experiment=multihead_cnn_mnist
+
+emhcc10 exp-multihead-cnn-cifar10: ## Run MultiHead CNN CIFAR-10 classification experiment
+	time python src/train.py experiment=multihead_cnn_cifar10
 
 excn exp-convnext: ## Run ConvNeXt-V2 experiment
 	time python src/train.py experiment=convnext_mnist

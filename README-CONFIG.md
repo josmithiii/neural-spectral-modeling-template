@@ -172,7 +172,8 @@ python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multi
 | `make example` | Run example experiment config | Dense |
 | `make evit` or `make exp-vit` | Experiment using Vision Transformer | ViT |
 | `make excn` or `make exp-convnext` | Experiment using ConvNeXt-V2 | ConvNeXt-V2 |
-| `make emhc` or `make exp-multihead-cnn` | Experiment using MultiHead CNN | CNN |
+| `make emhcm` or `make exp-multihead-cnn-mnist` | Experiment using MultiHead CNN on MNIST| CNN |
+| `make emhcc10` or `make exp-multihead-cnn-cifar10` | Experiment using MultiHead CNN on CIFAR-10 | CNN |
 | `make help | grep exp` | List all available experiments | Various |
 
 **CIFAR Benchmark Targets:**
