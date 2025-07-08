@@ -10,7 +10,7 @@ project extends the original [Lightning-Hydra-Template](https://github.com/ashle
 - **New convenience make targets** for streamlined development and testing workflow
 - **Original Lightning-Hydra-Template Compatibility** for pre-existing configs, models, and datasets
 
-See [README-EXTENSIONS.md](./README-EXTENSIONS.md) for details
+See [README-EXTENSIONS.md](README-EXTENSIONS.md) for details
 
 ---
 

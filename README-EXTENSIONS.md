@@ -1,10 +1,11 @@
 # [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning-hydra-template-extended.git)
 
-This project *extends* the [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) with more 
+This project *extends* the [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) with more
 - neural net *architectures* for image/spectral processing,
 - *configuration* options such as new loss functions,
-- *multihead classification* extensions for certain CNN architectures,
-all while maintaining backward-compatibility support for the original [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) config files.
+- *multihead classification* extensions for certain CNN architectures
+
+All while maintaining backward-compatibility support for the original [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template).
 
 ## 🎯 Key Features
 
@@ -30,27 +31,28 @@ all while maintaining backward-compatibility support for the original [Lightning
 
 **Quick Start:**
 ```bash
-# Quick tests / reality checks
-make cbq10c      # CIFAR-10 CNN (5 epochs)
-make cbq10cn     # CIFAR-10 ConvNeXt (5 epochs)
+# Quick tests / reality checks for CIFAR Benchmarks ("cb")
+make cbq10c      # CIFAR-10 CNN (5 epochs) (cbq10c => "cb quick CIFAR10 CNN")
+make cbq10cn     # CIFAR-10 ConvNeXt (5 epochs) ("cb quick CIFAR10 ConvNext")
 
 # Full benchmarks
 make cb10c       # CIFAR-10 CNN (full training)
 make cbs10       # All CIFAR-10 architectures
 make cbs         # Automated benchmark suite
 ```
+Say `make help` for a list of all make targets, and see the [Makefile](Makefile) for details.
 
 ### 2. Configurable Loss Functions
 
-**What Changed:** The loss function ("criterion" in [`configs/model/*.yaml`](./configs/model/)) is now configurable through Hydra, following the same pattern as the optimizer and scheduler.
+**What's New:** The loss function ("criterion" in [`configs/model/*.yaml`](./configs/model/)) is now configurable through Hydra, following the same pattern as the optimizer and scheduler.
 
-**Before:**
+**Before** in [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template):
 ```python
 # Hardcoded in MNISTLitModule.__init__()
 self.criterion = torch.nn.CrossEntropyLoss()
 ```
 
-**After:**
+**Here:**
 ```yaml
 # now in configs/model/*.yaml
 criterion:
@@ -59,7 +61,7 @@ criterion:
 
 **Available Loss Functions:** [PyTorch Loss Functions](https://docs.pytorch.org/docs/stable/nn.html#loss-functions)
 
-**Logging:** All Hydra config parameters are logged and version controlled.
+**Logging:** All Hydra config parameters are logged and version controlled, so now choses loss function is included.
 
 **Usage Examples:**
 ```bash
@@ -192,7 +194,7 @@ python src/train.py experiment=multihead_cnn_mnist trainer.max_epochs=10 # Multi
 | `make cb100cn` or `make cifar100-convnext` | CIFAR-100 ConvNeXt benchmark | CIFAR-100 | 70-80% |
 | `make cb100cc` or `make cifar100-coarse-cnn` | CIFAR-100 coarse CNN benchmark | CIFAR-100 (20) | 75-85% |
 
-**CIFAR Quick Validation:**
+**CIFAR Quick Tests:**
 
 | Target | Description | Duration |
 |--------|-------------|----------|
