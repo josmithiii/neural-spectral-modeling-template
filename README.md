@@ -1,15 +1,16 @@
-# Lightning-Hydra-Template **Extended**
+# Lightning-Hydra-Template-*Extended*
 
 ## Extensions
 
-Original Lightning-Hydra-Template extended with:
+The [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning-hydra-template-extended.git)
+project extends the original [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) to include:
+- **Multiple neural network architectures** with easy switching (CNN, EfficientNet, ViT, ConvNeXt-V2, ...)
+- CNN **Multihead Classification** with backward compatibility for original single-head usage
 - **Configurable loss functions** via Hydra configuration
-- **Multiple neural network architectures** with easy switching (CNN, EfficientNet, ViT, ConvNeXt-V2)
-- **Multihead Classification** with backward compatibility for original single-head usage
 - **New convenience make targets** for streamlined development and testing workflow
 - **Original Lightning-Hydra-Template Compatibility** for pre-existing configs, models, and datasets
 
-See the all-new [README-CONFIG.md](./README-CONFIG.md) file for details
+See [README-EXTENSIONS.md](./README-EXTENSIONS.md) for details
 
 ---
 

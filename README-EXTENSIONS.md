@@ -1,6 +1,10 @@
-# Configuration Extensions for Lightning-Hydra Template
+# [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning-hydra-template-extended.git)
 
-## Overview: [README-JOS.md](./README-JOS.md)
+This project *extends* the [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) with more 
+- neural net *architectures* for image/spectral processing,
+- *configuration* options such as new loss functions,
+- *multihead classification* extensions for certain CNN architectures,
+all while maintaining backward-compatibility support for the original [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) config files.
 
 ## 🎯 Key Features
 
@@ -26,7 +30,7 @@
 
 **Quick Start:**
 ```bash
-# Quick validation
+# Quick tests / reality checks
 make cbq10c      # CIFAR-10 CNN (5 epochs)
 make cbq10cn     # CIFAR-10 ConvNeXt (5 epochs)
 
@@ -48,14 +52,14 @@ self.criterion = torch.nn.CrossEntropyLoss()
 
 **After:**
 ```yaml
-# configs/model/mnist_sdn_68k.yaml
+# now in configs/model/*.yaml
 criterion:
   _target_: torch.nn.CrossEntropyLoss
 ```
 
 **Available Loss Functions:** [PyTorch Loss Functions](https://docs.pytorch.org/docs/stable/nn.html#loss-functions)
 
-**Benefits:** Easy experimentation with different loss functions without code changes, consistent with Hydra configuration philosophy, and parameters are logged and version controlled.
+**Logging:** All Hydra config parameters are logged and version controlled.
 
 **Usage Examples:**
 ```bash
