@@ -54,52 +54,6 @@ Convenient shortcuts for common tasks:
 - **Quick tests**: `make tq`, `make tqc`, `make tqcn`
 - **Benchmarks**: `make cb10c` (CIFAR-10), `make cbs` (full suite)
 
-## 🚀 Quick Start
-
-### 1. Environment Setup
-```bash
-source .venv/bin/activate  # or: conda activate myenv
-```
-
-### 2. Quick Architecture Tests
-```bash
-make tq       # Test SimpleDenseNet (1 epoch)
-make tqc      # Test SimpleCNN (1 epoch)
-make tqcn     # Test ConvNeXt-V2 (1 epoch)
-make tqa      # Test all architectures
-```
-
-### 3. CIFAR Quick Validation
-```bash
-make cbq10c   # Quick CIFAR-10 CNN test (5 epochs)
-make cbq10cn  # Quick CIFAR-10 ConvNeXt test (5 epochs)
-make cbqa     # All quick CIFAR tests
-```
-
-### 4. Full Training Examples
-```bash
-# Architecture comparison
-make ca                                    # Compare all architectures (3 epochs each)
-
-# Specific architectures
-make train                                 # SimpleDenseNet (default)
-make trc                                   # SimpleCNN
-make trcnm                                 # ConvNeXt-V2 Medium
-
-# CIFAR benchmarks
-make cb10c                                 # CIFAR-10 CNN benchmark
-make cb10cn                                # CIFAR-10 ConvNeXt benchmark
-make cbs                                   # Automated benchmark suite
-```
-
-### 5. Experiment Configurations
-```bash
-# Run complete experiments
-make example                               # Original SimpleDenseNet experiment
-make evit                                  # Vision Transformer experiment
-make emhcm                                 # Multihead CNN on MNIST
-make emhcc10                               # Multihead CNN on CIFAR-10
-```
 
 ## 📊 Expected Performance
 
@@ -130,12 +84,12 @@ All original Lightning-Hydra template features remain fully functional:
 ## 📚 Documentation
 
 For detailed information, see:
-- **[README-ARCHITECTURES.md](README-ARCHITECTURES.md)** - Architecture details and comparisons
-- **[README-BENCHMARKS.md](README-BENCHMARKS.md)** - CIFAR benchmark system
-- **[README-MULTIHEAD.md](README-MULTIHEAD.md)** - Multihead classification
-- **[README-MAKEFILE.md](README-MAKEFILE.md)** - Complete make targets reference
-- **[README-CONFIGURATION.md](README-CONFIGURATION.md)** - Configuration patterns
-- **[README-DEVELOPMENT.md](README-DEVELOPMENT.md)** - Development and extension guide
+- **[architectures.md](architectures.md)** - Architecture details and comparisons
+- **[benchmarks.md](benchmarks.md)** - CIFAR benchmark system
+- **[multihead.md](multihead.md)** - Multihead classification
+- **[makefile.md](makefile.md)** - Complete make targets reference
+- **[configuration.md](configuration.md)** - Configuration patterns
+- **[development.md](development.md)** - Development and extension guide
 
 ## 🛠️ Common Usage Patterns
 
