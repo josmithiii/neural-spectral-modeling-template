@@ -2,7 +2,7 @@
 
 ## Overview
 
-The [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning-hydra-template-extended.git) project extends the original [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) with powerful new capabilities for deep learning research while maintaining full backward compatibility.
+This [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning-hydra-template-extended.git) project extends the original [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) with powerful new capabilities for deep learning research while maintaining full backward compatibility.
 
 ## 🎯 Key Extensions
 
@@ -52,7 +52,7 @@ This comprehensive documentation has been organized into focused, navigable file
 - **[configuration.md](configuration.md)** - Configuration patterns, experiment system, and best practices
 
 ### 👩‍💻 Development
-- **[development.md](development.md)** - Development guide, extension patterns, and integration approach
+- **[development.md](development.md)** - Further-development guide, extension patterns, and integration approach
 
 ## 🚀 Quick Start
 
