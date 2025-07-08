@@ -40,19 +40,19 @@ The [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning-
 This comprehensive documentation has been organized into focused, navigable files:
 
 ### 🚀 Getting Started
-- **[README-FEATURES.md](README-FEATURES.md)** - High-level overview, quick start guide, and key features summary
+- **[features.md](features.md)** - High-level overview, quick start guide, and key features summary
 
 ### 🏗️ Technical Details
-- **[README-ARCHITECTURES.md](README-ARCHITECTURES.md)** - Detailed architecture documentation, parameter comparisons, and usage guides
-- **[README-BENCHMARKS.md](README-BENCHMARKS.md)** - CIFAR benchmark system, expected performance, and automated testing
-- **[README-MULTIHEAD.md](README-MULTIHEAD.md)** - Multihead classification system, synthetic label generation, and multi-task learning
+- **[architectures.md](architectures.md)** - Detailed architecture documentation, parameter comparisons, and usage guides
+- **[benchmarks.md](benchmarks.md)** - CIFAR benchmark system, expected performance, and automated testing
+- **[multihead.md](multihead.md)** - Multihead classification system, synthetic label generation, and multi-task learning
 
 ### 🛠️ Usage and Reference
-- **[README-MAKEFILE.md](README-MAKEFILE.md)** - Complete make targets reference with abbreviations and workflows
-- **[README-CONFIGURATION.md](README-CONFIGURATION.md)** - Configuration patterns, experiment system, and best practices
+- **[makefile.md](makefile.md)** - Complete make targets reference with abbreviations and workflows
+- **[configuration.md](configuration.md)** - Configuration patterns, experiment system, and best practices
 
 ### 👩‍💻 Development
-- **[README-DEVELOPMENT.md](README-DEVELOPMENT.md)** - Development guide, extension patterns, and integration approach
+- **[development.md](development.md)** - Development guide, extension patterns, and integration approach
 
 ## 🚀 Quick Start
 
@@ -174,4 +174,4 @@ This extended template provides a comprehensive platform for:
 
 ---
 
-*For the original Lightning-Hydra-Template documentation, see [README.md](README.md)*
+*For the original Lightning-Hydra-Template documentation, see [README.md](../README.md)*
