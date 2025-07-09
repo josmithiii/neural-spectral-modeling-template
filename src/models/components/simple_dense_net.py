@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from typing import Dict, Optional
 
 
 class SimpleDenseNet(nn.Module):
@@ -11,7 +12,8 @@ class SimpleDenseNet(nn.Module):
         lin1_size: int = 256,
         lin2_size: int = 256,
         lin3_size: int = 256,
-        output_size: int = 10,
+        output_size: Optional[int] = None,
+        heads_config: Optional[Dict[str, int]] = None,
     ) -> None:
         """Initialize a `SimpleDenseNet` module.
 
@@ -19,11 +21,23 @@ class SimpleDenseNet(nn.Module):
         :param lin1_size: The number of output features of the first linear layer.
         :param lin2_size: The number of output features of the second linear layer.
         :param lin3_size: The number of output features of the third linear layer.
-        :param output_size: The number of output features of the final linear layer.
+        :param output_size: The number of output features of the final linear layer (backward compatibility).
+        :param heads_config: Dict mapping head names to number of classes for multihead.
         """
         super().__init__()
 
-        self.model = nn.Sequential(
+        # Backward compatibility: convert old single-head config to multihead
+        if heads_config is None:
+            if output_size is not None:
+                heads_config = {'digit': output_size}
+            else:
+                heads_config = {'digit': 10}  # Default MNIST
+
+        self.heads_config = heads_config
+        self.is_multihead = len(heads_config) > 1
+
+        # Shared feature extraction layers
+        self.feature_extractor = nn.Sequential(
             nn.Linear(input_size, lin1_size),
             nn.BatchNorm1d(lin1_size),
             nn.ReLU(),
@@ -33,21 +47,40 @@ class SimpleDenseNet(nn.Module):
             nn.Linear(lin2_size, lin3_size),
             nn.BatchNorm1d(lin3_size),
             nn.ReLU(),
-            nn.Linear(lin3_size, output_size),
         )
+
+        # Classification heads
+        self.heads = nn.ModuleDict()
+        for head_name, num_classes in heads_config.items():
+            self.heads[head_name] = nn.Linear(lin3_size, num_classes)
+
+        # Backward compatibility: maintain .model attribute for single-head case
+        if not self.is_multihead:
+            self.model = nn.Sequential(
+                self.feature_extractor,
+                self.heads['digit']
+            )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Perform a single forward pass through the network.
 
         :param x: The input tensor.
-        :return: A tensor of predictions.
+        :return: A tensor of predictions (single head) or dict of tensors (multihead).
         """
         batch_size, channels, width, height = x.size()
 
         # (batch, 1, width, height) -> (batch, 1*width*height)
         x = x.view(batch_size, -1)
 
-        return self.model(x)
+        # Extract features
+        features = self.feature_extractor(x)
+
+        # Multihead case: return dict of predictions
+        if self.is_multihead:
+            return {head_name: head(features) for head_name, head in self.heads.items()}
+
+        # Single head case: return tensor directly (backward compatibility)
+        return self.heads['digit'](features)
 
 
 if __name__ == "__main__":

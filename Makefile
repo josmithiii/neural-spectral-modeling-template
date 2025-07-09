@@ -201,6 +201,15 @@ cb100v cifar100-vit: ## Run CIFAR-100 Vision Transformer benchmark (65-75% expec
 cb100e cifar100-efficientnet: ## Run CIFAR-100 EfficientNet benchmark (68-78% expected accuracy)
 	time python src/train.py experiment=cifar100_efficientnet_210k
 
+cb100sdn cifar100-sdn: ## Run CIFAR-100 SimpleDenseNet benchmark (~1M params, 50-65% expected accuracy)
+	time python src/train.py model=cifar100_sdn_1m data=cifar100
+
+cb100cnn1m cifar100-cnn-1m: ## Run CIFAR-100 CNN benchmark (~1M params, 55-70% expected accuracy)
+	time python src/train.py model=cifar100_cnn_1m data=cifar100
+
+cb100cn1m cifar100-convnext-1m: ## Run CIFAR-100 ConvNeXt benchmark (~1M params, 70-80% expected accuracy)
+	time python src/train.py model=cifar100_convnext_1m data=cifar100
+
 cb100cc cifar100-coarse-cnn: ## Run CIFAR-100 coarse (20-class) CNN benchmark (75-85% expected accuracy)
 	time python src/train.py experiment=cifar100_coarse_cnn
 
@@ -224,6 +233,15 @@ cbq10cn128 cifar10-quick-convnext-128k: ## Quick CIFAR-10 ConvNeXt 128K optimize
 cbq100c cifar100-quick-cnn: ## Quick CIFAR-100 CNN validation (5 epochs)
 	python src/train.py experiment=cifar100_benchmark_cnn trainer.max_epochs=5 trainer.min_epochs=1
 
+cbq100sdn cifar100-quick-sdn: ## Quick CIFAR-100 SimpleDenseNet validation (5 epochs)
+	python src/train.py model=cifar100_sdn_1m data=cifar100 trainer.max_epochs=5 trainer.min_epochs=1
+
+cbq100cnn1m cifar100-quick-cnn-1m: ## Quick CIFAR-100 CNN 1M validation (5 epochs)
+	python src/train.py model=cifar100_cnn_1m data=cifar100 trainer.max_epochs=5 trainer.min_epochs=1
+
+cbq100cn1m cifar100-quick-convnext-1m: ## Quick CIFAR-100 ConvNeXt 1M validation (5 epochs)
+	python src/train.py model=cifar100_convnext_1m data=cifar100 trainer.max_epochs=5 trainer.min_epochs=1
+
 cbq100cc cifar100-quick-coarse: ## Quick CIFAR-100 coarse validation (5 epochs)
 	python src/train.py experiment=cifar100_coarse_cnn trainer.max_epochs=5 trainer.min_epochs=1
 
@@ -237,7 +255,7 @@ cbs benchmark-suite: ## Run automated CIFAR benchmark suite
 cbs10 benchmark-cifar10: cb10c cb10cn cb10v cb10e ## Run all CIFAR-10 benchmarks
 	@echo "=== CIFAR-10 benchmark suite complete ==="
 
-cbs100 benchmark-cifar100: cb100c cb100cn cb100v cb100e cb100cc cb100ccn ## Run all CIFAR-100 benchmarks
+cbs100 benchmark-cifar100: cb100c cb100cn cb100v cb100e cb100sdn cb100cnn1m cb100cn1m cb100cc cb100ccn ## Run all CIFAR-100 benchmarks
 	@echo "=== CIFAR-100 benchmark suite complete ==="
 
 cbsa benchmark-all: cbs10 cbs100 ## Run complete CIFAR benchmark suite

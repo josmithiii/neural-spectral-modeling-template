@@ -5,11 +5,11 @@
 
 defaults:
   - override /data: cifar100
-  - override /model: cifar100_cnn_64k
+  - override /model: cifar100_cnn_1m_original
   - override /callbacks: default
   - override /trainer: default
 
-tags: ["cifar100", "cnn", "benchmark", "64k_params", "fine_grained"]
+tags: ["cifar100", "cnn", "benchmark", "1m_params", "fine_grained"]
 
 seed: 42
 

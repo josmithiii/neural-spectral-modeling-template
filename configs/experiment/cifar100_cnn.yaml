@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: cifar100
-  - override /model: cifar100_cnn_64k
+  - override /model: cifar100_cnn_1m_original
   - override /callbacks: default
   - override /trainer: default
 

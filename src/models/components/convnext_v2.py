@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
+from typing import Optional, Dict
 
 
 class DropPath(nn.Module):
@@ -113,7 +113,8 @@ class ConvNeXtV2(nn.Module):
         self,
         input_size: int = 28,
         in_chans: int = 1,
-        output_size: int = 10,
+        output_size: Optional[int] = None,
+        heads_config: Optional[Dict[str, int]] = None,
         depths: tuple = (2, 2, 6, 2),
         dims: tuple = (48, 96, 192, 384),
         drop_path_rate: float = 0.0,
@@ -123,9 +124,18 @@ class ConvNeXtV2(nn.Module):
         super().__init__()
         self.input_size = input_size
         self.in_chans = in_chans
-        self.output_size = output_size
         self.depths = depths
         self.dims = dims
+
+        # Backward compatibility: convert old single-head config to multihead
+        if heads_config is None:
+            if output_size is not None:
+                heads_config = {'digit': output_size}
+            else:
+                heads_config = {'digit': 10}  # Default MNIST
+
+        self.heads_config = heads_config
+        self.is_multihead = len(heads_config) > 1
 
         self.downsample_layers = nn.ModuleList()
 
@@ -167,11 +177,28 @@ class ConvNeXtV2(nn.Module):
             cur += depths[i]
 
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
-        self.head = nn.Linear(dims[-1], output_size)
+
+        # Multiple heads or single head for backward compatibility
+        if self.is_multihead:
+            self.heads = nn.ModuleDict({
+                head_name: nn.Linear(dims[-1], num_classes)
+                for head_name, num_classes in heads_config.items()
+            })
+        else:
+            # Single head (backward compatibility)
+            head_name, num_classes = next(iter(heads_config.items()))
+            self.head = nn.Linear(dims[-1], num_classes)
 
         self.apply(self._init_weights)
-        self.head.weight.data.mul_(head_init_scale)
-        self.head.bias.data.mul_(head_init_scale)
+
+        # Initialize heads
+        if self.is_multihead:
+            for head in self.heads.values():
+                head.weight.data.mul_(head_init_scale)
+                head.bias.data.mul_(head_init_scale)
+        else:
+            self.head.weight.data.mul_(head_init_scale)
+            self.head.bias.data.mul_(head_init_scale)
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.Linear)):
@@ -184,10 +211,20 @@ class ConvNeXtV2(nn.Module):
             x = self.stages[i](x)
         return self.norm(x.mean([-2, -1]))  # global average pooling
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.forward_features(x)
-        x = self.head(x)
-        return x
+    def forward(self, x: torch.Tensor):
+        """Perform a single forward pass through the network.
+
+        :param x: Input tensor of shape (batch_size, channels, height, width).
+        :return: A tensor of logits (single head) or dict of logits (multihead).
+        """
+        features = self.forward_features(x)
+
+        # Multihead case: return dict of predictions
+        if self.is_multihead:
+            return {head_name: head(features) for head_name, head in self.heads.items()}
+
+        # Single head case: return tensor directly (backward compatibility)
+        return self.head(features)
 
 
 # Factory functions for different sizes optimized for MNIST
@@ -392,6 +429,27 @@ def convnext_v2_cifar10_128k(input_size: int = 32, in_chans: int = 3, output_siz
         depths=(2, 2, 6, 2),
         dims=(12, 24, 48, 96),
         drop_path_rate=0.05,  # Reduced from 0.1
+        kernel_size=3,  # Smaller kernel for 32x32 images
+        **kwargs
+    )
+
+
+def convnext_v2_cifar100_1m(input_size: int = 32, in_chans: int = 3, output_size: int = 100, **kwargs):
+    """ConvNeXt-V2 optimized for CIFAR-100 (~1M parameters)
+
+    Key optimizations for 32x32 images and 100-class classification:
+    - 2x2 stride-2 stem (vs 4x4 stride-4)
+    - 3x3 depthwise convolutions (vs 7x7)
+    - Increased depth and width for complex dataset
+    - Balanced scaling approach
+    """
+    return ConvNeXtV2(
+        input_size=input_size,
+        in_chans=in_chans,
+        output_size=output_size,
+        depths=(3, 3, 9, 3),  # Increased depth
+        dims=(18, 36, 72, 144),  # Increased width
+        drop_path_rate=0.1,  # Higher for regularization
         kernel_size=3,  # Smaller kernel for 32x32 images
         **kwargs
     )
