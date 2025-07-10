@@ -210,6 +210,9 @@ cb100cnn1m cifar100-cnn-1m: ## Run CIFAR-100 CNN benchmark (~1M params, 55-70% e
 cb100cn1m cifar100-convnext-1m: ## Run CIFAR-100 ConvNeXt benchmark (~1M params, 70-80% expected accuracy)
 	time python src/train.py model=cifar100_convnext_1m data=cifar100
 
+cb100cn10m cifar100-convnext-10m: ## Run CIFAR-100 ConvNeXt 10M benchmark (~10M params, 65-75% expected accuracy)
+	time python src/train.py model=cifar100_convnext_10m data=cifar100
+
 cb100cc cifar100-coarse-cnn: ## Run CIFAR-100 coarse (20-class) CNN benchmark (75-85% expected accuracy)
 	time python src/train.py experiment=cifar100_coarse_cnn
 
@@ -242,6 +245,9 @@ cbq100cnn1m cifar100-quick-cnn-1m: ## Quick CIFAR-100 CNN 1M validation (5 epoch
 cbq100cn1m cifar100-quick-convnext-1m: ## Quick CIFAR-100 ConvNeXt 1M validation (5 epochs)
 	python src/train.py model=cifar100_convnext_1m data=cifar100 trainer.max_epochs=5 trainer.min_epochs=1
 
+cbq100cn10m cifar100-quick-convnext-10m: ## Quick CIFAR-100 ConvNeXt 10M validation (10 epochs)
+	python src/train.py model=cifar100_convnext_10m data=cifar100 trainer.max_epochs=10 trainer.min_epochs=5
+
 cbq100cc cifar100-quick-coarse: ## Quick CIFAR-100 coarse validation (5 epochs)
 	python src/train.py experiment=cifar100_coarse_cnn trainer.max_epochs=5 trainer.min_epochs=1
 
@@ -255,7 +261,7 @@ cbs benchmark-suite: ## Run automated CIFAR benchmark suite
 cbs10 benchmark-cifar10: cb10c cb10cn cb10v cb10e ## Run all CIFAR-10 benchmarks
 	@echo "=== CIFAR-10 benchmark suite complete ==="
 
-cbs100 benchmark-cifar100: cb100c cb100cn cb100v cb100e cb100sdn cb100cnn1m cb100cn1m cb100cc cb100ccn ## Run all CIFAR-100 benchmarks
+cbs100 benchmark-cifar100: cb100c cb100cn cb100v cb100e cb100sdn cb100cnn1m cb100cn1m cb100cn10m cb100cc cb100ccn ## Run all CIFAR-100 benchmarks
 	@echo "=== CIFAR-100 benchmark suite complete ==="
 
 cbsa benchmark-all: cbs10 cbs100 ## Run complete CIFAR benchmark suite

@@ -39,7 +39,7 @@ This [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning
 
 This comprehensive documentation has been organized into focused, navigable files:
 
-### 🚀 Getting Started
+### 🚀 Features
 - **[features.md](features.md)** - High-level overview and key features summary
 
 ### 🏗️ Technical Details

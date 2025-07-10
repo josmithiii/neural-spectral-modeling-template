@@ -453,3 +453,25 @@ def convnext_v2_cifar100_1m(input_size: int = 32, in_chans: int = 3, output_size
         kernel_size=3,  # Smaller kernel for 32x32 images
         **kwargs
     )
+
+
+def convnext_v2_cifar100_10m(input_size: int = 32, in_chans: int = 3, output_size: int = 100, **kwargs):
+    """ConvNeXt-V2 optimized for CIFAR-100 (~10M parameters)
+
+    Scaled architecture for improved CIFAR-100 performance:
+    - Optimized depth/width balance (4, 6, 18, 6) layers
+    - Increased channel dimensions (42, 84, 168, 336)
+    - Higher drop_path_rate for regularization
+    - Advanced training techniques support
+    - Expected accuracy: 65-75%
+    """
+    return ConvNeXtV2(
+        input_size=input_size,
+        in_chans=in_chans,
+        output_size=output_size,
+        depths=(4, 6, 18, 6),  # Balanced depth scaling
+        dims=(42, 84, 168, 336),  # Balanced width scaling
+        drop_path_rate=0.2,  # Higher for larger model
+        kernel_size=3,  # Smaller kernel for 32x32 images
+        **kwargs
+    )
