@@ -3,6 +3,11 @@
 # to execute this experiment run:
 # python train.py experiment=example
 
+# Note: this config file could be renamed from example.yaml to
+# mnist_sdn_68k.yaml to conform with other filenames here, but
+# example.yaml is the original name from the Lightning-Hydra-Template
+# so we kept it.
+
 defaults:
   - override /data: mnist
   - override /model: mnist_sdn_68k
