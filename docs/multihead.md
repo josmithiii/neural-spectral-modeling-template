@@ -330,6 +330,25 @@ loss_weights:
   orientation: 0.5
 ```
 
+## Learning Rate
+
+The multihead experiment `make exp-multihead-cnn-mnist` has a higher
+learning rate (0.002) than the 0.001 value in the single-head
+experiment `make exp-cnn-mnist`.  This was tried because it's
+performing multi-task learning with three simultaneous classification
+tasks:
+  - digit: 10 classes (standard MNIST)
+  - thickness: 5 classes
+  - smoothness: 3 classes
+
+Higher learning rates are common in multi-task setups because:
+  1. Gradient competition between multiple loss functions can reduce effective update magnitudes
+  2. Shared feature learning requires more aggressive updates to find representations useful for all tasks
+  3. Loss weighting (digit=1.0, thickness/smoothness=0.5) affects the overall gradient scale
+
+The single-task CNN only learns digit classification, so it can use a more conservative learning rate.
+
+
 ## 🎯 Best Practices
 
 ### Loss Weighting Strategy
@@ -340,7 +359,7 @@ loss_weights:
 ### Training Tips
 1. **Monitor all metrics**: Watch individual task performance
 2. **Early stopping**: Use combined loss or primary task for stopping
-3. **Learning rate**: May need lower LR for stable multi-task training
+3. **Learning rate**: May need lower LR to stabilize multi-task training (more epochs)
 
 ### Evaluation
 1. **Task-specific metrics**: Evaluate each task independently

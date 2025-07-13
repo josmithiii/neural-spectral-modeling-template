@@ -160,7 +160,7 @@ ev995 exp-vit-995: ## Run ViT experiment achieving SOTA 99.5% validation accurac
 ecm exp-cnn-mnist: ## Run single-head CNN MNIST classification experiment - accuracy ~99.1%
 	time python src/train.py experiment=cnn_mnist
 
-emhcm exp-multihead-cnn-mnist: ## Run MultiHead CNN MNIST classification experiment
+emhcm exp-multihead-cnn-mnist: ## Run MultiHead CNN MNIST classification experiment - accuracies ~99.1%, 99.2%, 99.2%
 	time python src/train.py experiment=multihead_cnn_mnist
 
 emhcc10 exp-multihead-cnn-cifar10: ## Run MultiHead CNN CIFAR-10 classification experiment
