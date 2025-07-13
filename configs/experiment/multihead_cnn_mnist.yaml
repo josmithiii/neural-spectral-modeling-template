@@ -37,6 +37,9 @@ callbacks:
     monitor: "val/acc_best"
     mode: "max"
 
+# Override the optimized metric for this multihead model
+optimized_metric: "val/digit_acc"
+
 logger:
   wandb:
     tags: ${tags}
