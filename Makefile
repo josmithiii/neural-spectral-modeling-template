@@ -67,7 +67,7 @@ tq train-quick: ## Train quickly SimpleDenseNet, 1 epoch
 	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
 tqc train-quick-cnn: ## Train quickly SimpleCNN, 1 epoch
-	python src/train.py model=mnist_cnn trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
+	python src/train.py model=mnist_cnn_8k trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
 tqv train-quick-vit: ## Train quickly ViT, 1 epoch
 	python src/train.py model=mnist_vit_38k trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
