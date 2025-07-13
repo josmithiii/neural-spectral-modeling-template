@@ -112,7 +112,8 @@ class CIFAR100DataModule(LightningDataModule):
         """
         super().__init__()
 
-        self.persistent_workers = persistent_workers
+        # persistent_workers requires num_workers > 0
+        self.persistent_workers = persistent_workers and num_workers > 0
 
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt

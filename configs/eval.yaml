@@ -3,7 +3,7 @@
 defaults:
   - _self_
   - data: mnist # choose datamodule with `test_dataloader()` for evaluation
-  - model: mnist
+  - model: mnist_sdn_68k
   - logger: null
   - trainer: default
   - paths: default

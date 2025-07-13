@@ -22,6 +22,13 @@ def _patched_torch_load(f, map_location=None, pickle_module=None, weights_only=N
     return _original_torch_load(f, map_location=map_location, pickle_module=pickle_module, weights_only=False, mmap=mmap, **kwargs)
 torch.load = _patched_torch_load
 
+# Also patch Lightning's internal checkpoint loading
+try:
+    from lightning.fabric.utilities import cloud_io
+    cloud_io._load = _patched_torch_load
+except ImportError:
+    pass
+
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # ------------------------------------------------------------------------------------ #
 # the setup_root above is equivalent to:
