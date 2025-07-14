@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is an extended Lightning-Hydra-Template for deep learning projects using PyTorch Lightning and Hydra configuration management. The template provides a clean, organized structure for rapid ML experimentation with minimal boilerplate.  In this template project we've extended the original template as described in ./README-CONFIG.md
+This is an extended Lightning-Hydra-Template for deep learning projects using PyTorch Lightning and Hydra configuration management. The template provides a clean, organized structure for rapid ML experimentation with minimal boilerplate.  In this template project we've extended the original template as described in ./docs/extensions.md
 
 ## Core Technologies
 
@@ -75,7 +75,7 @@ source .venv/bin/activate.csh
 - **Main configs**: `configs/train.yaml` and `configs/eval.yaml` define default training/evaluation settings
 - **Modular configs**: Organized by component type in `configs/` subdirectories:
   - `data/`: Data module configurations
-  - `model/`: Model configurations  
+  - `model/`: Model configurations
   - `trainer/`: Lightning trainer configurations
   - `callbacks/`: Training callbacks
   - `logger/`: Logging configurations
@@ -104,7 +104,7 @@ source .venv/bin/activate.csh
 │   ├── train.py         # Main training script
 │   ├── eval.py          # Evaluation script
 │   ├── models/          # Lightning modules
-│   ├── data/            # Data modules  
+│   ├── data/            # Data modules
 │   └── utils/           # Utility functions
 ├── tests/               # Test suite
 ├── logs/                # Training logs and checkpoints

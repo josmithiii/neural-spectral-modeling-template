@@ -41,8 +41,8 @@ The project follows a **non-destructive extension** approach:
 │   │   ├── cifar10_*.yaml            # CIFAR-10 optimized models
 │   │   └── cifar100_*.yaml           # CIFAR-100 optimized models
 │   ├── data/
-│   │   ├── multihead_mnist.yaml      # Multihead data configuration
-│   │   ├── mnist_vit_995.yaml        # ViT-specific data loading
+│   │   ├── mnist_mh.yaml             # MNIST multihead data configuration
+│   │   ├── mnist_vit_995.yaml        # MNIST ViT-specific data loading for SOTA exp
 │   │   ├── cifar10.yaml              # CIFAR-10 data loading
 │   │   ├── cifar100.yaml             # CIFAR-100 fine-grained
 │   │   └── cifar100_coarse.yaml      # CIFAR-100 coarse-grained

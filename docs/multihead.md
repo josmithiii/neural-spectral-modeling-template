@@ -119,7 +119,7 @@ net:
 
 ### Data Configuration
 ```yaml
-# configs/data/multihead_mnist.yaml
+# configs/data/mnist_mh.yaml
 _target_: src.data.mnist_datamodule.MNISTDataModule
 batch_size: 64
 num_workers: 0
@@ -133,7 +133,7 @@ multihead: true
 ```yaml
 # configs/experiment/multihead_cnn_mnist.yaml
 defaults:
-  - override /data: multihead_mnist
+  - override /data: mnist_mh
   - override /model: mnist_multihead_cnn_422k
   - override /trainer: default
 
