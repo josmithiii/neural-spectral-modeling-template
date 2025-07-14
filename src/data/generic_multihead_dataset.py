@@ -73,6 +73,16 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
                         with open(metadata_file, 'r') as f:
                             config = json.load(f)
                         print(f"Auto-detected format from {metadata_file}")
+
+                        # Ensure required fields are present
+                        if 'label_encoding' not in config:
+                            config['label_encoding'] = {
+                                'format': '[N] [param_id] [param_val] ...',
+                                'N_range': [0, 255],
+                                'param_id_range': [0, 255],
+                                'param_val_range': [0, 255]
+                            }
+
                         return config
                     except (json.JSONDecodeError, IOError):
                         continue
@@ -103,23 +113,44 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
                 data = pickle.load(f)
 
             if isinstance(data, dict) and 'data' in data and 'labels' in data:
+                # Analyze image and label data
+                images = data['data']
+                labels = data['labels']
+
+                if not images or not labels:
+                    return self._get_default_format()
+
+                # Get image dimensions from actual data
+                first_image = images[0]
+                image_size = len(first_image)
+
+                # Try to infer dimensions from common image sizes
+                if image_size == 784:  # 28x28x1 (MNIST-like)
+                    height, width, channels = 28, 28, 1
+                elif image_size == 3072:  # 32x32x3 (CIFAR-like)
+                    height, width, channels = 32, 32, 3
+                else:
+                    # Default assumption for generic format
+                    height, width, channels = 32, 32, 3
+
                 # Analyze label structure
-                labels = data['labels'][0] if data['labels'] else []
+                first_label = labels[0] if labels else []
 
-                if len(labels) >= 4:
-                    # Looks like multihead format [h, w, c, N, ...]
-                    height, width, channels, num_heads = labels[:4]
-                    expected_length = 4 + (num_heads * 2)
+                # Check if it's the standard multihead format [N, param_id, param_val, ...]
+                if len(first_label) >= 3:
+                    num_heads = first_label[0]
+                    expected_length = 1 + (num_heads * 2)
 
-                    if len(labels) >= expected_length:
+                    if len(first_label) >= expected_length:
                         return {
                             'format': 'auto-detected',
                             'label_encoding': {
-                                'format': '[height] [width] [channels] [N] [param_id] [param_val] ...',
+                                'format': '[N] [param_id] [param_val] ...',
                                 'detected_dimensions': [height, width, channels],
                                 'detected_heads': num_heads
                             },
-                            'parameter_names': [f'param_{i}' for i in range(num_heads)]
+                            'parameter_names': [f'param_{i}' for i in range(num_heads)],
+                            'image_size': f'{height}x{width}x{channels}'
                         }
 
         except Exception:
@@ -160,7 +191,7 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
                 'param_id_range': [0, 255],
                 'param_val_range': [0, 255]
             },
-            'parameter_names': ['note_number', 'note_velocity'],
+            'parameter_names': ['param_0', 'param_1'],
             'image_size': '32x32x3'
         }
 

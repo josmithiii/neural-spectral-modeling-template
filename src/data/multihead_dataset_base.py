@@ -113,9 +113,18 @@ class MultiheadDatasetBase(Dataset, ABC):
             # Calculate heads config by finding max value for each head across all samples
             self.heads_config = {}
             if self.samples[0][1]:  # If we have labels
-                for head_name in self.samples[0][1].keys():
-                    max_val = max(sample[1][head_name] for sample in self.samples)
-                    self.heads_config[head_name] = max_val + 1  # +1 for number of classes
+                # Collect all parameter names that appear in any sample
+                all_param_names = set()
+                for _, labels in self.samples:
+                    all_param_names.update(labels.keys())
+
+                # Now calculate heads config for all parameters
+                for param_name in all_param_names:
+                    # Find max value for this parameter across all samples that have it
+                    values = [sample[1][param_name] for sample in self.samples if param_name in sample[1]]
+                    if values:
+                        max_val = max(values)
+                        self.heads_config[param_name] = max_val + 1  # +1 for number of classes
 
     def _parse_label_metadata(self, label_data: Union[List[int], np.ndarray]) -> Tuple[Dict[str, int], Dict[str, int]]:
         """Parse metadata and labels from label data bytes.
@@ -229,14 +238,15 @@ class MultiheadDatasetBase(Dataset, ABC):
         # Check that all samples have consistent structure
         first_sample = self.samples[0]
         first_image_shape = first_sample[0].shape
-        first_label_keys = set(first_sample[1].keys())
+        first_num_heads = len(first_sample[1])
 
         for i, (image, labels) in enumerate(self.samples):
             if image.shape != first_image_shape:
                 raise ValueError(f"Sample {i} has inconsistent image shape: {image.shape} vs {first_image_shape}")
 
-            if set(labels.keys()) != first_label_keys:
-                raise ValueError(f"Sample {i} has inconsistent label keys: {set(labels.keys())} vs {first_label_keys}")
+            # Check that number of heads is consistent
+            if len(labels) != first_num_heads:
+                raise ValueError(f"Sample {i} has inconsistent label keys: {len(labels)} heads vs {first_num_heads} heads")
 
         return True
 

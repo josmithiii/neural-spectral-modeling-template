@@ -55,6 +55,9 @@ class CIFAR100MHDataset(MultiheadDatasetBase):
         # Initialize base class
         super().__init__(str(self.batch_file), metadata_format)
 
+        # Override heads_config with metadata parameter mappings if available
+        self._calculate_heads_config_from_metadata()
+
         # Validate dataset integrity
         self._validate_dataset()
 
@@ -83,6 +86,20 @@ class CIFAR100MHDataset(MultiheadDatasetBase):
             return metadata
         except (json.JSONDecodeError, IOError) as e:
             raise ValueError(f"Failed to load metadata from {self.metadata_file}: {e}")
+
+    def _calculate_heads_config_from_metadata(self) -> None:
+        """Calculate heads configuration from metadata parameter mappings if available."""
+        if 'parameter_mappings' in self.metadata_format:
+            param_mappings = self.metadata_format['parameter_mappings']
+
+            # Update heads_config with metadata ranges
+            for param_name, param_info in param_mappings.items():
+                if 'min' in param_info and 'max' in param_info:
+                    # Calculate number of classes from range
+                    min_val = param_info['min']
+                    max_val = param_info['max']
+                    num_classes = max_val - min_val + 1
+                    self.heads_config[param_name] = num_classes
 
     def _validate_dataset(self) -> None:
         """Validate dataset integrity and format compliance."""

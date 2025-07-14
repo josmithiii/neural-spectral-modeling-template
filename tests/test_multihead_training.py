@@ -88,7 +88,7 @@ def mock_metadata():
         'parameter_names': ['param_0', 'param_1'],
         'parameter_mappings': {
             'param_0': {'min': 0, 'max': 9, 'description': 'Test parameter 0'},
-            'param_1': {'min': 0, 'max': 19, 'description': 'Test parameter 1'}
+            'param_1': {'min': 0, 'max': 18, 'description': 'Test parameter 1'}
         }
     }
 
