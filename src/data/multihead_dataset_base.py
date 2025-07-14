@@ -193,6 +193,12 @@ class MultiheadDatasetBase(Dataset, ABC):
         width = metadata['width']
         channels = metadata['channels']
 
+        expected_size = height * width * channels
+        actual_size = image_data.size
+
+        if actual_size != expected_size:
+            raise ValueError(f"Sample has inconsistent image shape: expected {height}x{width}x{channels} ({expected_size} pixels), got {actual_size} pixels")
+
         # Reshape to (height, width, channels) then convert to (channels, height, width)
         image = image_data.reshape(height, width, channels)
         image = np.transpose(image, (2, 0, 1))  # CHW format
