@@ -1,7 +1,7 @@
-_target_: src.models.mnist_module.MNISTLitModule
+_target_: src.models.multihead_module.MultiheadLitModule
 
 net:
-  _target_: src.models.components.convnext_v2.convnext_v2_cifar100_210k
+  _target_: src.models.components.convnext_v2.convnext_v2_mnist_base
   input_size: 32  # CIFAR-100-MH is 32x32
   in_chans: 3     # CIFAR-100-MH has 3 color channels
   heads_config:
@@ -33,3 +33,6 @@ loss_weights:
   param_1: 1.0
 
 compile: false
+
+# Auto-configure heads from dataset metadata
+auto_configure_from_dataset: true

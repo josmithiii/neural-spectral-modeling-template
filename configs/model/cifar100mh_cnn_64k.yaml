@@ -1,4 +1,4 @@
-_target_: src.models.mnist_module.MNISTLitModule
+_target_: src.models.multihead_module.MultiheadLitModule
 
 optimizer:
   _target_: torch.optim.Adam
@@ -39,3 +39,6 @@ net:
   input_size: 32  # CIFAR-100-MH image size (32x32)
 
 compile: false
+
+# Auto-configure heads from dataset metadata
+auto_configure_from_dataset: true

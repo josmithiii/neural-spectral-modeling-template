@@ -1,13 +1,12 @@
-_target_: src.models.mnist_module.MNISTLitModule
+_target_: src.models.multihead_module.MultiheadLitModule
 
 net:
   _target_: src.models.components.simple_efficientnet.SimpleEfficientNet
-  input_size: 32  # CIFAR-100-MH is 32x32
-  in_chans: 3     # CIFAR-100-MH has 3 color channels
+  input_channels: 3  # CIFAR-100-MH has 3 color channels
   heads_config:
     param_0: 100  # Default - will be overridden by dataset
     param_1: 100  # Default - will be overridden by dataset
-  dropout: 0.3
+  dropout_rate: 0.3
 
 optimizer:
   _target_: torch.optim.AdamW
@@ -34,3 +33,6 @@ loss_weights:
   param_1: 1.0
 
 compile: false
+
+# Auto-configure heads from dataset metadata
+auto_configure_from_dataset: true

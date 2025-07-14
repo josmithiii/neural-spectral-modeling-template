@@ -1,16 +1,15 @@
-_target_: src.models.mnist_module.MNISTLitModule
+_target_: src.models.multihead_module.MultiheadLitModule
 
 net:
   _target_: src.models.components.vision_transformer.VisionTransformer
-  input_size: 32  # CIFAR-100-MH is 32x32
-  in_chans: 3     # CIFAR-100-MH has 3 color channels
-  heads_config:
-    param_0: 100  # Default - will be overridden by dataset
-    param_1: 100  # Default - will be overridden by dataset
-  patch_size: 4   # Smaller patches for 32x32 images
-  embed_dim: 384  # Embedding dimension
-  depth: 12       # Number of transformer layers
-  num_heads: 6    # Number of attention heads
+  n_channels: 3     # CIFAR-100-MH has 3 color channels
+  image_size: 32    # CIFAR-100-MH is 32x32
+  patch_size: 4     # Smaller patches for 32x32 images
+  embed_dim: 384    # Embedding dimension
+  n_layers: 12      # Number of transformer layers
+  n_attention_heads: 6  # Number of attention heads
+  forward_mul: 2    # Forward multiplier
+  output_size: 100  # Default - will be overridden by dataset (single head)
   dropout: 0.1
 
 optimizer:
@@ -38,3 +37,7 @@ loss_weights:
   param_1: 1.0
 
 compile: false
+
+# Auto-configure heads from dataset metadata
+# Note: VisionTransformer doesn't support multihead natively, so disable auto-config
+auto_configure_from_dataset: false
