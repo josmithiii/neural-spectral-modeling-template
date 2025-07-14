@@ -4,8 +4,8 @@
 # python src/train.py experiment=multihead_cnn_cifar10
 
 defaults:
-  - override /data: multihead_cifar10
-  - override /model: cifar10_multihead_cnn_64k
+  - override /data: cifar10_mh
+  - override /model: cifar10_mh_cnn_64k
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
@@ -40,4 +40,4 @@ callbacks:
 logger:
   wandb:
     tags: ${tags}
-    group: "multihead_cifar10"
+    group: "cifar10_mh"

@@ -130,7 +130,7 @@ tdsc10 test-diagram-simple-cifar10: ## Generate simple diagrams for CIFAR-10 arc
 	@echo "=== CIFAR-10 Architectures ==="
 	python viz/simple_model_diagram.py --config cifar10_cnn_64k
 	python viz/simple_model_diagram.py --config cifar10_convnext_64k
-	python viz/simple_model_diagram.py --config cifar10_multihead_cnn_64k
+	python viz/simple_model_diagram.py --config cifar10_mh_cnn_64k
 	python viz/simple_model_diagram.py --config cifar10_vit_210k
 
 ca compare-arch: ## Compare architectures on quick runs
