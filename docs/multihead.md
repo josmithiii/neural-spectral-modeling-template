@@ -428,10 +428,12 @@ model = MultiheadLitModule(
 ### Key Features
 
 - **Auto-configuration**: Automatically sets up heads and criteria from dataset
+- **Metadata-based configuration**: Uses dataset metadata ranges when available
 - **Loss weighting**: Configurable weights for different tasks
 - **Backward compatibility**: Works with single-head models
 - **Metrics tracking**: Separate accuracy metrics for each head
 - **Lightning integration**: Full compatibility with Lightning ecosystem
+- **Format validation**: Comprehensive validation with auto-detection
 
 ### Example Configuration
 
@@ -460,9 +462,11 @@ The multihead system integrates with:
 - **Standard architectures**: Works with CNN, can be extended to others
 - **CIFAR datasets**: Available for CIFAR-10 experiments
 - **CIFAR-100-MH format**: New binary format for real multihead labels
+- **Generic datasets**: Auto-detection for various multihead formats
 - **Lightning logging**: All metrics automatically tracked
 - **Hydra configuration**: Fully configurable through YAML
 - **Auto-configuration**: Dynamic setup from dataset metadata
+- **Format validation**: Comprehensive validation with error handling
 
 For CIFAR-100-MH format details, see [docs/cifar100mh.md](cifar100mh.md).
 For architecture details, see [README-ARCHITECTURES.md](README-ARCHITECTURES.md).

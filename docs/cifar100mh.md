@@ -369,7 +369,7 @@ print(f"Parameter statistics: {stats['parameter_statistics']}")
 
 ### Error Handling
 
-The implementation includes comprehensive error handling:
+The implementation includes comprehensive error handling with detailed validation:
 
 ```python
 try:
@@ -377,10 +377,23 @@ try:
 except FileNotFoundError:
     print("Dataset files not found. Check data_dir path.")
 except ValueError as e:
-    print(f"Format validation error: {e}")
+    if "inconsistent image shape" in str(e):
+        print(f"Image dimension mismatch: {e}")
+    elif "inconsistent label keys" in str(e):
+        print(f"Label structure inconsistency: {e}")
+    elif "Missing required field" in str(e):
+        print(f"Format configuration error: {e}")
+    else:
+        print(f"Format validation error: {e}")
 except Exception as e:
     print(f"Unexpected error: {e}")
 ```
+
+**Common validation errors:**
+- `Missing required field in format config: label_encoding` - Incomplete metadata
+- `Sample has inconsistent image shape` - Mixed image dimensions
+- `Sample X has inconsistent label keys` - Different number of heads
+- `Failed to load metadata` - Corrupted JSON file
 
 ### Memory Optimization
 
@@ -393,16 +406,25 @@ except Exception as e:
 
 ### Format Validation
 
+The system includes comprehensive format validation with auto-detection capabilities:
+
 ```python
 # Test dataset format compliance
 pytest tests/test_multihead_datasets.py::TestCIFAR100MHDataset -v
 
-# Test format validation
+# Test format validation and auto-detection
 pytest tests/test_format_validation.py -v
 
 # Test training integration
 pytest tests/test_multihead_training.py -v
 ```
+
+**Key validation features:**
+- **Auto-detection**: Automatically detects CIFAR-100-MH vs generic formats
+- **Image dimension inference**: Supports 784 (28×28×1) and 3072 (32×32×3) pixels
+- **Label structure validation**: Ensures consistent number of heads across samples
+- **Parameter ID handling**: Gracefully handles unknown parameter IDs
+- **Metadata completion**: Automatically adds missing required fields
 
 ### Performance Testing
 
@@ -433,7 +455,9 @@ print(f'Batch memory: {batch[0].element_size() * batch[0].nelement() / 1024**2:.
 
 2. **Format Errors**: Check label format compliance
    - Labels must follow `[N, param_id, param_val, ...]` structure
-   - All samples must have consistent label structure
+   - All samples must have consistent number of heads (N value)
+   - Parameter IDs can vary between samples (auto-handled)
+   - Missing `label_encoding` field in metadata (auto-completed)
 
 3. **Memory Issues**: Optimize batch size and worker count
    - Reduce `batch_size` for memory constraints
@@ -486,6 +510,39 @@ class CustomMultiheadDataset(MultiheadDatasetBase):
     def _parse_labels(self, raw_labels):
         # Custom label parsing logic
         return parsed_labels
+```
+
+### Generic Dataset Support
+
+The system also supports generic multihead datasets with auto-detection:
+
+```python
+from src.data.generic_multihead_dataset import GenericMultiheadDataset
+
+# Auto-detect format from file structure
+dataset = GenericMultiheadDataset(
+    data_path="path/to/data.pkl",
+    auto_detect=True
+)
+
+# Or use with specific format configuration
+format_config = {
+    'format': 'custom-format',
+    'label_encoding': {
+        'format': '[N] [param_id] [param_val] ...',
+        'N_range': [0, 255],
+        'param_id_range': [0, 255],
+        'param_val_range': [0, 255]
+    },
+    'parameter_names': ['param_0', 'param_1'],
+    'image_size': '32x32x3'
+}
+
+dataset = GenericMultiheadDataset(
+    data_path="path/to/data.pkl",
+    format_config=format_config,
+    auto_detect=False
+)
 ```
 
 ## 📚 Related Documentation
