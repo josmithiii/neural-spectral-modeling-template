@@ -1,0 +1,41 @@
+_target_: src.models.mnist_module.MNISTLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+# Different criterion per head (will be auto-configured based on dataset)
+# For CIFAR-100-MH, heads will be determined dynamically from the dataset
+criteria:
+  param_0:
+    _target_: torch.nn.CrossEntropyLoss
+  param_1:
+    _target_: torch.nn.CrossEntropyLoss
+
+# Loss weighting (equal weight to all heads by default)
+loss_weights:
+  param_0: 1.0
+  param_1: 1.0
+
+net:
+  _target_: src.models.components.simple_cnn.SimpleCNN
+  input_channels: 3  # CIFAR-100-MH has 3 color channels
+  conv1_channels: 64
+  conv2_channels: 128
+  fc_hidden: 512
+  heads_config:
+    param_0: 100  # Default - will be overridden by dataset
+    param_1: 100  # Default - will be overridden by dataset
+  dropout: 0.5
+  input_size: 32  # CIFAR-100-MH image size (32x32)
+
+compile: false

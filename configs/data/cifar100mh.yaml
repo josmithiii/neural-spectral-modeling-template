@@ -1,0 +1,6 @@
+_target_: src.data.cifar100mh_datamodule.CIFAR100MHDataModule
+data_dir: ${paths.data_dir}/cifar-100-mh-example
+batch_size: 128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
+num_workers: 2
+pin_memory: False
+persistent_workers: True

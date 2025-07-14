@@ -1,0 +1,52 @@
+# @package _global_
+
+# to execute this experiment run:
+# python src/train.py experiment=cifar100mh_vit
+
+defaults:
+  - override /data: cifar100mh
+  - override /model: cifar100mh_vit_210k
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["cifar100mh", "multihead", "vit", "real_labels"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 10
+  max_epochs: 100  # CIFAR-100-MH is challenging, needs more epochs
+  gradient_clip_val: 1.0
+
+model:
+  optimizer:
+    lr: 0.001
+    weight_decay: 0.01
+  scheduler:
+    T_max: 100
+    eta_min: 1e-6
+  compile: false
+
+data:
+  batch_size: 64  # Smaller batch size for ViT due to memory requirements
+  num_workers: 4
+  pin_memory: true
+
+# Override callback monitoring metrics for multihead setup
+callbacks:
+  model_checkpoint:
+    monitor: "val/acc_best"
+    mode: "max"
+  early_stopping:
+    monitor: "val/acc_best"
+    mode: "max"
+    patience: 15
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "cifar100mh"
+  aim:
+    experiment: "cifar100mh"
