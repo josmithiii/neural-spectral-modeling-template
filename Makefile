@@ -133,11 +133,11 @@ tdsc10 test-diagram-simple-cifar10: ## Generate simple diagrams for CIFAR-10 arc
 	python viz/simple_model_diagram.py --config cifar10_mh_cnn_64k
 	python viz/simple_model_diagram.py --config cifar10_vit_210k
 
-ca compare-arch: ## Compare architectures on quick runs
+ca compare-arch: ## Compare medium sized architectures on three epochs
 	@echo "=== Training SimpleDenseNet ==="
 	python src/train.py trainer.max_epochs=3 tags="[arch_comparison,dense]"
 	@echo "=== Training SimpleCNN ==="
-	python src/train.py model=mnist_cnn trainer.max_epochs=3 tags="[arch_comparison,cnn]"
+	python src/train.py model=mnist_cnn_68k trainer.max_epochs=3 tags="[arch_comparison,cnn]"
 	@echo "=== Training ViT ==="
 	python src/train.py model=mnist_vit_38k trainer.max_epochs=3 tags="[arch_comparison,vit]"
 	@echo "=== Training ConvNeXt-V2 ==="
@@ -254,7 +254,7 @@ cbq100cn10m cifar100-quick-convnext-10m: ## Quick CIFAR-100 ConvNeXt 10M validat
 cbq100cc cifar100-quick-coarse: ## Quick CIFAR-100 coarse validation (5 epochs)
 	python src/train.py experiment=cifar100_coarse_cnn trainer.max_epochs=5 trainer.min_epochs=1
 
-cbqa cifar-quick-all: cbq10c cbq10cn cbq100c cbq100cc ## Run all quick CIFAR validations
+cbqa cifar-quick-all: cbq10c cbq10cn cbq10cn64 cbq10cn128 cbq100sdn cbq100cnn1m cbq100cn10m cbq100c cbq100cc  ## Run all quick CIFAR validations
 
 # CIFAR BENCHMARK SUITES "cbs" - Systematic Comparisons
 
@@ -270,3 +270,4 @@ cbs100 benchmark-cifar100: cb100c cb100cn cb100v cb100e cb100sdn cb100cnn1m cb10
 cbsa benchmark-all: cbs10 cbs100 ## Run complete CIFAR benchmark suite
 	@echo "=== Complete CIFAR benchmark suite finished ==="
 
+allqt all-quick-tests: tqa cbqa ## All quick tests
