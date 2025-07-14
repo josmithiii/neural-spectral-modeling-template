@@ -116,7 +116,7 @@ tdss test-diagram-simple-samples: ## Generate simple diagrams for sample archite
 	@echo "\n=== CIFAR-10 CNN (64K params) ==="
 	python viz/simple_model_diagram.py --config cifar10_cnn_64k
 	@echo "\n=== MNIST Multihead CNN (422K params) ==="
-	python viz/simple_model_diagram.py --config mnist_multihead_cnn_422k
+	python viz/simple_model_diagram.py --config mnist_mh_cnn_422k
 
 tdsm test-diagram-simple-mnist: ## Generate simple diagrams for all MNIST architectures
 	@echo "=== MNIST Architectures ==="
@@ -124,7 +124,7 @@ tdsm test-diagram-simple-mnist: ## Generate simple diagrams for all MNIST archit
 	python viz/simple_model_diagram.py --config mnist_sdn_8k
 	python viz/simple_model_diagram.py --config mnist_vit_38k
 	python viz/simple_model_diagram.py --config mnist_convnext_68k
-	python viz/simple_model_diagram.py --config mnist_multihead_cnn_422k
+	python viz/simple_model_diagram.py --config mnist_mh_cnn_422k
 
 tdsc10 test-diagram-simple-cifar10: ## Generate simple diagrams for CIFAR-10 architectures
 	@echo "=== CIFAR-10 Architectures ==="
