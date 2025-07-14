@@ -54,13 +54,6 @@ class SimpleDenseNet(nn.Module):
         for head_name, num_classes in heads_config.items():
             self.heads[head_name] = nn.Linear(lin3_size, num_classes)
 
-        # Backward compatibility: maintain .model attribute for single-head case
-        if not self.is_multihead:
-            self.model = nn.Sequential(
-                self.feature_extractor,
-                self.heads['digit']
-            )
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Perform a single forward pass through the network.
 
