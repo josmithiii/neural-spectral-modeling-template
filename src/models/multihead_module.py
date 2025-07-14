@@ -92,12 +92,15 @@ class MultiheadLitModule(LightningModule):
 
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
-        self.save_hyperparameters(logger=False, ignore=["net", "criterion", "criteria"])
+        self.save_hyperparameters(logger=False, ignore=["net", "criterion", "criteria", "scheduler"])
 
         self.net = net
         self.criteria = criteria
         self.loss_weights = loss_weights or {name: 1.0 for name in criteria.keys()}
         self.is_multihead = len(criteria) > 1
+
+        # Store scheduler separately since it's not in hparams
+        self.scheduler = scheduler
 
         # Will be initialized in setup()
         self.train_metrics = None
@@ -390,8 +393,8 @@ class MultiheadLitModule(LightningModule):
         :return: A dict containing the configured optimizers and learning-rate schedulers to be used for training.
         """
         optimizer = self.hparams.optimizer(params=self.trainer.model.parameters())
-        if self.hparams.scheduler is not None:
-            scheduler = self.hparams.scheduler(optimizer=optimizer)
+        if self.scheduler is not None:
+            scheduler = self.scheduler(optimizer=optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {
