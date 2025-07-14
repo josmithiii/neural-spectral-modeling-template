@@ -90,7 +90,7 @@ The multihead CNN extends the standard SimpleCNN:
 
 ### Model Configuration
 ```yaml
-# configs/model/mnist_multihead_cnn_422k.yaml
+# configs/model/mnist_mh_cnn_422k.yaml
 _target_: src.models.mnist_module.MNISTLitModule
 
 # Separate criteria for each task
@@ -111,19 +111,27 @@ loss_weights:
 # Network with multihead configuration
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
+  input_channels: 1
+  conv1_channels: 32
+  conv2_channels: 64
+  fc_hidden: 128
   heads_config:
     digit: 10       # 10 digit classes
     thickness: 5    # 5 thickness levels
     smoothness: 3   # 3 smoothness levels
+  dropout: 0.25
 ```
 
 ### Data Configuration
 ```yaml
-# configs/data/mnist_mh.yaml
+# configs/data/multihead_mnist.yaml
 _target_: src.data.mnist_datamodule.MNISTDataModule
-batch_size: 64
-num_workers: 0
+data_dir: ${paths.data_dir}
+batch_size: 128
+train_val_test_split: [55_000, 5_000, 10_000]
+num_workers: 2
 pin_memory: False
+persistent_workers: False
 
 # Enable multihead label generation
 multihead: true
@@ -133,16 +141,18 @@ multihead: true
 ```yaml
 # configs/experiment/multihead_cnn_mnist.yaml
 defaults:
-  - override /data: mnist_mh
-  - override /model: mnist_multihead_cnn_422k
+  - override /data: multihead_mnist
+  - override /model: mnist_mh_cnn_422k
   - override /trainer: default
 
 seed: 12345
 tags: ["mnist", "multihead", "cnn"]
 
 trainer:
+  min_epochs: 1
   max_epochs: 10
-  gradient_clip_val: 0.5
+  accelerator: auto
+  devices: 1
 
 model:
   optimizer:
@@ -150,6 +160,18 @@ model:
 
 data:
   batch_size: 64
+
+# Override callback monitoring metrics for multihead setup
+callbacks:
+  model_checkpoint:
+    monitor: "val/acc_best"
+    mode: "max"
+  early_stopping:
+    monitor: "val/acc_best"
+    mode: "max"
+
+# Override the optimized metric for this multihead model
+optimized_metric: "val/digit_acc"
 ```
 
 ## 🚀 Usage
@@ -366,13 +388,82 @@ The single-task CNN only learns digit classification, so it can use a more conse
 2. **Combined performance**: Consider weighted average of accuracies
 3. **Ablation studies**: Compare with single-task baselines
 
+## 🔧 Generic MultiheadLitModule
+
+This template now includes a generic `MultiheadLitModule` that can work with any multihead dataset format:
+
+### Usage with Auto-Configuration
+
+```python
+from src.models.multihead_module import MultiheadLitModule
+
+# Auto-configure from dataset
+model = MultiheadLitModule(
+    net=your_network,
+    optimizer=torch.optim.Adam,
+    scheduler=torch.optim.lr_scheduler.StepLR,
+    auto_configure_from_dataset=True  # Key feature
+)
+
+# Model automatically configures heads and criteria from dataset metadata
+```
+
+### Manual Configuration
+
+```python
+# Manual configuration
+model = MultiheadLitModule(
+    net=your_network,
+    optimizer=torch.optim.Adam,
+    scheduler=torch.optim.lr_scheduler.StepLR,
+    criteria={
+        'param_0': torch.nn.CrossEntropyLoss(),
+        'param_1': torch.nn.CrossEntropyLoss(),
+    },
+    loss_weights={'param_0': 1.0, 'param_1': 0.5},
+    auto_configure_from_dataset=False
+)
+```
+
+### Key Features
+
+- **Auto-configuration**: Automatically sets up heads and criteria from dataset
+- **Loss weighting**: Configurable weights for different tasks
+- **Backward compatibility**: Works with single-head models
+- **Metrics tracking**: Separate accuracy metrics for each head
+- **Lightning integration**: Full compatibility with Lightning ecosystem
+
+### Example Configuration
+
+```yaml
+# configs/model/generic_multihead.yaml
+_target_: src.models.multihead_module.MultiheadLitModule
+
+# Auto-configure from dataset
+auto_configure_from_dataset: true
+
+# Optional loss weighting
+loss_weights:
+  param_0: 1.0
+  param_1: 0.8
+
+# Network (heads_config will be auto-filled)
+net:
+  _target_: src.models.components.simple_cnn.SimpleCNN
+  input_channels: 3
+  input_size: 32
+```
+
 ## 🔗 Integration
 
 The multihead system integrates with:
 - **Standard architectures**: Works with CNN, can be extended to others
 - **CIFAR datasets**: Available for CIFAR-10 experiments
+- **CIFAR-100-MH format**: New binary format for real multihead labels
 - **Lightning logging**: All metrics automatically tracked
 - **Hydra configuration**: Fully configurable through YAML
+- **Auto-configuration**: Dynamic setup from dataset metadata
 
+For CIFAR-100-MH format details, see [docs/cifar100mh.md](cifar100mh.md).
 For architecture details, see [README-ARCHITECTURES.md](README-ARCHITECTURES.md).
 For configuration patterns, see [README-CONFIGURATION.md](README-CONFIGURATION.md).
