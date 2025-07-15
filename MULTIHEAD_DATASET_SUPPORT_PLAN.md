@@ -1,8 +1,12 @@
-# Multihead Dataset Support Plan: CIFAR-100-MH Format
+# Multihead Dataset Support Plan: VIMH Format
 
 ## Overview
 
-This plan outlines the implementation of support for a new generalized multihead dataset format based on the CIFAR-100-MH example. The format extends traditional single-label datasets to support multiple classification heads with arbitrary metadata.
+This plan outlines the implementation of support for a new generalized
+multihead dataset format called VIMH based on the previous
+CIFAR-100-MH support. The format extends traditional single-label
+datasets to support multiple classification heads with arbitrary
+metadata.
 
 ## Current Status Analysis
 
@@ -34,7 +38,7 @@ Where:
 - `param_id`: Parameter/head identifier (1 byte, 0-255)
 - `param_val`: Parameter/head value (1 byte, 0-255)
 
-### Current CIFAR-100-MH Example
+### VIMH Example
 ```
 [32] [32] [3] [2] [note_number_id] [note_number_val] [note_velocity_id] [note_velocity_val]
 ```
@@ -62,12 +66,12 @@ class MultiheadDatasetBase(Dataset):
     def validate_format(self) -> bool
 ```
 
-#### 1.2 Create CIFAR-100-MH Dataset Implementation
-**File**: `src/data/cifar100mh_dataset.py`
+#### 1.2 Create VIMH Dataset Implementation
+**File**: `src/data/vimh_dataset.py`
 
 ```python
-class CIFAR100MHDataset(MultiheadDatasetBase):
-    """CIFAR-100-MH format dataset implementation."""
+class VIMHDataset(MultiheadDatasetBase):
+    """VIMH format dataset implementation."""
 
     def __init__(self, data_path: str, train: bool = True)
     def _load_metadata_config(self) -> Dict[str, Any]
@@ -90,12 +94,12 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
 
 ### Phase 2: Data Module Integration
 
-#### 2.1 Create CIFAR-100-MH Data Module
-**File**: `src/data/cifar100mh_datamodule.py`
+#### 2.1 Create VIMH Data Module
+**File**: `src/data/vimh_datamodule.py`
 
 ```python
-class CIFAR100MHDataModule(LightningDataModule):
-    """Lightning data module for CIFAR-100-MH datasets."""
+class VIMHDataModule(LightningDataModule):
+    """Lightning data module for VIMH datasets."""
 
     def __init__(self, data_dir: str, batch_size: int = 32, num_workers: int = 0)
     def prepare_data(self) -> None
@@ -109,24 +113,24 @@ class CIFAR100MHDataModule(LightningDataModule):
 #### 2.2 Update Existing Data Module Factory
 **File**: `src/data/__init__.py`
 - Add imports for new multihead datasets
-- Register CIFAR-100-MH data module
+- Register VIMH data module
 
 ### Phase 3: Model Configuration Support
 
 #### 3.1 Create Model Configurations
 **Files**:
-- `configs/data/cifar100mh.yaml`
-- `configs/model/cifar100mh_cnn_*.yaml`
-- `configs/model/cifar100mh_convnext_*.yaml`
-- `configs/model/cifar100mh_efficientnet_*.yaml`
-- `configs/model/cifar100mh_vit_*.yaml`
+- `configs/data/vimh.yaml`
+- `configs/model/vimh_cnn_*.yaml`
+- `configs/model/vimh_convnext_*.yaml`
+- `configs/model/vimh_efficientnet_*.yaml`
+- `configs/model/vimh_vit_*.yaml`
 
 #### 3.2 Create Experiment Configurations
 **Files**:
-- `configs/experiment/cifar100mh_cnn.yaml`
-- `configs/experiment/cifar100mh_convnext.yaml`
-- `configs/experiment/cifar100mh_efficientnet.yaml`
-- `configs/experiment/cifar100mh_vit.yaml`
+- `configs/experiment/vimh_cnn.yaml`
+- `configs/experiment/vimh_convnext.yaml`
+- `configs/experiment/vimh_efficientnet.yaml`
+- `configs/experiment/vimh_vit.yaml`
 
 ### Phase 4: Lightning Module Enhancement
 
@@ -153,7 +157,7 @@ class GenericMultiheadModule(LightningModule):
 **File**: `tests/test_multihead_datasets.py`
 
 ```python
-def test_cifar100mh_dataset_loading()
+def test_vimh_dataset_loading()
 def test_generic_multihead_format_detection()
 def test_metadata_parsing()
 def test_image_reconstruction()
@@ -165,7 +169,7 @@ def test_dataloader_integration()
 **File**: `tests/test_multihead_training.py`
 
 ```python
-def test_cifar100mh_training_pipeline()
+def test_vimh_training_pipeline()
 def test_model_head_configuration()
 def test_loss_computation()
 def test_metric_tracking()
@@ -191,7 +195,7 @@ def test_dimension_consistency()
 - Extension guidelines
 
 #### 6.2 Create Usage Examples
-**File**: `examples/cifar100mh_training.py`
+**File**: `examples/vimh_training.py`
 - Complete training pipeline example
 - Data loading demonstration
 - Model configuration examples
@@ -240,7 +244,7 @@ def test_dimension_consistency()
 ## Implementation Priority
 
 ### High Priority (Phase 1-3)
-1. Core dataset classes and CIFAR-100-MH implementation
+1. Core dataset classes and VIMH implementation
 2. Data module integration
 3. Basic model configurations
 
@@ -279,7 +283,7 @@ def test_dimension_consistency()
 - **ImageNet**: Single label, variable dimensions, external metadata
 - **COCO**: Multiple objects, JSON annotations, complex metadata
 
-### Proposed CIFAR-100-MH Advantages
+### Proposed VIMH Advantages
 - **Embedded metadata**: Self-describing format
 - **Multiple real labels**: Not synthetic/derived
 - **Compact binary**: Efficient storage and loading
@@ -299,7 +303,7 @@ No existing standard format provides this exact combination of features, making 
 ## Success Criteria
 
 ### Functional Requirements
-- [ ] Successfully load CIFAR-100-MH datasets
+- [ ] Successfully load VIMH datasets
 - [ ] Support arbitrary numbers of heads (1-255)
 - [ ] Handle variable image dimensions
 - [ ] Maintain backward compatibility
@@ -317,4 +321,7 @@ No existing standard format provides this exact combination of features, making 
 - [ ] Validation tools for format compliance
 - [ ] Clear error messages for malformed data
 
-This plan provides a comprehensive roadmap for implementing support for the novel CIFAR-100-MH multihead dataset format while maintaining flexibility for future extensions and ensuring robust, well-tested implementation.
+This plan provides a comprehensive roadmap for implementing support
+for the novel VIMH multihead dataset format while maintaining
+flexibility for future extensions and ensuring robust, well-tested
+implementation.
