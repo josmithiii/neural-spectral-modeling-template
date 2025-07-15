@@ -78,6 +78,23 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
 
+    # For VIMH datasets, configure model with parameter names from metadata
+    if 'vimh' in cfg.data._target_.lower() and hasattr(cfg.model, 'auto_configure_from_dataset') and cfg.model.auto_configure_from_dataset:
+        try:
+            from src.utils.vimh_utils import get_parameter_names_from_metadata
+            parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
+            if parameter_names and hasattr(cfg.model, 'net'):
+                log.info(f"Configuring model with parameter names from dataset: {parameter_names}")
+                # Add parameter_names to the net config
+                cfg.model.net.parameter_names = parameter_names
+
+                # Auto-configure loss_weights (equal weight for all parameters)
+                if not hasattr(cfg.model, 'loss_weights') or not cfg.model.loss_weights or len(cfg.model.loss_weights) == 0:
+                    cfg.model.loss_weights = {name: 1.0 for name in parameter_names}
+                    log.info(f"Auto-configured loss_weights: {cfg.model.loss_weights}")
+        except Exception as e:
+            log.warning(f"Failed to auto-configure model from dataset metadata: {e}")
+
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
 

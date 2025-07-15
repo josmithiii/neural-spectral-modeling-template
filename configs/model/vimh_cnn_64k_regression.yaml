@@ -16,24 +16,8 @@ scheduler:
 # Pure regression mode with sigmoid-activated outputs
 output_mode: regression
 
-# Normalized regression loss for sigmoid-activated [0,1] outputs
-# These are mapped to parameter space using dataset metadata
-criteria:
-  note_number:
-    _target_: src.models.losses.NormalizedRegressionLoss
-    param_range: [50.0, 52.0]  # Placeholder - will be updated from dataset metadata
-    loss_type: l1  # L1 loss for continuous values
-    return_perceptual_units: true  # Return loss in parameter space units
-  note_velocity:
-    _target_: src.models.losses.NormalizedRegressionLoss
-    param_range: [80.0, 82.0]  # Placeholder - will be updated from dataset metadata
-    loss_type: l1  # L1 loss for continuous values
-    return_perceptual_units: true  # Return loss in parameter space units
-
-# Loss weighting (equal weight to all heads by default)
-loss_weights:
-  note_number: 1.0
-  note_velocity: 1.0
+# Criteria and loss_weights will be auto-configured from dataset metadata
+loss_weights: {}  # Will be auto-configured from dataset metadata
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
@@ -42,10 +26,8 @@ net:
   conv2_channels: 128
   fc_hidden: 512
   output_mode: regression  # Enable regression mode
-  parameter_names: ["note_number", "note_velocity"]  # Will be auto-configured from dataset
-  parameter_ranges:  # Will be auto-configured from dataset metadata
-    note_number: [50.0, 52.0]  # Placeholder
-    note_velocity: [80.0, 82.0]  # Placeholder
+  parameter_names: []  # Will be auto-configured from dataset metadata
+  # parameter_ranges will be auto-configured from dataset metadata
   dropout: 0.5
   input_size: 32  # VIMH image size (32x32 for spectrograms)
 
