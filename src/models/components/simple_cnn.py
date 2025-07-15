@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Tuple
 
 class SimpleCNN(nn.Module):
     """A simple convolutional neural network for MNIST classification."""
@@ -15,6 +15,9 @@ class SimpleCNN(nn.Module):
         heads_config: Optional[Dict[str, int]] = None,
         dropout: float = 0.25,
         input_size: int = 28,
+        output_mode: str = "classification",
+        parameter_names: Optional[List[str]] = None,
+        parameter_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
     ) -> None:
         """Initialize a SimpleCNN module.
 
@@ -26,15 +29,31 @@ class SimpleCNN(nn.Module):
         :param heads_config: Dict mapping head names to number of classes for multihead.
         :param dropout: Dropout probability.
         :param input_size: Input image size (28 for MNIST, 32 for CIFAR).
+        :param output_mode: Output mode - "classification" or "regression".
+        :param parameter_names: List of parameter names for regression mode.
+        :param parameter_ranges: Dict mapping parameter names to (min, max) ranges.
         """
         super().__init__()
 
-        # Backward compatibility: convert old single-head config to multihead
-        if heads_config is None:
-            if output_size is not None:
-                heads_config = {'digit': output_size}
-            else:
-                heads_config = {'digit': 10}  # Default MNIST
+        # Store output mode and parameter information
+        self.output_mode = output_mode
+        self.parameter_names = parameter_names or []
+        self.parameter_ranges = parameter_ranges or {}
+
+        # Handle configuration based on output mode
+        if output_mode == "regression":
+            # For regression, we need parameter names
+            if not parameter_names:
+                raise ValueError("parameter_names must be provided for regression mode")
+            # Create heads_config for regression (each parameter gets 1 output)
+            heads_config = {name: 1 for name in parameter_names}
+        else:
+            # Backward compatibility: convert old single-head config to multihead
+            if heads_config is None:
+                if output_size is not None:
+                    heads_config = {'digit': output_size}
+                else:
+                    heads_config = {'digit': 10}  # Default MNIST
 
         self.heads_config = heads_config
         self.is_multihead = len(heads_config) > 1
@@ -80,14 +99,31 @@ class SimpleCNN(nn.Module):
 
         # Multiple heads or single head for backward compatibility
         if self.is_multihead:
-            self.heads = nn.ModuleDict({
-                head_name: nn.Linear(fc_hidden, num_classes)
-                for head_name, num_classes in heads_config.items()
-            })
+            if output_mode == "regression":
+                # For regression, create heads with sigmoid activation
+                self.heads = nn.ModuleDict({
+                    head_name: nn.Sequential(
+                        nn.Linear(fc_hidden, 1),
+                        nn.Sigmoid()
+                    )
+                    for head_name in heads_config.keys()
+                })
+            else:
+                # Classification heads
+                self.heads = nn.ModuleDict({
+                    head_name: nn.Linear(fc_hidden, num_classes)
+                    for head_name, num_classes in heads_config.items()
+                })
         else:
             # Single head (backward compatibility)
             head_name, num_classes = next(iter(heads_config.items()))
-            self.classifier = nn.Linear(fc_hidden, num_classes)
+            if output_mode == "regression":
+                self.classifier = nn.Sequential(
+                    nn.Linear(fc_hidden, 1),
+                    nn.Sigmoid()
+                )
+            else:
+                self.classifier = nn.Linear(fc_hidden, num_classes)
 
     def forward(self, x: torch.Tensor):
         """Perform a single forward pass through the network.

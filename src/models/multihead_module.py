@@ -5,7 +5,7 @@ from lightning import LightningModule
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
 from ..data.multihead_dataset_base import MultiheadDatasetBase
-from .losses import OrdinalRegressionLoss, QuantizedRegressionLoss, WeightedCrossEntropyLoss
+from .losses import OrdinalRegressionLoss, QuantizedRegressionLoss, WeightedCrossEntropyLoss, NormalizedRegressionLoss
 
 
 class MultiheadLitModule(LightningModule):
@@ -58,6 +58,7 @@ class MultiheadLitModule(LightningModule):
         loss_weights: Optional[Dict[str, float]] = None,
         compile: bool = False,
         auto_configure_from_dataset: bool = True,
+        output_mode: str = "classification",
     ) -> None:
         """Initialize a `MultiheadLitModule`.
 
@@ -69,6 +70,7 @@ class MultiheadLitModule(LightningModule):
         :param loss_weights: Optional weights for combining losses from different heads.
         :param compile: Whether to compile the model.
         :param auto_configure_from_dataset: Whether to auto-configure heads from dataset.
+        :param output_mode: Output mode - "classification" or "regression".
         """
         super().__init__()
 
@@ -77,6 +79,7 @@ class MultiheadLitModule(LightningModule):
         self._initial_criteria = criteria
         self._initial_criterion = criterion
         self._initial_loss_weights = loss_weights
+        self.output_mode = output_mode
 
         # Backward compatibility handling
         if criteria is None and criterion is not None:
@@ -128,9 +131,16 @@ class MultiheadLitModule(LightningModule):
         self.test_metrics = torch.nn.ModuleDict()
 
         for head_name, num_classes in head_configs.items():
-            self.train_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
-            self.val_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
-            self.test_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
+            if self.output_mode == "regression":
+                # For regression, we'll use MAE as the primary metric instead of accuracy
+                from torchmetrics.regression import MeanAbsoluteError
+                self.train_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
+                self.val_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
+                self.test_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
+            else:
+                self.train_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
+                self.val_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
+                self.test_metrics[f"{head_name}_acc"] = Accuracy(task="multiclass", num_classes=num_classes)
 
         # Loss tracking
         self.train_loss = MeanMetric()
@@ -196,14 +206,25 @@ class MultiheadLitModule(LightningModule):
 
         :param dataset: The dataset containing parameter range information
         """
-        # Get parameter ranges from datamodule (for VIMH datasets)
+        # Get parameter ranges and bounds from datamodule (for VIMH datasets)
         param_ranges = {}
-        if hasattr(self.trainer, 'datamodule') and hasattr(self.trainer.datamodule, 'param_ranges'):
-            param_ranges = self.trainer.datamodule.param_ranges
-        elif hasattr(dataset, 'param_ranges'):
-            param_ranges = dataset.param_ranges
+        param_bounds = {}
+        try:
+            if hasattr(self.trainer, 'datamodule'):
+                if hasattr(self.trainer.datamodule, 'param_ranges'):
+                    param_ranges = self.trainer.datamodule.param_ranges
+                if hasattr(self.trainer.datamodule, 'param_bounds'):
+                    param_bounds = self.trainer.datamodule.param_bounds
+        except RuntimeError:
+            # No trainer attached, try dataset directly
+            pass
 
-        # Update criteria that need parameter ranges
+        if not param_ranges and hasattr(dataset, 'param_ranges'):
+            param_ranges = dataset.param_ranges
+            if hasattr(dataset, 'param_bounds'):
+                param_bounds = dataset.param_bounds
+
+        # Update criteria that need parameter ranges or bounds
         for head_name, criterion in self.criteria.items():
             if isinstance(criterion, (OrdinalRegressionLoss, QuantizedRegressionLoss)):
                 if head_name in param_ranges:
@@ -214,22 +235,47 @@ class MultiheadLitModule(LightningModule):
                     print(f"Updated {head_name} loss with parameter range: {param_range}")
                 else:
                     print(f"Warning: No parameter range found for {head_name}, using default: {criterion.param_range}")
+            elif isinstance(criterion, NormalizedRegressionLoss):
+                if head_name in param_bounds:
+                    param_bound = param_bounds[head_name]
+                    # Update the criterion with the actual parameter bounds
+                    criterion.param_min, criterion.param_max = param_bound
+                    criterion.param_range = criterion.param_max - criterion.param_min
+                    print(f"Updated {head_name} regression loss with parameter bounds: {param_bound}")
+                else:
+                    print(f"Warning: No parameter bounds found for {head_name}, using default: ({criterion.param_min}, {criterion.param_max})")
 
     def _is_regression_loss(self, criterion) -> bool:
         """Check if a loss function is regression-based."""
         regression_losses = (
             OrdinalRegressionLoss,
             QuantizedRegressionLoss,
-            torch.nn.MSELoss,
-            torch.nn.L1Loss,
-            torch.nn.SmoothL1Loss,
-            torch.nn.HuberLoss
+            NormalizedRegressionLoss,
         )
         return isinstance(criterion, regression_losses)
 
     def _compute_predictions(self, logits: torch.Tensor, criterion, head_name: str) -> torch.Tensor:
         """Compute predictions based on loss function type."""
-        if self._is_regression_loss(criterion):
+        if self.output_mode == "regression":
+            # For pure regression mode, logits are already sigmoid-activated [0,1] values
+            # Convert to parameter space using datamodule bounds
+            normalized_preds = logits.squeeze(-1)
+
+            # Get parameter bounds for denormalization
+            param_bounds = None
+            try:
+                if hasattr(self.trainer, 'datamodule') and hasattr(self.trainer.datamodule, 'param_bounds'):
+                    param_bounds = self.trainer.datamodule.param_bounds
+            except RuntimeError:
+                # No trainer attached, use fallback
+                param_bounds = None
+
+            if param_bounds and head_name in param_bounds:
+                param_min, param_max = param_bounds[head_name]
+                preds = param_min + normalized_preds * (param_max - param_min)
+            else:
+                preds = normalized_preds  # Fallback to normalized values
+        elif self._is_regression_loss(criterion):
             if isinstance(criterion, OrdinalRegressionLoss):
                 # For ordinal regression, use weighted average of class probabilities
                 probs = F.softmax(logits, dim=1)
@@ -334,16 +380,26 @@ class MultiheadLitModule(LightningModule):
         # Update metrics
         self.train_loss(loss)
         for head_name in preds_dict.keys():
-            if f"{head_name}_acc" in self.train_metrics:
-                self.train_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
+            if self.output_mode == "regression":
+                if f"{head_name}_mae" in self.train_metrics:
+                    self.train_metrics[f"{head_name}_mae"](preds_dict[head_name], targets_dict[head_name])
+            else:
+                if f"{head_name}_acc" in self.train_metrics:
+                    self.train_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
 
         # Log metrics
         self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
-            if f"{head_name}_acc" in self.train_metrics:
-                metric_name = f"train/{head_name}_acc" if self.is_multihead else "train/acc"
-                self.log(metric_name, self.train_metrics[f"{head_name}_acc"],
-                        on_step=False, on_epoch=True, prog_bar=True)
+            if self.output_mode == "regression":
+                if f"{head_name}_mae" in self.train_metrics:
+                    metric_name = f"train/{head_name}_mae" if self.is_multihead else "train/mae"
+                    self.log(metric_name, self.train_metrics[f"{head_name}_mae"],
+                            on_step=False, on_epoch=True, prog_bar=True)
+            else:
+                if f"{head_name}_acc" in self.train_metrics:
+                    metric_name = f"train/{head_name}_acc" if self.is_multihead else "train/acc"
+                    self.log(metric_name, self.train_metrics[f"{head_name}_acc"],
+                            on_step=False, on_epoch=True, prog_bar=True)
 
         return loss
 
@@ -366,33 +422,52 @@ class MultiheadLitModule(LightningModule):
         # Update metrics
         self.val_loss(loss)
         for head_name in preds_dict.keys():
-            if f"{head_name}_acc" in self.val_metrics:
-                self.val_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
+            if self.output_mode == "regression":
+                if f"{head_name}_mae" in self.val_metrics:
+                    self.val_metrics[f"{head_name}_mae"](preds_dict[head_name], targets_dict[head_name])
+            else:
+                if f"{head_name}_acc" in self.val_metrics:
+                    self.val_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
 
         # Log metrics
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
-            if f"{head_name}_acc" in self.val_metrics:
-                metric_name = f"val/{head_name}_acc" if self.is_multihead else "val/acc"
-                self.log(metric_name, self.val_metrics[f"{head_name}_acc"],
-                        on_step=False, on_epoch=True, prog_bar=True)
+            if self.output_mode == "regression":
+                if f"{head_name}_mae" in self.val_metrics:
+                    metric_name = f"val/{head_name}_mae" if self.is_multihead else "val/mae"
+                    self.log(metric_name, self.val_metrics[f"{head_name}_mae"],
+                            on_step=False, on_epoch=True, prog_bar=True)
+            else:
+                if f"{head_name}_acc" in self.val_metrics:
+                    metric_name = f"val/{head_name}_acc" if self.is_multihead else "val/acc"
+                    self.log(metric_name, self.val_metrics[f"{head_name}_acc"],
+                            on_step=False, on_epoch=True, prog_bar=True)
 
     def on_validation_epoch_end(self) -> None:
         """Lightning hook that is called when a validation epoch ends."""
-        if self.is_multihead:
-            # For multihead, track best accuracy of primary task (first head)
+        if self.output_mode == "regression":
+            # For regression mode, track best MAE (lower is better) of primary task
             primary_head = next(iter(self.criteria.keys()))
-            if f"{primary_head}_acc" in self.val_metrics:
-                acc = self.val_metrics[f"{primary_head}_acc"].compute()
-                self.val_acc_best(acc)
+            if f"{primary_head}_mae" in self.val_metrics:
+                mae = self.val_metrics[f"{primary_head}_mae"].compute()
+                # Note: for MAE, we want to track the minimum (best), so we negate it
+                self.val_acc_best(-mae)  # Store negative MAE so MaxMetric tracks the best (lowest) MAE
+            self.log("val/mae_best", -self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
         else:
-            # For single head, track the only accuracy
-            head_name = next(iter(self.criteria.keys()))
-            if f"{head_name}_acc" in self.val_metrics:
-                acc = self.val_metrics[f"{head_name}_acc"].compute()
-                self.val_acc_best(acc)
-
-        self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
+            # For classification mode, track best accuracy
+            if self.is_multihead:
+                # For multihead, track best accuracy of primary task (first head)
+                primary_head = next(iter(self.criteria.keys()))
+                if f"{primary_head}_acc" in self.val_metrics:
+                    acc = self.val_metrics[f"{primary_head}_acc"].compute()
+                    self.val_acc_best(acc)
+            else:
+                # For single head, track the only accuracy
+                head_name = next(iter(self.criteria.keys()))
+                if f"{head_name}_acc" in self.val_metrics:
+                    acc = self.val_metrics[f"{head_name}_acc"].compute()
+                    self.val_acc_best(acc)
+            self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
 
     def test_step(self, batch, batch_idx: int) -> None:
         """Perform a single test step on a batch of data from the test set.
@@ -409,16 +484,26 @@ class MultiheadLitModule(LightningModule):
         # Update metrics
         self.test_loss(loss)
         for head_name in preds_dict.keys():
-            if f"{head_name}_acc" in self.test_metrics:
-                self.test_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
+            if self.output_mode == "regression":
+                if f"{head_name}_mae" in self.test_metrics:
+                    self.test_metrics[f"{head_name}_mae"](preds_dict[head_name], targets_dict[head_name])
+            else:
+                if f"{head_name}_acc" in self.test_metrics:
+                    self.test_metrics[f"{head_name}_acc"](preds_dict[head_name], targets_dict[head_name])
 
         # Log metrics
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
-            if f"{head_name}_acc" in self.test_metrics:
-                metric_name = f"test/{head_name}_acc" if self.is_multihead else "test/acc"
-                self.log(metric_name, self.test_metrics[f"{head_name}_acc"],
-                        on_step=False, on_epoch=True, prog_bar=True)
+            if self.output_mode == "regression":
+                if f"{head_name}_mae" in self.test_metrics:
+                    metric_name = f"test/{head_name}_mae" if self.is_multihead else "test/mae"
+                    self.log(metric_name, self.test_metrics[f"{head_name}_mae"],
+                            on_step=False, on_epoch=True, prog_bar=True)
+            else:
+                if f"{head_name}_acc" in self.test_metrics:
+                    metric_name = f"test/{head_name}_acc" if self.is_multihead else "test/acc"
+                    self.log(metric_name, self.test_metrics[f"{head_name}_acc"],
+                            on_step=False, on_epoch=True, prog_bar=True)
 
     def on_test_epoch_end(self) -> None:
         """Lightning hook that is called when a test epoch ends."""

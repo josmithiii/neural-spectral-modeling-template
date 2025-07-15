@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class OrdinalRegressionLoss(nn.Module):
@@ -169,6 +169,75 @@ class QuantizedRegressionLoss(nn.Module):
         perceptual_distance = distance_steps * self.quantization_step
 
         return perceptual_distance
+
+
+class NormalizedRegressionLoss(nn.Module):
+    """
+    Regression loss for normalized [0,1] parameter values.
+
+    This loss function is designed for pure regression heads that output sigmoid-activated
+    values in the [0,1] range. It normalizes the targets to [0,1] space, computes the
+    regression loss, and optionally scales the result back to parameter space for
+    interpretability.
+
+    Args:
+        param_range: Tuple of (min, max) values for the parameter in its original space
+        loss_type: Type of regression loss ('mse', 'l1', 'huber')
+        huber_delta: Delta parameter for Huber loss (in normalized space)
+        return_perceptual_units: Whether to scale loss back to parameter space
+    """
+
+    def __init__(
+        self,
+        param_range: Tuple[float, float],
+        loss_type: str = "mse",
+        huber_delta: float = 0.1,
+        return_perceptual_units: bool = True,
+    ):
+        super().__init__()
+        self.param_min, self.param_max = param_range
+        self.param_range = self.param_max - self.param_min
+        self.loss_type = loss_type
+        self.huber_delta = huber_delta
+        self.return_perceptual_units = return_perceptual_units
+
+        # Ensure valid parameter range
+        if self.param_range <= 0:
+            raise ValueError(f"Parameter range must be positive, got {self.param_range}")
+
+    def forward(self, normalized_pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """
+        Compute regression loss between normalized predictions and targets.
+
+        Args:
+            normalized_pred: Sigmoid-activated predictions in [0,1] range [batch_size, 1]
+            target: Target values in original parameter space [batch_size]
+
+        Returns:
+            Loss value (in parameter space if return_perceptual_units=True)
+        """
+        # Ensure predictions are in [0,1] range (should be from sigmoid)
+        normalized_pred = torch.clamp(normalized_pred.squeeze(-1), 0.0, 1.0)
+
+        # Normalize targets to [0,1] range
+        normalized_target = (target - self.param_min) / self.param_range
+        normalized_target = torch.clamp(normalized_target, 0.0, 1.0)
+
+        # Compute loss in normalized space
+        if self.loss_type == "mse":
+            loss = F.mse_loss(normalized_pred, normalized_target)
+        elif self.loss_type == "l1":
+            loss = F.l1_loss(normalized_pred, normalized_target)
+        elif self.loss_type == "huber":
+            loss = F.huber_loss(normalized_pred, normalized_target, delta=self.huber_delta)
+        else:
+            raise ValueError(f"Unknown loss type: {self.loss_type}")
+
+        # Convert back to parameter space for interpretability
+        if self.return_perceptual_units:
+            return loss * self.param_range
+        else:
+            return loss
 
 
 class WeightedCrossEntropyLoss(nn.Module):
