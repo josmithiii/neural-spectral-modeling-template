@@ -81,12 +81,19 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # For VIMH datasets, configure model with parameter names from metadata
     if 'vimh' in cfg.data._target_.lower() and hasattr(cfg.model, 'auto_configure_from_dataset') and cfg.model.auto_configure_from_dataset:
         try:
-            from src.utils.vimh_utils import get_parameter_names_from_metadata
+            from src.utils.vimh_utils import get_parameter_names_from_metadata, get_heads_config_from_metadata
             parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
             if parameter_names and hasattr(cfg.model, 'net'):
                 log.info(f"Configuring model with parameter names from dataset: {parameter_names}")
-                # Add parameter_names to the net config
-                cfg.model.net.parameter_names = parameter_names
+
+                # Configure model based on output mode
+                if hasattr(cfg.model, 'output_mode') and cfg.model.output_mode == 'regression':
+                    # For regression mode, use parameter_names
+                    cfg.model.net.parameter_names = parameter_names
+                else:
+                    # For classification/ordinal mode, use heads_config
+                    heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
+                    cfg.model.net.heads_config = heads_config
 
                 # Auto-configure loss_weights (equal weight for all parameters)
                 if not hasattr(cfg.model, 'loss_weights') or not cfg.model.loss_weights or len(cfg.model.loss_weights) == 0:

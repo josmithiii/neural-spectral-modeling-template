@@ -13,27 +13,8 @@ scheduler:
   factor: 0.1
   patience: 10
 
-# Ordinal regression loss for quantized continuous parameters in perceptual units
-# This considers numerical distance between predicted and actual values
-# Loss is returned in perceptual units (parameter range units)
-criteria:
-  note_number:
-    _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 256
-    param_range: 1.0  # Placeholder - will be updated from dataset metadata
-    regression_loss: l1  # L1 loss for continuous values
-    alpha: 0.1  # Weight for classification regularization
-  note_velocity:
-    _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 256
-    param_range: 1.0  # Placeholder - will be updated from dataset metadata
-    regression_loss: l1  # L1 loss for continuous values
-    alpha: 0.1  # Weight for classification regularization
-
-# Loss weighting (equal weight to all heads by default)
-loss_weights:
-  note_number: 1.0
-  note_velocity: 1.0
+# Criteria and loss_weights will be auto-configured from dataset metadata
+loss_weights: {}  # Will be auto-configured from dataset metadata
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
@@ -41,9 +22,7 @@ net:
   conv1_channels: 64
   conv2_channels: 128
   fc_hidden: 512
-  heads_config:
-    note_number: 256  # Default - will be overridden by dataset
-    note_velocity: 256  # Default - will be overridden by dataset
+  heads_config: {}  # Will be auto-configured from dataset metadata
   dropout: 0.5
   input_size: 32  # VIMH image size (32x32 for spectrograms)
 

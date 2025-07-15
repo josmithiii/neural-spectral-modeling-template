@@ -31,10 +31,7 @@ model:
   # Auto-configure from dataset metadata
   auto_configure_from_dataset: true
 
-  # Loss weighting for multihead training
-  loss_weights:
-    note_number: 1.0
-    note_velocity: 1.0
+  # Loss weighting will be auto-configured from dataset metadata
 
   # Optimizer configuration
   optimizer:
