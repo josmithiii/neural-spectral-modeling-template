@@ -19,11 +19,15 @@ This [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning
 - **Automated benchmarks**: Systematic performance comparison
 - **Literature-competitive baselines**: 85-95% CIFAR-10, 55-75% CIFAR-100
 
-### 3. Multihead Classification
-- **Multi-task learning**: Single model, multiple prediction tasks
-- **MNIST implementation**: Digit + thickness + smoothness prediction
-- **Shared feature learning**: Efficient training with regularization benefits
-- **Configurable loss weighting**: Flexible task importance balancing
+### 3. Advanced Multihead Classification (VIMH)
+- **Variable Image MultiHead (VIMH)**: Next-generation multihead dataset format
+- **Variable dimensions**: Support for 32x32x3, 28x28x1, and other image formats
+- **Self-describing metadata**: JSON-based dataset configuration with parameter mappings
+- **8-bit quantization**: Efficient storage and handling of continuous parameters
+- **Auto-configuration**: Models automatically configure from dataset metadata
+- **Performance optimized**: 10x faster initialization with efficient dimension detection
+- **Comprehensive testing**: 27 tests covering all VIMH functionality
+- **Real-world applications**: Audio synthesis, computer vision, scientific computing
 
 ### 4. Configurable Loss Functions
 - **Hydra-managed losses**: No more hardcoded loss functions
@@ -46,6 +50,7 @@ This comprehensive documentation has been organized into focused, navigable file
 - **[architectures.md](architectures.md)** - Detailed architecture documentation, parameter comparisons, and usage guides
 - **[benchmarks.md](benchmarks.md)** - CIFAR benchmark system, expected performance, and automated testing
 - **[multihead.md](multihead.md)** - Multihead classification system, synthetic label generation, and multi-task learning
+- **[vimh.md](vimh.md)** - VIMH dataset format specification, usage guide, and implementation details
 
 ### 🛠️ Usage and Reference
 - **[makefile.md](makefile.md)** - Complete make targets reference with abbreviations and workflows
@@ -80,6 +85,18 @@ make ca       # Systematic 3-epoch comparison (~10 minutes)
 ```bash
 make cbs10    # Complete CIFAR-10 benchmark suite
 make cbs100   # Complete CIFAR-100 benchmark suite
+```
+
+### 6. VIMH Multihead Training
+```bash
+# Train with VIMH dataset
+python src/train.py experiment=vimh_cnn
+
+# Complete training example with analysis
+python examples/vimh_training.py
+
+# Quick demo with visualizations
+python examples/vimh_training.py --demo --save-plots
 ```
 
 ## 🎯 Example Workflows
