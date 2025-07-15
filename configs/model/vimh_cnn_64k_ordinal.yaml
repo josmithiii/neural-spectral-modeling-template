@@ -13,22 +13,22 @@ scheduler:
   factor: 0.1
   patience: 10
 
-# Ordinal regression loss for quantized continuous parameters
+# Ordinal regression loss for quantized continuous parameters in perceptual units
 # This considers numerical distance between predicted and actual values
-# Loss is normalized to [0,1] range for better multi-head training
+# Loss is returned in perceptual units (parameter range units)
 criteria:
   note_number:
     _target_: src.models.losses.OrdinalRegressionLoss
     num_classes: 256
+    param_range: 1.0  # Placeholder - will be updated from dataset metadata
     regression_loss: l1  # L1 loss for continuous values
     alpha: 0.1  # Weight for classification regularization
-    normalize_loss: true  # Normalize to [0,1] range
   note_velocity:
     _target_: src.models.losses.OrdinalRegressionLoss
     num_classes: 256
+    param_range: 1.0  # Placeholder - will be updated from dataset metadata
     regression_loss: l1  # L1 loss for continuous values
     alpha: 0.1  # Weight for classification regularization
-    normalize_loss: true  # Normalize to [0,1] range
 
 # Loss weighting (equal weight to all heads by default)
 loss_weights:

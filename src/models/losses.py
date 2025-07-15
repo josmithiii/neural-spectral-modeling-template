@@ -8,7 +8,7 @@ from typing import Optional
 
 class OrdinalRegressionLoss(nn.Module):
     """
-    Ordinal regression loss for quantized continuous parameters.
+    Ordinal regression loss for quantized continuous parameters in perceptual units.
 
     This loss function treats the problem as regression with discrete ordinal values,
     where the numerical distance between predicted and actual values matters.
@@ -16,38 +16,41 @@ class OrdinalRegressionLoss(nn.Module):
     For VIMH datasets, the labels are quantized values (0-255) representing
     continuous parameters. This loss function:
     1. Converts class logits to continuous predictions using weighted averaging
-    2. Applies regression loss (L1, L2, or Huber) on the continuous space
-    3. Optionally adds a classification term for regularization
-    4. Normalizes loss to [0,1] by dividing by maximum possible distance
+    2. Maps quantized distance to actual parameter space (perceptual units)
+    3. Applies regression loss (L1, L2, or Huber) in perceptual space
+    4. Optionally adds a classification term for regularization
+    5. Returns loss in perceptual units (no normalization)
 
     Args:
         num_classes: Number of ordinal classes (e.g., 256 for VIMH)
+        param_range: Actual parameter range (max - min) in perceptual units
         regression_loss: Type of regression loss ('l1', 'l2', 'huber')
         alpha: Weight for classification term (0.0 = pure regression)
         huber_delta: Delta parameter for Huber loss
-        normalize_loss: Whether to normalize loss to [0,1] range (default: True)
+        normalize_loss: DEPRECATED - loss is now in perceptual units
     """
 
     def __init__(
         self,
         num_classes: int,
+        param_range: float,
         regression_loss: str = 'l1',
         alpha: float = 0.1,
         huber_delta: float = 1.0,
-        normalize_loss: bool = True
+        normalize_loss: bool = False  # Deprecated, kept for compatibility
     ):
         super().__init__()
         self.num_classes = num_classes
+        self.param_range = param_range
         self.regression_loss = regression_loss
         self.alpha = alpha
         self.huber_delta = huber_delta
-        self.normalize_loss = normalize_loss
+
+        # Calculate perceptual step size
+        self.quantization_step = param_range / (num_classes - 1)
 
         # Create ordinal class centers (0, 1, 2, ..., num_classes-1)
         self.register_buffer('class_centers', torch.arange(num_classes, dtype=torch.float32))
-
-        # Maximum possible distance for normalization
-        self.max_distance = num_classes - 1
 
         # Classification loss for regularization
         self.cross_entropy = nn.CrossEntropyLoss()
@@ -61,7 +64,7 @@ class OrdinalRegressionLoss(nn.Module):
             targets: Target class indices [batch_size]
 
         Returns:
-            Combined loss value
+            Loss value in perceptual units
         """
         batch_size = logits.size(0)
 
@@ -70,64 +73,66 @@ class OrdinalRegressionLoss(nn.Module):
 
         # Convert to continuous predictions using weighted averaging
         # pred_continuous = sum(prob_i * class_center_i)
-        pred_continuous = torch.sum(probs * self.class_centers.unsqueeze(0), dim=1)
+        class_centers = self.class_centers.to(logits.device)
+        pred_continuous = torch.sum(probs * class_centers.unsqueeze(0), dim=1)
 
         # Convert target indices to continuous values
         target_continuous = targets.float()
 
-        # Calculate regression loss
+        # Calculate distance in quantization steps
         if self.regression_loss == 'l1':
-            reg_loss = F.l1_loss(pred_continuous, target_continuous)
+            distance_steps = F.l1_loss(pred_continuous, target_continuous)
         elif self.regression_loss == 'l2':
-            reg_loss = F.mse_loss(pred_continuous, target_continuous)
+            distance_steps = F.mse_loss(pred_continuous, target_continuous)
         elif self.regression_loss == 'huber':
-            reg_loss = F.huber_loss(pred_continuous, target_continuous, delta=self.huber_delta)
+            distance_steps = F.huber_loss(pred_continuous, target_continuous, delta=self.huber_delta)
         else:
             raise ValueError(f"Unknown regression loss: {self.regression_loss}")
 
-        # Normalize regression loss to [0,1] range
-        if self.normalize_loss:
-            reg_loss = reg_loss / self.max_distance
+        # Convert distance to perceptual units
+        perceptual_distance = distance_steps * self.quantization_step
 
         # Add classification term for regularization (helps with training stability)
         if self.alpha > 0:
             class_loss = self.cross_entropy(logits, targets)
-            total_loss = reg_loss + self.alpha * class_loss
+            total_loss = perceptual_distance + self.alpha * class_loss
         else:
-            total_loss = reg_loss
+            total_loss = perceptual_distance
 
         return total_loss
 
 
 class QuantizedRegressionLoss(nn.Module):
     """
-    Simplified quantized regression loss for continuous parameters.
+    Simplified quantized regression loss for continuous parameters in perceptual units.
 
     This loss function directly applies regression loss to the output logits,
     treating the model output as a continuous prediction in the range [0, num_classes-1].
 
     Args:
         num_classes: Number of quantized levels (e.g., 256 for VIMH)
+        param_range: Actual parameter range (max - min) in perceptual units
         loss_type: Type of regression loss ('l1', 'l2', 'huber')
         huber_delta: Delta parameter for Huber loss
-        normalize_loss: Whether to normalize loss to [0,1] range (default: True)
+        normalize_loss: DEPRECATED - loss is now in perceptual units
     """
 
     def __init__(
         self,
         num_classes: int,
+        param_range: float,
         loss_type: str = 'l1',
         huber_delta: float = 1.0,
-        normalize_loss: bool = True
+        normalize_loss: bool = False  # Deprecated, kept for compatibility
     ):
         super().__init__()
         self.num_classes = num_classes
+        self.param_range = param_range
         self.loss_type = loss_type
         self.huber_delta = huber_delta
-        self.normalize_loss = normalize_loss
 
-        # Maximum possible distance for normalization
-        self.max_distance = num_classes - 1
+        # Calculate perceptual step size
+        self.quantization_step = param_range / (num_classes - 1)
 
     def forward(self, output: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """
@@ -138,7 +143,7 @@ class QuantizedRegressionLoss(nn.Module):
             targets: Target class indices [batch_size]
 
         Returns:
-            Regression loss value
+            Loss value in perceptual units
         """
         # Convert target indices to continuous values
         target_continuous = targets.float()
@@ -150,21 +155,20 @@ class QuantizedRegressionLoss(nn.Module):
         # Clamp predictions to valid range
         output = torch.clamp(output, 0, self.num_classes - 1)
 
-        # Calculate regression loss
+        # Calculate distance in quantization steps
         if self.loss_type == 'l1':
-            loss = F.l1_loss(output, target_continuous)
+            distance_steps = F.l1_loss(output, target_continuous)
         elif self.loss_type == 'l2':
-            loss = F.mse_loss(output, target_continuous)
+            distance_steps = F.mse_loss(output, target_continuous)
         elif self.loss_type == 'huber':
-            loss = F.huber_loss(output, target_continuous, delta=self.huber_delta)
+            distance_steps = F.huber_loss(output, target_continuous, delta=self.huber_delta)
         else:
             raise ValueError(f"Unknown loss type: {self.loss_type}")
 
-        # Normalize loss to [0,1] range
-        if self.normalize_loss:
-            loss = loss / self.max_distance
+        # Convert distance to perceptual units
+        perceptual_distance = distance_steps * self.quantization_step
 
-        return loss
+        return perceptual_distance
 
 
 class WeightedCrossEntropyLoss(nn.Module):

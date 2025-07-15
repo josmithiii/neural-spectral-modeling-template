@@ -201,10 +201,12 @@ def analyze_loss_behavior(df: pd.DataFrame):
 
     # Ordinal regression insights
     print("\n🔍 Ordinal Regression Insights:")
-    print("  • Loss values ~11 are reasonable for normalized ordinal regression")
+    print("  • Loss values are now in perceptual units (parameter range units)")
+    print("  • For 2-unit parameter ranges: loss ~0.05 means 0.05 perceptual units off")
     print("  • Continuous predictions enable distance-aware learning")
     print("  • Low accuracy expected for 256-class quantized continuous parameters")
     print("  • Steady loss improvement indicates ordinal regression is working")
+    print("  • Same learning rate works across all parameters (perceptual units)")
 
 def main():
     parser = argparse.ArgumentParser(description='Analyze VIMH ordinal regression loss')

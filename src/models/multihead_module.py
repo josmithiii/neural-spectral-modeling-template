@@ -175,15 +175,45 @@ class MultiheadLitModule(LightningModule):
 
         # Update criteria if using auto-configuration
         if self.auto_configure_from_dataset:
-            self.criteria = {}
-            for head_name in heads_config.keys():
-                self.criteria[head_name] = torch.nn.CrossEntropyLoss()
+            # If criteria were pre-configured, preserve them and update with parameter ranges
+            if self.criteria:
+                self._update_criteria_with_parameter_ranges(dataset)
+            else:
+                # No pre-configured criteria, use default CrossEntropyLoss
+                self.criteria = {}
+                for head_name in heads_config.keys():
+                    self.criteria[head_name] = torch.nn.CrossEntropyLoss()
 
-            # Update loss weights
-            self.loss_weights = {name: 1.0 for name in self.criteria.keys()}
+            # Update loss weights if not already set
+            if not self.loss_weights:
+                self.loss_weights = {name: 1.0 for name in self.criteria.keys()}
 
         # Update multihead flag
         self.is_multihead = len(self.criteria) > 1
+
+    def _update_criteria_with_parameter_ranges(self, dataset: MultiheadDatasetBase) -> None:
+        """Update existing criteria with parameter ranges from dataset metadata.
+
+        :param dataset: The dataset containing parameter range information
+        """
+        # Get parameter ranges from datamodule (for VIMH datasets)
+        param_ranges = {}
+        if hasattr(self.trainer, 'datamodule') and hasattr(self.trainer.datamodule, 'param_ranges'):
+            param_ranges = self.trainer.datamodule.param_ranges
+        elif hasattr(dataset, 'param_ranges'):
+            param_ranges = dataset.param_ranges
+
+        # Update criteria that need parameter ranges
+        for head_name, criterion in self.criteria.items():
+            if isinstance(criterion, (OrdinalRegressionLoss, QuantizedRegressionLoss)):
+                if head_name in param_ranges:
+                    param_range = param_ranges[head_name]
+                    # Update the criterion with the actual parameter range
+                    criterion.param_range = param_range
+                    criterion.quantization_step = param_range / (criterion.num_classes - 1)
+                    print(f"Updated {head_name} loss with parameter range: {param_range}")
+                else:
+                    print(f"Warning: No parameter range found for {head_name}, using default: {criterion.param_range}")
 
     def _is_regression_loss(self, criterion) -> bool:
         """Check if a loss function is regression-based."""

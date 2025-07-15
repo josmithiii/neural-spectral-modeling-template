@@ -125,6 +125,7 @@ class VIMHDataModule(LightningDataModule):
 
         # Will be set after loading the dataset
         self.heads_config: Dict[str, int] = {}
+        self.parameter_ranges: Dict[str, float] = {}  # Parameter ranges for perceptual loss
         self.image_shape: Tuple[int, int, int] = (3, 32, 32)  # Default, will be updated
 
     def _adjust_transforms_for_image_size(self, height: int, width: int) -> None:
@@ -327,6 +328,36 @@ class VIMHDataModule(LightningDataModule):
         temp_dataset = VIMHDataset(data_dir, train=True)
         return temp_dataset.get_heads_config()
 
+    def _load_parameter_ranges(self, data_dir: str) -> Dict[str, float]:
+        """Load parameter ranges for perceptual loss calculation.
+
+        :param data_dir: Path to dataset directory
+        :return: Dictionary mapping parameter names to their ranges (max - min)
+        """
+        parameter_ranges = {}
+
+        try:
+            # Try to load from JSON metadata
+            metadata_file = Path(data_dir) / 'vimh_dataset_info.json'
+            if metadata_file.exists():
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+
+                if 'parameter_names' in metadata and 'parameter_mappings' in metadata:
+                    param_names = metadata['parameter_names']
+                    param_mappings = metadata['parameter_mappings']
+
+                    for param_name in param_names:
+                        if param_name in param_mappings:
+                            param_info = param_mappings[param_name]
+                            param_range = param_info['max'] - param_info['min']
+                            parameter_ranges[param_name] = param_range
+
+        except (FileNotFoundError, KeyError, json.JSONDecodeError):
+            pass
+
+        return parameter_ranges
+
     def _multihead_collate_fn(self, batch: List[Tuple[torch.Tensor, Dict[str, int]]]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Custom collate function for multihead labels.
 
@@ -368,6 +399,14 @@ class VIMHDataModule(LightningDataModule):
         :return: Dictionary mapping head names to number of classes.
         """
         return self.heads_config.copy()
+
+    @property
+    def param_ranges(self) -> Dict[str, float]:
+        """Get the parameter ranges for perceptual loss calculation.
+
+        :return: Dictionary mapping parameter names to their ranges (max - min).
+        """
+        return self.parameter_ranges.copy()
 
     @property
     def class_names(self) -> Dict[str, List[str]]:
@@ -421,6 +460,9 @@ class VIMHDataModule(LightningDataModule):
 
                 # Load heads configuration efficiently
                 self.heads_config = self._load_dataset_metadata(self.hparams.data_dir)
+
+                # Load parameter ranges for perceptual loss
+                self.parameter_ranges = self._load_parameter_ranges(self.hparams.data_dir)
 
                 # Adjust transforms based on detected image dimensions
                 self._adjust_transforms_for_image_size(height, width)
