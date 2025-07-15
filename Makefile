@@ -167,6 +167,8 @@ emhcc10 exp-multihead-cnn-cifar10: ## Run MultiHead CNN CIFAR-10 classification 
 	time python src/train.py experiment=multihead_cnn_cifar10
 evimh exp-vimh-16kdss: ## Run VIMH CNN training with 16K dataset samples (resonarium)
 	time python src/train.py experiment=vimh_cnn_16kdss
+evimho exp-vimh-16kdss-ordinal: ## Run VIMH CNN training with ordinal regression loss (distance-aware)
+	time python src/train.py experiment=vimh_cnn_16kdss_ordinal
 
 excn exp-convnext: ## Run ConvNeXt-V2 experiment
 	time python src/train.py experiment=convnext_mnist

@@ -1,9 +1,11 @@
 from typing import Any, Dict, Tuple, Optional, Union
 import torch
+import torch.nn.functional as F
 from lightning import LightningModule
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
 from ..data.multihead_dataset_base import MultiheadDatasetBase
+from .losses import OrdinalRegressionLoss, QuantizedRegressionLoss, WeightedCrossEntropyLoss
 
 
 class MultiheadLitModule(LightningModule):
@@ -183,6 +185,39 @@ class MultiheadLitModule(LightningModule):
         # Update multihead flag
         self.is_multihead = len(self.criteria) > 1
 
+    def _is_regression_loss(self, criterion) -> bool:
+        """Check if a loss function is regression-based."""
+        regression_losses = (
+            OrdinalRegressionLoss,
+            QuantizedRegressionLoss,
+            torch.nn.MSELoss,
+            torch.nn.L1Loss,
+            torch.nn.SmoothL1Loss,
+            torch.nn.HuberLoss
+        )
+        return isinstance(criterion, regression_losses)
+
+    def _compute_predictions(self, logits: torch.Tensor, criterion, head_name: str) -> torch.Tensor:
+        """Compute predictions based on loss function type."""
+        if self._is_regression_loss(criterion):
+            if isinstance(criterion, OrdinalRegressionLoss):
+                # For ordinal regression, use weighted average of class probabilities
+                probs = F.softmax(logits, dim=1)
+                class_centers = torch.arange(criterion.num_classes, device=logits.device, dtype=torch.float32)
+                preds = torch.sum(probs * class_centers.unsqueeze(0), dim=1)
+            elif isinstance(criterion, QuantizedRegressionLoss):
+                # For quantized regression, output should be single continuous value
+                preds = logits.squeeze(-1) if logits.dim() > 1 else logits
+                preds = torch.clamp(preds, 0, criterion.num_classes - 1)
+            else:
+                # For standard regression losses, assume single output
+                preds = logits.squeeze(-1) if logits.dim() > 1 else logits
+        else:
+            # Classification: use argmax
+            preds = torch.argmax(logits, dim=1)
+
+        return preds
+
     def forward(self, x: torch.Tensor):
         """Perform a forward pass through the model `self.net`.
 
@@ -228,7 +263,7 @@ class MultiheadLitModule(LightningModule):
             total_loss = sum(self.loss_weights[name] * loss for name, loss in losses.items())
 
             preds = {
-                head_name: torch.argmax(logits_head, dim=1)
+                head_name: self._compute_predictions(logits_head, self.criteria[head_name], head_name)
                 for head_name, logits_head in logits.items()
             }
 
@@ -249,7 +284,7 @@ class MultiheadLitModule(LightningModule):
                 logits_single = logits
 
             loss = self.criteria[head_name](logits_single, y_single)
-            preds = torch.argmax(logits_single, dim=1)
+            preds = self._compute_predictions(logits_single, self.criteria[head_name], head_name)
 
             return loss, {head_name: preds}, {head_name: y_single}
 
