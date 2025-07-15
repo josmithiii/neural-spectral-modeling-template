@@ -1,0 +1,55 @@
+# @package _global_
+
+# to execute this experiment run:
+# python src/train.py experiment=vimh_cnn
+
+defaults:
+  - override /data: vimh
+  - override /model: vimh_cnn_64k
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["vimh", "multihead", "cnn", "real_labels"]
+
+seed: 12345
+
+# Use the correct metric for multihead models
+optimized_metric: "val/acc_best"
+
+trainer:
+  min_epochs: 10
+  max_epochs: 100  # VIMH datasets are challenging, needs more epochs
+  gradient_clip_val: 1.0
+
+model:
+  optimizer:
+    lr: 0.001
+    weight_decay: 0.0001
+  scheduler:
+    patience: 10
+    factor: 0.5
+  compile: false
+
+data:
+  batch_size: 128
+  num_workers: 4
+  pin_memory: true
+
+# Override callback monitoring metrics for multihead setup
+callbacks:
+  model_checkpoint:
+    monitor: "val/acc_best"
+    mode: "max"
+  early_stopping:
+    monitor: "val/acc_best"
+    mode: "max"
+    patience: 15
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "vimh"
+  aim:
+    experiment: "vimh"

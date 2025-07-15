@@ -82,16 +82,23 @@ class MultiheadDatasetBase(Dataset, ABC):
 
         # Look for label keys in common formats
         label_key = None
-        for possible_key in ['labels', 'cifar100mh_labels', 'multihead_labels']:
+        for possible_key in ['labels', 'vimh_labels', 'cifar100mh_labels', 'multihead_labels']:
             if possible_key in data:
                 label_key = possible_key
                 break
 
         if label_key is None:
-            raise ValueError("Pickle data must contain labels key ('labels', 'cifar100mh_labels', or 'multihead_labels')")
+            raise ValueError("Pickle data must contain labels key ('labels', 'vimh_labels', 'cifar100mh_labels', or 'multihead_labels')")
 
         images = data['data']  # Shape: (n_samples, height*width*channels)
         labels = data[label_key]  # Shape: (n_samples, label_bytes)
+
+        # For VIMH format, extract image dimensions from pickle data
+        if self.metadata_format.get('format') == 'VIMH':
+            if 'height' in data and 'width' in data and 'channels' in data:
+                self.metadata_format['height'] = data['height']
+                self.metadata_format['width'] = data['width']
+                self.metadata_format['channels'] = data['channels']
 
         # Parse each sample
         for i in range(len(images)):
@@ -129,7 +136,9 @@ class MultiheadDatasetBase(Dataset, ABC):
     def _parse_label_metadata(self, label_data: Union[List[int], np.ndarray]) -> Tuple[Dict[str, int], Dict[str, int]]:
         """Parse metadata and labels from label data bytes.
 
-        Format: [N] [param1_id] [param1_val] [param2_id] [param2_val] ... [paramN_id] [paramN_val]
+        Format depends on the dataset format:
+        - VIMH: [height] [width] [channels] [N] [param1_id] [param1_val] [param2_id] [param2_val] ...
+        - CIFAR-100-MH: [N] [param1_id] [param1_val] [param2_id] [param2_val] ...
 
         :param label_data: Array/list of label bytes
         :return: Tuple of (metadata_dict, labels_dict)
@@ -140,19 +149,34 @@ class MultiheadDatasetBase(Dataset, ABC):
         if len(label_data) < 1:
             raise ValueError(f"Label data too short: {len(label_data)}, expected at least 1 byte")
 
-        # Parse number of heads
-        num_heads = label_data[0]
+        # Check if this is VIMH format
+        is_vimh = self.metadata_format.get('format') == 'VIMH'
 
-        # Get image dimensions from metadata if available, otherwise infer from data shape
-        if 'image_size' in self.metadata_format:
-            size_str = self.metadata_format['image_size']
-            if 'x' in size_str:
-                parts = size_str.split('x')
-                height, width, channels = int(parts[0]), int(parts[1]), int(parts[2])
-            else:
-                height, width, channels = 32, 32, 3  # Default
+        if is_vimh:
+            # VIMH format: [N] [param1_id] [param1_val] [param2_id] [param2_val] ...
+            # Image dimensions are in the pickle data metadata, not in the label data
+            num_heads = label_data[0]
+            labels_start = 1
+
+            # Get dimensions from metadata - they should be already set from pickle data
+            height = self.metadata_format.get('height', 32)
+            width = self.metadata_format.get('width', 32)
+            channels = self.metadata_format.get('channels', 3)
         else:
-            height, width, channels = 32, 32, 3  # Default for CIFAR format
+            # CIFAR-100-MH format: [N] [param1_id] [param1_val] ...
+            num_heads = label_data[0]
+            labels_start = 1
+
+            # Get image dimensions from metadata if available, otherwise infer from data shape
+            if 'image_size' in self.metadata_format:
+                size_str = self.metadata_format['image_size']
+                if 'x' in size_str:
+                    parts = size_str.split('x')
+                    height, width, channels = int(parts[0]), int(parts[1]), int(parts[2])
+                else:
+                    height, width, channels = 32, 32, 3  # Default
+            else:
+                height, width, channels = 32, 32, 3  # Default for CIFAR format
 
         metadata = {
             'height': height,
@@ -162,14 +186,14 @@ class MultiheadDatasetBase(Dataset, ABC):
         }
 
         # Parse parameter labels
-        expected_length = 1 + (num_heads * 2)  # 1 for N + N pairs of (id, val)
+        expected_length = labels_start + (num_heads * 2)  # labels_start + N pairs of (id, val)
         if len(label_data) < expected_length:
             raise ValueError(f"Label data length {len(label_data)} insufficient for {num_heads} heads, expected {expected_length}")
 
         labels_dict = {}
         for i in range(num_heads):
-            param_id = label_data[1 + i * 2]
-            param_val = label_data[1 + i * 2 + 1]
+            param_id = label_data[labels_start + i * 2]
+            param_val = label_data[labels_start + i * 2 + 1]
 
             # Use parameter names from metadata if available
             param_name = self._get_parameter_name(param_id)

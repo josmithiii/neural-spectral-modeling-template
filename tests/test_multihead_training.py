@@ -16,6 +16,8 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from src.models.multihead_module import MultiheadLitModule
 from src.data.cifar100mh_datamodule import CIFAR100MHDataModule
 from src.data.cifar100mh_dataset import CIFAR100MHDataset
+from src.data.vimh_datamodule import VIMHDataModule
+from src.data.vimh_dataset import VIMHDataset
 from src.models.components.simple_cnn import SimpleCNN
 
 
@@ -758,6 +760,395 @@ class TestErrorHandling:
                 criteria=None,  # None criteria
                 auto_configure_from_dataset=False
             )
+
+
+class TestVIMHTrainingIntegration:
+    """Integration tests for VIMH training with multihead models."""
+
+    def create_mock_vimh_data(self, temp_dir):
+        """Create mock VIMH data for testing."""
+        import pickle
+        import numpy as np
+
+        # Create image data (32x32x3 = 3072 pixels)
+        images = []
+        labels = []
+
+        for i in range(20):  # 20 samples
+            # Random image data
+            image_data = np.random.randint(0, 256, size=3072, dtype=np.uint8).tolist()
+            images.append(image_data)
+
+            # VIMH label format: [N] [param1_id] [param1_val] [param2_id] [param2_val]
+            label_data = [2, 0, i % 256, 1, (i * 2) % 256]
+            labels.append(label_data)
+
+        mock_data = {
+            'data': images,
+            'vimh_labels': labels,
+            'height': 32,
+            'width': 32,
+            'channels': 3,
+            'image_size': 3072
+        }
+
+        # Create metadata
+        metadata = {
+            'format': 'VIMH',
+            'version': '3.0',
+            'dataset_name': 'test_vimh_dataset',
+            'n_samples': 20,
+            'train_samples': 16,
+            'test_samples': 4,
+            'image_size': '32x32x3',
+            'height': 32,
+            'width': 32,
+            'channels': 3,
+            'varying_parameters': 2,
+            'parameter_names': ['note_number', 'note_velocity'],
+            'parameter_mappings': {
+                'note_number': {
+                    'min': 0,
+                    'max': 255,
+                    'scale': 'linear',
+                    'description': 'Test note number parameter'
+                },
+                'note_velocity': {
+                    'min': 0,
+                    'max': 255,
+                    'scale': 'linear',
+                    'description': 'Test note velocity parameter'
+                }
+            }
+        }
+
+        # Split data into train/test
+        train_data = {
+            'data': mock_data['data'][:16],
+            'vimh_labels': mock_data['vimh_labels'][:16],
+            'height': 32,
+            'width': 32,
+            'channels': 3,
+            'image_size': 3072
+        }
+        test_data = {
+            'data': mock_data['data'][16:],
+            'vimh_labels': mock_data['vimh_labels'][16:],
+            'height': 32,
+            'width': 32,
+            'channels': 3,
+            'image_size': 3072
+        }
+
+        # Save files
+        train_file = temp_dir / 'train_batch'
+        test_file = temp_dir / 'test_batch'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
+
+        with open(train_file, 'wb') as f:
+            pickle.dump(train_data, f)
+
+        with open(test_file, 'wb') as f:
+            pickle.dump(test_data, f)
+
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+        return train_file, test_file, metadata_file
+
+    def test_vimh_training_integration(self, temp_dir):
+        """Test complete VIMH training pipeline."""
+        self.create_mock_vimh_data(temp_dir)
+
+        # Create VIMH data module
+        dm = VIMHDataModule(
+            data_dir=str(temp_dir),
+            batch_size=4,
+            num_workers=0
+        )
+
+        # Setup data module
+        dm.setup()
+
+        # Create model with auto-configuration
+        net = SimpleCNN(
+            input_channels=3,
+            heads_config={'note_number': 256, 'note_velocity': 256}
+        )
+
+        model = MultiheadLitModule(
+            net=net,
+            optimizer=torch.optim.Adam,
+            scheduler=lambda optimizer: torch.optim.lr_scheduler.StepLR(optimizer, step_size=10),
+            auto_configure_from_dataset=True
+        )
+
+        # Create trainer
+        trainer = Trainer(
+            max_epochs=1,
+            accelerator='cpu',
+            devices=1,
+            enable_checkpointing=False,
+            enable_progress_bar=False,
+            logger=False
+        )
+
+        # Test training
+        trainer.fit(model, dm)
+
+        # Verify model was configured correctly
+        assert hasattr(model.net, 'heads')
+        assert 'note_number' in model.net.heads
+        assert 'note_velocity' in model.net.heads
+        assert model.net.heads['note_number'].out_features == 256
+        assert model.net.heads['note_velocity'].out_features == 256
+
+        # Test validation
+        trainer.validate(model, dm)
+
+        # Test that metrics were logged
+        assert hasattr(model, 'val_metrics')
+        assert 'note_number_acc' in model.val_metrics
+        assert 'note_velocity_acc' in model.val_metrics
+
+    def test_vimh_single_parameter_training(self, temp_dir):
+        """Test VIMH training with single parameter (like STK dataset)."""
+        import pickle
+        import numpy as np
+
+        # Create single-parameter VIMH data
+        images = []
+        labels = []
+
+        for i in range(20):
+            image_data = np.random.randint(0, 256, size=3072, dtype=np.uint8).tolist()
+            images.append(image_data)
+
+            # Single parameter format: [N] [param1_id] [param1_val]
+            label_data = [1, 0, i % 256]
+            labels.append(label_data)
+
+        mock_data = {
+            'data': images,
+            'vimh_labels': labels,
+            'height': 32,
+            'width': 32,
+            'channels': 3,
+            'image_size': 3072
+        }
+
+        # Create metadata for single parameter
+        metadata = {
+            'format': 'VIMH',
+            'version': '3.0',
+            'dataset_name': 'test_vimh_stk_dataset',
+            'n_samples': 20,
+            'train_samples': 16,
+            'test_samples': 4,
+            'image_size': '32x32x3',
+            'height': 32,
+            'width': 32,
+            'channels': 3,
+            'varying_parameters': 1,
+            'parameter_names': ['note_number'],
+            'parameter_mappings': {
+                'note_number': {
+                    'min': 0,
+                    'max': 255,
+                    'scale': 'linear',
+                    'description': 'Test note number parameter'
+                }
+            }
+        }
+
+        # Split and save data
+        train_data = {
+            'data': mock_data['data'][:16],
+            'vimh_labels': mock_data['vimh_labels'][:16],
+            'height': 32,
+            'width': 32,
+            'channels': 3,
+            'image_size': 3072
+        }
+        test_data = {
+            'data': mock_data['data'][16:],
+            'vimh_labels': mock_data['vimh_labels'][16:],
+            'height': 32,
+            'width': 32,
+            'channels': 3,
+            'image_size': 3072
+        }
+
+        train_file = temp_dir / 'train_batch'
+        test_file = temp_dir / 'test_batch'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
+
+        with open(train_file, 'wb') as f:
+            pickle.dump(train_data, f)
+        with open(test_file, 'wb') as f:
+            pickle.dump(test_data, f)
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+        # Create VIMH data module
+        dm = VIMHDataModule(
+            data_dir=str(temp_dir),
+            batch_size=4,
+            num_workers=0
+        )
+        dm.setup()
+
+        # Create model
+        net = SimpleCNN(
+            input_channels=3,
+            heads_config={'note_number': 256}
+        )
+
+        model = MultiheadLitModule(
+            net=net,
+            optimizer=torch.optim.Adam,
+            scheduler=lambda optimizer: torch.optim.lr_scheduler.StepLR(optimizer, step_size=10),
+            auto_configure_from_dataset=True
+        )
+
+        # Test training
+        trainer = Trainer(
+            max_epochs=1,
+            accelerator='cpu',
+            devices=1,
+            enable_checkpointing=False,
+            enable_progress_bar=False,
+            logger=False
+        )
+
+        trainer.fit(model, dm)
+
+        # Verify single head configuration
+        # Single head SimpleCNN uses classifier attribute instead of heads
+        assert hasattr(model.net, 'classifier')
+        assert model.net.classifier.out_features == 256
+        assert not hasattr(model.net, 'heads') or len(model.net.heads) == 0
+
+    def test_vimh_variable_image_size_training(self, temp_dir):
+        """Test VIMH training with variable image size (28x28x1)."""
+        import pickle
+        import numpy as np
+
+        # Create 28x28x1 VIMH data
+        images = []
+        labels = []
+
+        for i in range(20):
+            image_data = np.random.randint(0, 256, size=784, dtype=np.uint8).tolist()  # 28*28*1
+            images.append(image_data)
+
+            # VIMH label format: [N] [param1_id] [param1_val]
+            label_data = [1, 0, i % 256]
+            labels.append(label_data)
+
+        mock_data = {
+            'data': images,
+            'vimh_labels': labels,
+            'height': 28,
+            'width': 28,
+            'channels': 1,
+            'image_size': 784
+        }
+
+        # Create metadata for 28x28x1 images
+        metadata = {
+            'format': 'VIMH',
+            'version': '3.0',
+            'dataset_name': 'test_vimh_mnist_dataset',
+            'n_samples': 20,
+            'train_samples': 16,
+            'test_samples': 4,
+            'image_size': '28x28x1',
+            'height': 28,
+            'width': 28,
+            'channels': 1,
+            'varying_parameters': 1,
+            'parameter_names': ['digit_class'],
+            'parameter_mappings': {
+                'digit_class': {
+                    'min': 0,
+                    'max': 255,
+                    'scale': 'linear',
+                    'description': 'Test digit class parameter'
+                }
+            }
+        }
+
+        # Split and save data
+        train_data = {
+            'data': mock_data['data'][:16],
+            'vimh_labels': mock_data['vimh_labels'][:16],
+            'height': 28,
+            'width': 28,
+            'channels': 1,
+            'image_size': 784
+        }
+        test_data = {
+            'data': mock_data['data'][16:],
+            'vimh_labels': mock_data['vimh_labels'][16:],
+            'height': 28,
+            'width': 28,
+            'channels': 1,
+            'image_size': 784
+        }
+
+        train_file = temp_dir / 'train_batch'
+        test_file = temp_dir / 'test_batch'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
+
+        with open(train_file, 'wb') as f:
+            pickle.dump(train_data, f)
+        with open(test_file, 'wb') as f:
+            pickle.dump(test_data, f)
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+        # Create VIMH data module
+        dm = VIMHDataModule(
+            data_dir=str(temp_dir),
+            batch_size=4,
+            num_workers=0
+        )
+        dm.setup()
+
+        # Verify the data module detected correct dimensions
+        assert dm.image_shape == (1, 28, 28)
+
+        # Create model with correct input channels
+        net = SimpleCNN(
+            input_channels=1,  # Grayscale
+            heads_config={'digit_class': 256}
+        )
+
+        model = MultiheadLitModule(
+            net=net,
+            optimizer=torch.optim.Adam,
+            scheduler=lambda optimizer: torch.optim.lr_scheduler.StepLR(optimizer, step_size=10),
+            auto_configure_from_dataset=True
+        )
+
+        # Test training
+        trainer = Trainer(
+            max_epochs=1,
+            accelerator='cpu',
+            devices=1,
+            enable_checkpointing=False,
+            enable_progress_bar=False,
+            logger=False
+        )
+
+        trainer.fit(model, dm)
+
+        # Verify configuration
+        # Single head SimpleCNN uses classifier attribute instead of heads
+        assert hasattr(model.net, 'classifier')
+        assert model.net.classifier.out_features == 256
+        assert not hasattr(model.net, 'heads') or len(model.net.heads) == 0
 
 
 if __name__ == "__main__":
