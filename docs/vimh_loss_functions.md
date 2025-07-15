@@ -19,25 +19,27 @@ from src.models.losses import OrdinalRegressionLoss
 
 criterion = OrdinalRegressionLoss(
     num_classes=256,
+    param_range=2.0,  # actual parameter range (max - min) in perceptual units
     regression_loss='l1',  # or 'l2', 'huber'
     alpha=0.1,  # classification regularization weight
-    normalize_loss=True  # normalize to [0,1] range (default)
 )
 ```
 
 **How it works**:
 - Converts logits to probabilities using softmax
 - Computes continuous prediction as weighted average: `pred = Σ(prob_i × class_center_i)`
-- Applies regression loss (L1/L2/Huber) to continuous values
-- Normalizes loss to [0,1] by dividing by max distance (num_classes-1)
+- Maps quantized distance to actual parameter space (perceptual units)
+- Applies regression loss (L1/L2/Huber) in perceptual space
+- Returns loss in perceptual units (actual parameter range units)
 - Optionally adds classification term for training stability
 
 **Benefits**:
 - Distance-aware: Closer predictions get lower penalties
 - Continuous predictions: Output is continuous, not discrete
-- Normalized losses: [0,1] range enables fair multi-head training
+- Perceptual units: Loss values directly interpretable as parameter error
 - Stable training: Classification term helps with convergence
 - Flexible: Supports different regression losses and num_classes
+- Auto-configured: Parameter ranges loaded automatically from dataset metadata
 
 ### 2. QuantizedRegressionLoss
 
@@ -48,6 +50,7 @@ from src.models.losses import QuantizedRegressionLoss
 
 criterion = QuantizedRegressionLoss(
     num_classes=256,
+    param_range=2.0,  # actual parameter range (max - min) in perceptual units
     loss_type='l1'  # or 'l2', 'huber'
 )
 ```
@@ -104,15 +107,15 @@ criteria:
   note_number:
     _target_: src.models.losses.OrdinalRegressionLoss
     num_classes: 256
+    param_range: 1.0  # Placeholder - auto-updated from dataset metadata
     regression_loss: l1
     alpha: 0.1
-    normalize_loss: true  # Normalize to [0,1] range
   note_velocity:
     _target_: src.models.losses.OrdinalRegressionLoss
     num_classes: 256
+    param_range: 1.0  # Placeholder - auto-updated from dataset metadata
     regression_loss: l1
     alpha: 0.1
-    normalize_loss: true  # Normalize to [0,1] range
 ```
 
 ## Usage
@@ -170,73 +173,75 @@ def _compute_predictions(self, logits: torch.Tensor, criterion, head_name: str) 
 
 Based on test results with the 16K resonarium dataset:
 
-| Loss Function | Test Accuracy | Predictions | Distance Awareness |
-|---------------|---------------|-------------|-------------------|
-| CrossEntropyLoss | ~0.5% | Discrete (argmax) | ❌ No |
-| OrdinalRegressionLoss | ~0.5% | Continuous | ✅ Yes |
+| Loss Function | Test Accuracy | Predictions | Distance Awareness | Loss Units |
+|---------------|---------------|-------------|-------------------|------------|
+| CrossEntropyLoss | ~0.5% | Discrete (argmax) | ❌ No | Arbitrary |
+| OrdinalRegressionLoss | ~0.5% | Continuous | ✅ Yes | Perceptual |
 
 **Note**: Both show similar accuracy because the task is genuinely challenging. The key difference is that ordinal regression:
 - Penalizes distant errors more than close ones
 - Produces continuous predictions that better represent the underlying parameters
+- Returns loss values in perceptual units (directly interpretable as parameter error)
 - Should lead to better generalization with more training
 
 ## Loss Function Comparison Example
 
 ```python
 # Target: 100, Predictions: [101, 105, 200]
-# Distances: [1, 5, 100]
+# Distances: [1, 5, 100] quantization steps
+# Parameter range: 2.0 units (e.g., 50-52 Hz)
 
 # CrossEntropyLoss: All wrong answers penalized equally
 # Loss: [6.84, 4.51, 6.23] - no correlation with distance
 
-# OrdinalRegressionLoss: Distant errors penalized more
-# Loss: [29.25, 32.71, 68.94] - higher loss for distant errors
+# OrdinalRegressionLoss: Distant errors penalized more (in perceptual units)
+# Quantization step: 2.0/255 = 0.00784 units per step
+# Loss: [0.00784, 0.0392, 0.784] - directly interpretable as parameter error
 ```
 
-## Benefits of Loss Normalization
+## Benefits of Perceptual Units
 
-### Why Normalize to [0,1]?
+### Why Use Perceptual Units?
 
-1. **Multi-head Training**: When different heads have different `num_classes`, unnormalized losses can dominate
-2. **Loss Weighting**: Easier to set meaningful `loss_weights` when all losses are in [0,1] range
-3. **Optimization Stability**: Prevents gradient explosion from large loss values
-4. **Interpretability**: Loss values are directly interpretable as fraction of maximum error
-5. **Experimentation**: Easier to compare losses across different configurations
+1. **Direct Interpretability**: Loss values directly represent parameter error (e.g., loss=0.05 means 0.05 units off)
+2. **Consistent Learning Rates**: Same learning rate works across all parameters regardless of their ranges
+3. **Meaningful Comparisons**: Loss values are comparable across different parameter types
+4. **Physical Intuition**: Loss values correspond to actual parameter deviations
+5. **Auto-Configuration**: Parameter ranges automatically loaded from dataset metadata
 
-### Example: Mixed num_classes
+### Example: Mixed Parameter Ranges
 
 ```yaml
-# Without normalization: head with more classes dominates
+# Parameters with different ranges - all return loss in perceptual units
 criteria:
-  param_256:  # Max loss ~255
+  frequency:  # Range: 440-880 Hz (440 Hz range)
     _target_: src.models.losses.OrdinalRegressionLoss
     num_classes: 256
-    normalize_loss: false
-  param_64:   # Max loss ~63
-    _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 64
-    normalize_loss: false
-
-# With normalization: both heads contribute fairly
-criteria:
-  param_256:  # Max loss ~1.0
+    param_range: 440.0  # Auto-updated from dataset metadata
+    regression_loss: l1
+  amplitude:  # Range: 0.0-1.0 (1.0 range)
     _target_: src.models.losses.OrdinalRegressionLoss
     num_classes: 256
-    normalize_loss: true
-  param_64:   # Max loss ~1.0
-    _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 64
-    normalize_loss: true
+    param_range: 1.0   # Auto-updated from dataset metadata
+    regression_loss: l1
 ```
+
+### Automatic Parameter Range Detection
+
+The system automatically loads parameter ranges from dataset metadata:
+- **VIMH datasets**: Ranges loaded from `vimh_dataset_info.json`
+- **Auto-update**: Loss functions updated with actual parameter ranges during training
+- **Fallback**: Uses placeholder value if metadata unavailable
 
 ## Best Practices
 
 1. **Use OrdinalRegressionLoss** for VIMH datasets with quantized continuous parameters
-2. **Enable normalization** (`normalize_loss=true`) for multi-head training
+2. **Let parameter ranges auto-configure** from dataset metadata
 3. **Start with L1 regression loss** (robust to outliers)
 4. **Set alpha=0.1** for classification regularization
 5. **Monitor both accuracy and loss** to understand model behavior
 6. **Compare with CrossEntropyLoss** to validate improvements
+7. **Interpret loss values as parameter deviations** in perceptual units
 
 ## Future Enhancements
 
