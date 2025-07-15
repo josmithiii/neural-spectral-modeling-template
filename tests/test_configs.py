@@ -1,6 +1,7 @@
 import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
+import pytest
 
 
 def test_train_config(cfg_train: DictConfig) -> None:
@@ -35,3 +36,36 @@ def test_eval_config(cfg_eval: DictConfig) -> None:
     hydra.utils.instantiate(cfg_eval.data)
     hydra.utils.instantiate(cfg_eval.model)
     hydra.utils.instantiate(cfg_eval.trainer)
+
+
+def test_regression_model_config() -> None:
+    """Test that the regression model configuration is valid."""
+    with hydra.initialize(version_base=None, config_path="../configs"):
+        cfg = hydra.compose(config_name="train", overrides=["model=vimh_cnn_64k_regression"])
+
+        assert cfg.model.output_mode == "regression"
+        assert cfg.model.net.output_mode == "regression"
+        assert "note_number" in cfg.model.criteria
+        assert "note_velocity" in cfg.model.criteria
+        assert cfg.model.criteria.note_number._target_ == "src.models.losses.NormalizedRegressionLoss"
+        assert cfg.model.criteria.note_velocity._target_ == "src.models.losses.NormalizedRegressionLoss"
+
+        # Test instantiation without HydraConfig.set_config
+        model = hydra.utils.instantiate(cfg.model)
+        assert model.output_mode == "regression"
+
+
+def test_regression_experiment_config() -> None:
+    """Test that the regression experiment configuration is valid."""
+    with hydra.initialize(version_base=None, config_path="../configs"):
+        cfg = hydra.compose(config_name="train", overrides=["experiment=vimh_cnn_16kdss_regression"])
+
+        assert cfg.model.output_mode == "regression"
+        assert cfg.optimized_metric == "val/mae_best"
+        assert "regression" in cfg.tags
+        assert "sigmoid" in cfg.tags
+        assert "continuous" in cfg.tags
+
+        # Test instantiation without HydraConfig.set_config
+        model = hydra.utils.instantiate(cfg.model)
+        assert model.output_mode == "regression"
