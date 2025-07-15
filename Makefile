@@ -165,6 +165,8 @@ emhcm exp-multihead-cnn-mnist: ## Run MultiHead CNN MNIST classification experim
 
 emhcc10 exp-multihead-cnn-cifar10: ## Run MultiHead CNN CIFAR-10 classification experiment
 	time python src/train.py experiment=multihead_cnn_cifar10
+evimh exp-vimh-16kdss: ## Run VIMH CNN training with 16K dataset samples (resonarium)
+	time python src/train.py experiment=vimh_cnn_16kdss
 
 excn exp-convnext: ## Run ConvNeXt-V2 experiment
 	time python src/train.py experiment=convnext_mnist

@@ -1,0 +1,118 @@
+# @package _global_
+
+# Experiment configuration for VIMH CNN training with 16K dataset samples
+# Optimized for serious training evaluation with larger resonarium dataset
+
+defaults:
+  - override /data: vimh_16kdss
+  - override /model: vimh_cnn_64k
+  - override /trainer: default
+
+# Tags for experiment tracking
+tags: ["vimh", "cnn", "resonarium", "16kdss", "serious-training"]
+
+# Experiment name
+name: "vimh_cnn_16kdss_resonarium"
+
+# Fixed seed for reproducibility
+seed: 12345
+
+# Use the correct metric for multihead models
+optimized_metric: "val/acc_best"
+
+# Data configuration
+data:
+  batch_size: 128
+  num_workers: 0  # MPS doesn't support multiprocessing
+  pin_memory: true
+
+# Model configuration
+model:
+  # Auto-configure from dataset metadata
+  auto_configure_from_dataset: true
+
+  # Loss weighting for multihead training
+  loss_weights:
+    note_number: 1.0
+    note_velocity: 1.0
+
+  # Optimizer configuration
+  optimizer:
+    lr: 0.001
+    weight_decay: 1e-4
+
+  # Learning rate scheduler
+  scheduler:
+    mode: min
+    factor: 0.5
+    patience: 10
+
+# Trainer configuration
+trainer:
+  min_epochs: 5
+  max_epochs: 100
+  accelerator: auto
+  devices: 1
+
+  # Validation and logging
+  val_check_interval: 1.0
+  log_every_n_steps: 50
+
+  # Gradient settings
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+  # Deterministic training
+  deterministic: true
+
+  # Performance settings
+  precision: 32
+  enable_model_summary: true
+  enable_progress_bar: true
+
+# Callbacks configuration
+callbacks:
+  model_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: "vimh_cnn_16kdss-{epoch:02d}-{val/acc_best:.3f}"
+    monitor: "val/acc_best"
+    verbose: false
+    save_last: true
+    save_top_k: 3
+    mode: "max"
+    auto_insert_metric_name: false
+    every_n_epochs: 1
+    save_weights_only: false
+
+  early_stopping:
+    _target_: lightning.pytorch.callbacks.EarlyStopping
+    monitor: "val/acc_best"
+    min_delta: 0.001
+    patience: 15
+    verbose: true
+    mode: "max"
+    strict: true
+    check_finite: true
+
+  learning_rate_monitor:
+    _target_: lightning.pytorch.callbacks.LearningRateMonitor
+    logging_interval: "step"
+    log_momentum: false
+
+  rich_progress_bar:
+    _target_: lightning.pytorch.callbacks.RichProgressBar
+
+# Logger configuration
+logger:
+  csv:
+    _target_: lightning.pytorch.loggers.CSVLogger
+    save_dir: "${paths.output_dir}/csv/"
+    name: "vimh_cnn_16kdss"
+
+  tensorboard:
+    _target_: lightning.pytorch.loggers.TensorBoardLogger
+    save_dir: "${paths.output_dir}/tensorboard/"
+    name: "vimh_cnn_16kdss"
+    log_graph: false
+    default_hp_metric: true
