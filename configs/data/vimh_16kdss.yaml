@@ -1,7 +1,7 @@
 _target_: src.data.vimh_datamodule.VIMHDataModule
 
 # Dataset directory
-data_dir: ${paths.root_dir}/data-vimh/vimh-32x32x3_8000Hz_1p0s_16384dss_resonarium_2p
+data_dir: ${paths.root_dir}/data-vimh/vimh-32x32x3_8000Hz_1p0s_16384dss_simple_2p
 
 # Training parameters
 batch_size: 128
