@@ -95,11 +95,17 @@ def create_test_vimh_files(temp_dir: Path, mock_data: dict, mock_metadata: dict)
     # Split data into train/test
     train_data = {
         'data': mock_data['data'][:8],
-        'vimh_labels': mock_data['vimh_labels'][:8]
+        'vimh_labels': mock_data['vimh_labels'][:8],
+        'height': mock_data['height'],
+        'width': mock_data['width'],
+        'channels': mock_data['channels']
     }
     test_data = {
         'data': mock_data['data'][8:],
-        'vimh_labels': mock_data['vimh_labels'][8:]
+        'vimh_labels': mock_data['vimh_labels'][8:],
+        'height': mock_data['height'],
+        'width': mock_data['width'],
+        'channels': mock_data['channels']
     }
 
     # Save pickle files
@@ -477,6 +483,138 @@ class TestVIMHDataModule:
         dm._adjust_transforms_for_image_size(28, 28)
         assert dm.train_transform is not None
         assert dm.val_transform is not None
+
+    def test_efficient_dimension_detection(self, temp_dir, mock_vimh_data, mock_vimh_metadata):
+        """Test efficient dimension detection methods."""
+        create_test_vimh_files(temp_dir, mock_vimh_data, mock_vimh_metadata)
+
+        dm = VIMHDataModule(
+            data_dir=str(temp_dir),
+            batch_size=4,
+            num_workers=0
+        )
+
+        # Test JSON metadata loading
+        json_dims = dm._load_image_dims_from_json(str(temp_dir))
+        assert json_dims == (32, 32, 3)
+
+        # Test binary metadata validation
+        binary_dims = dm._validate_binary_metadata(str(temp_dir))
+        assert binary_dims == (32, 32, 3)
+
+        # Test unified dimension detection
+        detected_dims = dm._detect_and_validate_image_dimensions(str(temp_dir))
+        assert detected_dims == (32, 32, 3)
+
+    def test_dimension_validation_consistency(self, temp_dir):
+        """Test dimension validation with consistent sources."""
+        import pickle
+        import json
+
+        # Create consistent data with vimh- prefix in directory name
+        vimh_dir = temp_dir / "vimh-28x28x1_test_dataset"
+        vimh_dir.mkdir()
+
+        # Create consistent metadata
+        metadata = {
+            'format': 'VIMH',
+            'height': 28,
+            'width': 28,
+            'channels': 1,
+            'parameter_names': ['digit'],
+            'parameter_mappings': {'digit': {'min': 0, 'max': 9}}
+        }
+
+        # Create consistent pickle data
+        mock_data = {
+            'data': [list(range(784))],  # 28*28*1 = 784
+            'vimh_labels': [[1, 0, 128]],
+            'height': 28,
+            'width': 28,
+            'channels': 1
+        }
+
+        # Save files
+        with open(vimh_dir / 'vimh_dataset_info.json', 'w') as f:
+            json.dump(metadata, f)
+        with open(vimh_dir / 'train_batch', 'wb') as f:
+            pickle.dump(mock_data, f)
+
+        dm = VIMHDataModule(
+            data_dir=str(vimh_dir),
+            batch_size=4,
+            num_workers=0
+        )
+
+        # Test directory name parsing
+        dir_dims = dm._parse_image_dims_from_path(str(vimh_dir))
+        assert dir_dims == (28, 28, 1)
+
+        # Test full validation - should succeed with all sources agreeing
+        detected_dims = dm._detect_and_validate_image_dimensions(str(vimh_dir))
+        assert detected_dims == (28, 28, 1)
+
+    def test_dimension_validation_mismatch(self, temp_dir):
+        """Test dimension validation with inconsistent sources."""
+        import pickle
+        import json
+
+        # Create inconsistent data
+        vimh_dir = temp_dir / "vimh-32x32x3_test_dataset"  # Directory says 32x32x3
+        vimh_dir.mkdir()
+
+        # But JSON says 28x28x1
+        metadata = {
+            'format': 'VIMH',
+            'height': 28,
+            'width': 28,
+            'channels': 1,
+            'parameter_names': ['digit'],
+            'parameter_mappings': {'digit': {'min': 0, 'max': 9}}
+        }
+
+        # And pickle data says 28x28x1 too
+        mock_data = {
+            'data': [list(range(784))],  # 28*28*1 = 784
+            'vimh_labels': [[1, 0, 128]],
+            'height': 28,
+            'width': 28,
+            'channels': 1
+        }
+
+        # Save files
+        with open(vimh_dir / 'vimh_dataset_info.json', 'w') as f:
+            json.dump(metadata, f)
+        with open(vimh_dir / 'train_batch', 'wb') as f:
+            pickle.dump(mock_data, f)
+
+        dm = VIMHDataModule(
+            data_dir=str(vimh_dir),
+            batch_size=4,
+            num_workers=0
+        )
+
+        # Test should raise ValueError due to dimension mismatch
+        with pytest.raises(ValueError, match="Dimension mismatch"):
+            dm._detect_and_validate_image_dimensions(str(vimh_dir))
+
+    def test_efficient_heads_config_loading(self, temp_dir, mock_vimh_data, mock_vimh_metadata):
+        """Test efficient heads configuration loading from JSON."""
+        create_test_vimh_files(temp_dir, mock_vimh_data, mock_vimh_metadata)
+
+        dm = VIMHDataModule(
+            data_dir=str(temp_dir),
+            batch_size=4,
+            num_workers=0
+        )
+
+        # Test efficient heads config loading
+        heads_config = dm._load_dataset_metadata(str(temp_dir))
+        assert isinstance(heads_config, dict)
+        assert 'note_number' in heads_config
+        assert 'note_velocity' in heads_config
+        assert heads_config['note_number'] == 256
+        assert heads_config['note_velocity'] == 256
 
 
 class TestVIMHIntegration:

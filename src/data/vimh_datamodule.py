@@ -1,5 +1,7 @@
 from typing import Any, Dict, Optional, Tuple, List
 import torch
+import json
+from pathlib import Path
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import transforms
@@ -163,6 +165,168 @@ class VIMHDataModule(LightningDataModule):
         if self.using_default_test_transform:
             self.test_transform = self.default_transforms
 
+    def _parse_image_dims_from_path(self, data_dir: str) -> Optional[Tuple[int, int, int]]:
+        """Extract image dimensions from dataset directory name.
+
+        Looks for pattern 'vimh-<height>x<width>x<channels>' at start of directory name.
+
+        :param data_dir: Path to dataset directory
+        :return: (height, width, channels) tuple or None if pattern not found
+        """
+        try:
+            dir_name = Path(data_dir).name
+            if dir_name.startswith('vimh-'):
+                # Extract "32x32x3" from "vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p"
+                parts = dir_name.split('_')[0]  # "vimh-32x32x3"
+                dims = parts.split('-')[1]      # "32x32x3"
+                h, w, c = map(int, dims.split('x'))
+                return h, w, c
+        except (IndexError, ValueError):
+            pass
+        return None
+
+    def _load_image_dims_from_json(self, data_dir: str) -> Optional[Tuple[int, int, int]]:
+        """Load image dimensions from dataset metadata JSON.
+
+        :param data_dir: Path to dataset directory
+        :return: (height, width, channels) tuple or None if file not found or invalid
+        """
+        try:
+            metadata_file = Path(data_dir) / 'vimh_dataset_info.json'
+            if metadata_file.exists():
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                    h = metadata['height']
+                    w = metadata['width']
+                    c = metadata['channels']
+                    return h, w, c
+        except (FileNotFoundError, KeyError, json.JSONDecodeError):
+            pass
+        return None
+
+    def _validate_binary_metadata(self, data_dir: str) -> Optional[Tuple[int, int, int]]:
+        """Validate dimensions by sampling binary data metadata.
+
+        Checks the first 6 bytes of a few samples to ensure consistency.
+
+        :param data_dir: Path to dataset directory
+        :return: (height, width, channels) tuple or None if validation fails
+        """
+        try:
+            import pickle
+            import struct
+
+            # Check pickle format first (easier to parse)
+            train_file = Path(data_dir) / 'train_batch'
+            if train_file.exists():
+                with open(train_file, 'rb') as f:
+                    data = pickle.load(f)
+                    if 'height' in data and 'width' in data and 'channels' in data:
+                        return data['height'], data['width'], data['channels']
+
+            # Check binary format if pickle not available
+            binary_file = Path(data_dir) / 'train'
+            if binary_file.exists():
+                with open(binary_file, 'rb') as f:
+                    # Read first sample metadata (first 6 bytes)
+                    metadata_bytes = f.read(6)
+                    if len(metadata_bytes) == 6:
+                        # Unpack as 3 uint16 values: height, width, channels
+                        h, w, c = struct.unpack('<HHH', metadata_bytes)
+                        return h, w, c
+
+        except (FileNotFoundError, pickle.UnpicklingError, struct.error):
+            pass
+        return None
+
+    def _fallback_dimension_detection(self, data_dir: str) -> Tuple[int, int, int]:
+        """Fallback method: load temporary dataset for dimension detection.
+
+        :param data_dir: Path to dataset directory
+        :return: (height, width, channels) tuple
+        """
+        temp_dataset = VIMHDataset(data_dir, train=True)
+        c, h, w = temp_dataset.get_image_shape()  # PyTorch format (C, H, W)
+        return h, w, c
+
+    def _detect_and_validate_image_dimensions(self, data_dir: str) -> Tuple[int, int, int]:
+        """Detect image dimensions with cross-validation across all sources.
+
+        Validates consistency between directory name, JSON metadata, and binary data.
+
+        :param data_dir: Path to dataset directory
+        :return: (height, width, channels) tuple
+        :raises ValueError: If dimensions are inconsistent across sources
+        """
+        # Method 1: Parse from directory name (if pattern exists)
+        dir_dims = self._parse_image_dims_from_path(data_dir)
+
+        # Method 2: Read from JSON metadata
+        json_dims = self._load_image_dims_from_json(data_dir)
+
+        # Method 3: Validate against binary data (sample a few records)
+        binary_dims = self._validate_binary_metadata(data_dir)
+
+        # Cross-validation logic
+        available_sources = []
+        if dir_dims:
+            available_sources.append(f"directory={dir_dims}")
+        if json_dims:
+            available_sources.append(f"json={json_dims}")
+        if binary_dims:
+            available_sources.append(f"binary={binary_dims}")
+
+        # Check for consistency among all available sources
+        all_dims = [dim for dim in [dir_dims, json_dims, binary_dims] if dim is not None]
+
+        if len(all_dims) == 0:
+            # No metadata found, use fallback
+            return self._fallback_dimension_detection(data_dir)
+
+        if len(set(all_dims)) == 1:
+            # All sources agree (or only one source available)
+            return all_dims[0]
+        else:
+            # Inconsistent dimensions across sources
+            sources_info = ", ".join(available_sources)
+            raise ValueError(
+                f"Dimension mismatch in dataset '{data_dir}': {sources_info}. "
+                f"All metadata sources must agree on image dimensions."
+            )
+
+    def _load_dataset_metadata(self, data_dir: str) -> Dict[str, int]:
+        """Load dataset heads configuration efficiently.
+
+        :param data_dir: Path to dataset directory
+        :return: Dictionary mapping head names to number of classes
+        """
+        try:
+            # Try to load from JSON first (fastest)
+            metadata_file = Path(data_dir) / 'vimh_dataset_info.json'
+            if metadata_file.exists():
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+
+                # Calculate heads config from parameter mappings
+                heads_config = {}
+                if 'parameter_names' in metadata and 'parameter_mappings' in metadata:
+                    param_names = metadata['parameter_names']
+                    param_mappings = metadata['parameter_mappings']
+
+                    for param_name in param_names:
+                        if param_name in param_mappings:
+                            # For continuous parameters, use 256 classes (0-255 quantization)
+                            heads_config[param_name] = 256
+
+                return heads_config
+
+        except (FileNotFoundError, KeyError, json.JSONDecodeError):
+            pass
+
+        # Fallback: load temporary dataset
+        temp_dataset = VIMHDataset(data_dir, train=True)
+        return temp_dataset.get_heads_config()
+
     def _multihead_collate_fn(self, batch: List[Tuple[torch.Tensor, Dict[str, int]]]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Custom collate function for multihead labels.
 
@@ -251,13 +415,14 @@ class VIMHDataModule(LightningDataModule):
         # load datasets only if not loaded already
         if not self.data_train and not self.data_val and not self.data_test:
             try:
-                # First, load a temporary dataset to get image dimensions
-                temp_dataset = VIMHDataset(self.hparams.data_dir, train=True)
-                self.heads_config = temp_dataset.get_heads_config()
-                self.image_shape = temp_dataset.get_image_shape()
+                # Efficiently detect image dimensions with cross-validation
+                height, width, channels = self._detect_and_validate_image_dimensions(self.hparams.data_dir)
+                self.image_shape = (channels, height, width)  # PyTorch format (C, H, W)
 
-                # Adjust transforms based on actual image dimensions
-                height, width = self.image_shape[1], self.image_shape[2]
+                # Load heads configuration efficiently
+                self.heads_config = self._load_dataset_metadata(self.hparams.data_dir)
+
+                # Adjust transforms based on detected image dimensions
                 self._adjust_transforms_for_image_size(height, width)
 
                 # Now load datasets with correctly adjusted transforms
