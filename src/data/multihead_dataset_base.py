@@ -55,22 +55,48 @@ class MultiheadDatasetBase(Dataset, ABC):
 
     def _load_from_directory(self) -> None:
         """Load dataset from a directory with multiple files."""
-        # Look for standard files
-        train_file = self.data_path / 'train_batch'
-        test_file = self.data_path / 'test_batch'
-        metadata_file = self.data_path / 'cifar100mh_dataset_info.json'
+        # Look for metadata files (try multiple formats)
+        metadata_files = [
+            self.data_path / 'cifar100mh_dataset_info.json',
+            self.data_path / 'vimh_dataset_info.json',
+            self.data_path / 'dataset_info.json'
+        ]
 
         # Load metadata if available
-        if metadata_file.exists():
-            import json
-            with open(metadata_file, 'r') as f:
-                self.metadata_format = json.load(f)
+        for metadata_file in metadata_files:
+            if metadata_file.exists():
+                import json
+                with open(metadata_file, 'r') as f:
+                    self.metadata_format = json.load(f)
+                break
 
-        # Load training data
-        if train_file.exists():
-            with open(train_file, 'rb') as f:
+        # Look for data files with fallback support
+        # Try pickle format first (preferred), then binary format
+        train_files = [
+            self.data_path / 'train_batch',  # pickle format
+            self.data_path / 'train'         # binary format
+        ]
+
+        data_file = None
+        for train_file in train_files:
+            if train_file.exists():
+                data_file = train_file
+                break
+
+        if data_file is None:
+            raise FileNotFoundError(f"No training data found in {self.data_path}. "
+                                  f"Looked for: {[f.name for f in train_files]}")
+
+        # Load training data based on format
+        if 'batch' in data_file.name or data_file.suffix == '.pkl':
+            # Handle pickle format
+            with open(data_file, 'rb') as f:
                 data = pickle.load(f)
             self._parse_pickle_data(data)
+        else:
+            # Handle binary format
+            with open(data_file, 'rb') as f:
+                self._parse_binary_data(f.read())
 
     def _parse_pickle_data(self, data: Dict[str, Any]) -> None:
         """Parse data from pickle format.

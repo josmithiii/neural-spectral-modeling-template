@@ -10,6 +10,7 @@ hydra-colorlog==1.2.0
 hydra-optuna-sweeper==1.2.0
 
 # --------- loggers --------- #
+tensorboard>=2.10.0  # required for TensorBoardLogger (used in logger configs)
 # wandb
 # neptune-client
 # mlflow

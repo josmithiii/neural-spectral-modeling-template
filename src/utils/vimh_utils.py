@@ -63,13 +63,27 @@ def get_heads_config_from_metadata(data_dir: str) -> Dict[str, int]:
     metadata = load_vimh_metadata(data_dir)
     heads_config = {}
 
-    if 'parameter_names' in metadata and 'parameter_mappings' in metadata:
+    if 'parameter_names' in metadata:
         param_names = metadata['parameter_names']
-        param_mappings = metadata['parameter_mappings']
 
-        for param_name in param_names:
-            if param_name in param_mappings:
-                # For continuous parameters, use 256 classes (0-255 quantization)
-                heads_config[param_name] = 256
+        # Check if parameter_mappings exist for more precise configuration
+        if 'parameter_mappings' in metadata:
+            param_mappings = metadata['parameter_mappings']
+            for param_name in param_names:
+                if param_name in param_mappings:
+                    # For continuous parameters, use 256 classes (0-255 quantization)
+                    heads_config[param_name] = 256
+        else:
+            # Default configuration when no parameter_mappings are available
+            # Use the label_encoding range for quantization levels
+            if 'label_encoding' in metadata and 'param_val_range' in metadata['label_encoding']:
+                param_val_range = metadata['label_encoding']['param_val_range']
+                num_classes = param_val_range[1] - param_val_range[0] + 1
+            else:
+                # Default to 256 classes for 8-bit quantization
+                num_classes = 256
+
+            for param_name in param_names:
+                heads_config[param_name] = num_classes
 
     return heads_config
