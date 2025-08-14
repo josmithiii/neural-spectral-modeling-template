@@ -64,24 +64,105 @@ python src/eval.py ckpt_path="/path/to/checkpoint.ckpt"
 ### Environment Management
 ```bash
 source .venv/bin/activate.csh
+
+# Alternative activation shortcuts (see Makefile)
+make activate    # Shows alias setup for 'a' command
+make deactivate  # Shows alias setup for 'd' command
+```
+
+### Visualization and Analysis
+```bash
+# Generate model architecture diagrams
+make td          # Text + graphical diagrams
+make tda         # All model architectures
+make tds         # Simple text-only diagrams  
+make tdss        # Sample architectures comparison
+
+# Compare architectures systematically (3 epochs each)
+make ca          # Compare medium-sized architectures
+```
+
+### Extended Training Commands
+```bash
+# Quick training (1 epoch, limited batches)
+make tq          # SimpleDenseNet quick
+make tqc         # CNN quick
+make tqv         # ViT quick
+make tqcn        # ConvNeXt quick
+make tqa         # All architectures quick
+
+# Specific architecture training
+make trc         # Train CNN (SimpleCNN)
+make trvs        # Train small ViT (~38K params)
+make trcns       # Train ConvNeXt small (~68K params)
+```
+
+### CIFAR Benchmarks
+```bash
+# Individual CIFAR-10 benchmarks
+make cb10c       # CIFAR-10 CNN (85-92% expected)
+make cb10cn      # CIFAR-10 ConvNeXt (90-95% expected)
+make cb10v       # CIFAR-10 ViT (88-93% expected)
+
+# CIFAR-100 benchmarks  
+make cb100c      # CIFAR-100 CNN (55-70% expected)
+make cb100cn     # CIFAR-100 ConvNeXt (70-80% expected)
+
+# Quick validations (5 epochs)
+make cbqa        # All quick CIFAR tests
+make cbq10c      # Quick CIFAR-10 CNN
+
+# Complete benchmark suites
+make cbs10       # All CIFAR-10 benchmarks
+make cbs100      # All CIFAR-100 benchmarks
+make cbsa        # Complete CIFAR suite
+```
+
+### VIMH (Variable Image MultiHead) Training
+```bash
+# VIMH dataset experiments
+make evimh       # VIMH CNN 16K dataset samples
+make evimho      # VIMH ordinal regression
+make evimhr      # VIMH pure regression heads
+
+# Direct VIMH training
+python src/train.py experiment=vimh_cnn_16kdss
+python examples/vimh_training.py --demo --save-plots
+```
+
+### Environment Management
+```bash
+source .venv/bin/activate.csh
 ```
 
 ## Troubleshooting Notes
 - When you see "No module named 'rootutils'", it means we need to say `source .venv/bin/activate`
+- Use MPS trainer for Mac: `python src/train.py trainer=mps` (nearly always used by user)
+- For VIMH training, set `num_workers: 0` in data config as MPS doesn't support multiprocessing
 
 ## Architecture Overview
+
+### Extended Template Features
+This is an **extended** Lightning-Hydra-Template with major enhancements:
+- **Multiple architectures**: SimpleDenseNet, SimpleCNN, ConvNeXt-V2, ViT, EfficientNet
+- **CIFAR benchmark suite**: CIFAR-10/100 with literature-competitive baselines
+- **VIMH (Variable Image MultiHead)**: Advanced multihead dataset format with auto-configuration
+- **Configurable losses**: Hydra-managed loss functions, no hardcoding
+- **50+ make targets**: Convenient shortcuts with abbreviations
+- **Backward compatibility**: All original template functionality preserved
 
 ### Configuration System (Hydra)
 - **Main configs**: `configs/train.yaml` and `configs/eval.yaml` define default training/evaluation settings
 - **Modular configs**: Organized by component type in `configs/` subdirectories:
-  - `data/`: Data module configurations
-  - `model/`: Model configurations
-  - `trainer/`: Lightning trainer configurations
+  - `data/`: Data module configurations (MNIST, CIFAR-10/100, VIMH)
+  - `model/`: Model configurations (multiple architectures with parameter variants)
+  - `trainer/`: Lightning trainer configurations (CPU, GPU, MPS, DDP)
   - `callbacks/`: Training callbacks
   - `logger/`: Logging configurations
-  - `experiment/`: Complete experiment configurations
+  - `experiment/`: Complete experiment configurations (50+ experiments)
 - **Config composition**: Uses Hydra's `defaults` list to compose configurations
 - **Override system**: Parameters can be overridden via command line (e.g., `python src/train.py trainer.max_epochs=20`)
+- **Auto-configuration**: VIMH models auto-configure from dataset metadata
 
 ### Code Structure
 - **`src/train.py`**: Main training entry point using Hydra configuration
@@ -112,10 +193,12 @@ source .venv/bin/activate.csh
 ```
 
 ### Dependencies and Tools
-- **Core ML**: `torch`, `lightning`, `torchmetrics`, `torchvision`
-- **Config**: `hydra-core`, `hydra-colorlog`, `hydra-optuna-sweeper`
+- **Core ML**: `torch>=2.0.0`, `lightning>=2.0.0`, `torchmetrics>=0.11.4`, `torchvision>=0.15.0`
+- **Config**: `hydra-core==1.3.2`, `hydra-colorlog==1.2.0`, `hydra-optuna-sweeper==1.2.0`
 - **Utilities**: `rootutils` (project root setup), `rich` (terminal formatting)
-- **Development**: `pre-commit`, `pytest`, `black`, `isort`, `flake8`
+- **Development**: `pre-commit`, `pytest`
+- **Visualization**: `torchview` (model visualization), `torchviz` (computational graph)
+- **Optional Loggers**: `wandb`, `neptune-client`, `mlflow`, `comet-ml`, `aim>=3.16.2`
 
 ## Development Guidelines
 
@@ -130,5 +213,12 @@ source .venv/bin/activate.csh
 - User prefers `uv` for Python environment management
 - User works with signal processing and sound synthesis but is new to ML implementation details
 - User values fast iteration and minimal boilerplate for research
-- Makefile provides convenient shortcuts for common tasks
+- Makefile provides convenient shortcuts for common tasks with meaningful abbreviations
 - MPS (Metal Performance Shaders) support for Mac training available and nearly always used by user
+
+## Important Development Reminders
+
+- Do what has been asked; nothing more, nothing less
+- NEVER create files unless they're absolutely necessary for achieving your goal
+- ALWAYS prefer editing an existing file to creating a new one
+- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User
