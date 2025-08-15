@@ -10,22 +10,6 @@
 - **Efficient**: 8-bit quantization with ~100 perceptual resolution steps
 - **Format Flexible**: Works with RGB (32x32x3), grayscale (28x28x1), and custom sizes
 
-## Quick Start
-
-```bash
-# Generate VIMH dataset from STK synthesizer
-make vimh-stk
-# or: python data2vimh.py --input-dataset stk --output-dir data-vimh/
-
-# Generate VIMH dataset from Resonarium synthesizer
-make vimh-res
-# or: python data2vimh.py --input-dataset resonarium --output-dir data-vimh/
-
-# Display VIMH dataset with interactive viewer
-make display-vimh
-# or: python display_vimh.py data-vimh/vimh-32x32x3_*_resonarium_2p
-```
-
 ## Output Formats
 
 - **Binary**: Self-describing binary format for efficient loading
@@ -84,7 +68,7 @@ data-vimh/vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p/
 └── vimh_dataset_info.json  # Dataset information
 ```
 
-### Dataset Info JSON
+### Dataset Info JSON Example
 ```json
 {
   "format": "VIMH",
