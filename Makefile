@@ -223,8 +223,8 @@ cb100cn1m cifar100-convnext-1m: ## Run CIFAR-100 ConvNeXt benchmark (~1M params,
 cb100cn10m cifar100-convnext-10m: ## Run CIFAR-100 ConvNeXt 10M benchmark (~10M params, 65-75% expected accuracy)
 	time python src/train.py model=cifar100_convnext_10m data=cifar100
 
-cb100cc cifar100-coarse-cnn: ## Run CIFAR-100 coarse (20-class) CNN benchmark (75-85% expected accuracy)
-	time python src/train.py experiment=cifar100_coarse_cnn
+cb100cc cifar100-coarse-cnn: ## Run CIFAR-100 coarse (20-class) CNN benchmark (75-85% expected accuracy) - CPU required due to MPS pooling limitation (and no GPU here)
+	time python src/train.py experiment=cifar100_coarse_cnn trainer=cpu
 
 cb100ccn cifar100-coarse-convnext: ## Run CIFAR-100 coarse ConvNeXt benchmark (80-90% expected accuracy)
 	time python src/train.py experiment=cifar100_coarse_convnext
