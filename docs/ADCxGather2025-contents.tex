@@ -6,7 +6,7 @@
 
 % Abstract:
 
-\begin{slide}[\slideopts,toc={NSMT}]{Neural Spectral Modeling Template (NSMT) --- Audio Image Classification}
+\begin{slide}[\slideopts,toc={LHTE}]{Lightning Hydra Template Extended (LHTE) --- Added Architectures and Dataset Formats}
 
 % ADCxGather2025 abstract 2025-08-24
 
@@ -16,28 +16,34 @@
 
   \begin{itemize}
 
-    \mpitem Adapts state-of-the-art image-classification tools to spectral audio modeling
+    \mpitem Extends basic Pytorch Lightning+Hydra Template with state-of-the-art image-classification architectures and dataset support
 
-    \mpitem Started as a fork of the \emph{Lightning Hydra Template (LHT):} \url{https://github.com/ashleve/lightning-hydra-template}
+    \mpitem LHTE began as a fork of the \emph{Lightning Hydra Template (LHT):} \url{https://github.com/ashleve/lightning-hydra-template}
     \begin{itemize}
 
-      \mpitem PyTorch Lightning streamlines deep-learning model development in
+      \mpitem \emph{PyTorch Lightning} streamlines deep-learning model development in
       numerous ways
 
-      \mpitem Hydra is a powerful configuration management framework often used
+      \mpitem \emph{Hydra} is a powerful configuration management framework often used
 
       \mpitem An LHT \emph{example experiment} trains an MLP on MNIST (hand-written digits)
 
     \end{itemize}
 
-    \mpitem NSMT adds \emph{more architectures:} CNNs, ConvNeXt, EfficientNet, ViT
+    \mpitem LHTE adds \emph{more architectures:} CNNs, ConvNeXt, EfficientNet, ViT
 
-    \mpitem NSMT adds \emph{more datasets:} CIFAR-10, CIFAR-100, VIMH
+    \mpitem LHTE adds \emph{more datasets:} CIFAR-10, CIFAR-100, VIMH
 
     \mpitem Variable Image Multi-Head (VIMH) format generalizes CIFAR-100:
     \begin{itemize}
       \mpitem Up to 65k x 65k images with up to 65k channels (``stacked spectral representations'')
-      \mpitem \emph{Multi-Head support:} \emph{separate classification/regression head per category}
+      \mpitem \emph{Multi-Head ready:} Up to 65k \emph{labeled parameters} (8-bit label, 8-bit value)
+      \mpitem Nice for \emph{synthesis parameters} (up to 128 parameters, up to 128 settings each)
+      % pairs with \emph{multiple classification / regression heads}
+      %% \begin{itemize}
+      %%   \mpitem Up to 256 parameters (8 bits)
+      %%   \mpitem Up to 256 values for each parameter (8 bits)
+      %% \end{itemize}
       \mpitem \emph{Data loaders} for the various datasets and model architectures
       \mpitem The \texttt{configs/experiment/} directory contains \emph{benchmark replications} % on MNIST, CIFAR, and VIMH datasets
       \mpitem Top-level \texttt{Makefile} contains $\approx100$ \emph{make targets} for tests, training, experiments
@@ -46,7 +52,7 @@
 
 \end{slide}
 
-\begin{slide}[\slideopts,toc={Spectra}]{Why Spectral Representations}
+\begin{slide}[\slideopts,toc={Spectra}]{Why Spectral Representations?}
 
   Aren't we supposed to be doing everything \emph{end to end} now?
 
@@ -81,18 +87,20 @@
 
 \end{slide}
 
-\begin{slidewhite}[\slideopts,toc={Problem}]{Example Driving Problem: Real-Time Filter Design in an Audio Plugin}
+%% \begin{slidewhite}[\slideopts,toc={Problem}]{Example Driving Problem: Real-Time Filter Design in an Audio Plugin}
+%%   \vspace{-2em}
+%%   \myFigureRotateToWidth{pgmeejos}{-90}{0.85\twidth}{(Red-Bordered Buttons Added to
+%%     \textbf{Plugin GUI Magic}'s Equalizer Example)}
+%% \end{slidewhite}
 
-  \vspace{-2em}
-  \myFigureRotateToWidth{pgmeejos}{-90}{0.85\twidth}{(Red-Bordered Buttons Added to
-    \textbf{Plugin GUI Magic}'s Equalizer Example)}
-
-\end{slidewhite}
-
-\begin{slide}[\slideopts,toc={CNN}]{SimpleCNN Architecture}
+\begin{slidewhite}[\slideopts,toc={CNN}]{SimpleCNN Architecture}
   
   \emph{Convolutional Neural Network for Spatial Feature Extraction}
   
+  \vspace{1em}
+
+  \centerline{\includegraphics[width=\textwidth]{viz/diagrams/cnn_architecture.eps}}
+
   \begin{itemize}
     \mpitem \emph{Two conv layers:} 3×3 kernels, 32→64 channels, MaxPool, BatchNorm
     
@@ -105,9 +113,7 @@
     \mpitem Supports multihead classification for multi-task learning
   \end{itemize}
   
-  \vspace{0.5em}
-  \centerline{\includegraphics[width=0.9\textwidth]{viz/diagrams/cnn_architecture.eps}}
-\end{slide}
+\end{slidewhite}
 
 \begin{slide}[\slideopts,toc={ConvNeXt}]{ConvNeXt-V2 Architecture}
   
@@ -124,7 +130,7 @@
   \end{itemize}
   
   \vspace{0.5em}
-  \centerline{\includegraphics[width=0.9\textwidth]{viz/diagrams/convnext_architecture.eps}}
+  \centerline{\includegraphics[width=\textwidth]{viz/diagrams/convnext_architecture.eps}}
 \end{slide}
 
 \begin{slide}[\slideopts,toc={EfficientNet}]{EfficientNet Architecture}
@@ -142,7 +148,7 @@
   \end{itemize}
   
   \vspace{0.5em}
-  \centerline{\includegraphics[width=0.9\textwidth]{viz/diagrams/efficientnet_architecture.eps}}
+  \centerline{\includegraphics[width=\textwidth]{viz/diagrams/efficientnet_architecture.eps}}
 \end{slide}
 
 \begin{slide}[\slideopts,toc={ViT}]{Vision Transformer (ViT) Architecture}
@@ -160,7 +166,7 @@
   \end{itemize}
   
   \vspace{0.5em}
-  \centerline{\includegraphics[width=0.9\textwidth]{viz/diagrams/vit_architecture.eps}}
+  \centerline{\includegraphics[width=\textwidth]{viz/diagrams/vit_architecture.eps}}
 \end{slide}
 
 \begin{slide}[\slideopts,toc={CIFAR-10}]{CIFAR-10 Dataset Support}
@@ -170,7 +176,13 @@
   \begin{itemize}
     \mpitem 10 classes, 32×32 RGB, 50K train / 10K test
     
-    \mpitem \emph{NSMT Results:} CNN (85-92\%), ConvNeXt (90-95\%), ViT (88-93\%)
+    \mpitem \emph{LHTE Results:}
+    %% \begin{itemize}
+    %%   \mpitem CNN (85-92\%)
+    %%   \mpitem ConvNeXt (90-95\%)
+    %%   \mpitem ViT (88-93\%)
+    %% \end{itemize}
+    \mpitem \emph{LHTE Results:} CNN (85-92\%), ConvNeXt (90-95\%), ViT (88-93\%)
     
     \mpitem \emph{Commands:} \texttt{make cbq10c} (quick), \texttt{make cb10c} (full)
     
@@ -178,7 +190,7 @@
   \end{itemize}
   
   \vspace{0.5em}
-  \centerline{\includegraphics[width=0.9\textwidth]{viz/diagrams/cifar10_samples.eps}}
+  \centerline{\includegraphics[width=0.6\textwidth]{viz/diagrams/cifar10_samples.eps}}
 \end{slide}
 
 \begin{slide}[\slideopts,toc={CIFAR-100}]{CIFAR-100 Dataset Support}
@@ -196,7 +208,7 @@
   \end{itemize}
   
   \vspace{0.5em}
-  \centerline{\includegraphics[width=0.9\textwidth]{viz/diagrams/cifar100_samples.eps}}
+  \centerline{\includegraphics[width=0.7\textwidth]{viz/diagrams/cifar100_samples.eps}}
 \end{slide}
 
 \begin{slide}[\slideopts,toc={VIMH}]{Variable Image MultiHead (VIMH) Format}
@@ -214,10 +226,14 @@
     
     \mpitem Models auto-configure from dataset metadata
   \end{itemize}
-  
-  \vspace{0.5em}
-  \centerline{\includegraphics[width=0.8\textwidth]{png/sample_data.eps}}
+  % FIXME: REPLACE:
+  \centerline{\includegraphics[width=0.3\textwidth]{png/sample_data.eps}}
 \end{slide}
+  
+%% \begin{slide}[\slideopts,toc={}]{Variable Image MultiHead (VIMH) Format}
+%%   \centerline{\includegraphics[width=0.9\textwidth]{png/sample_data.eps}}
+%% \end{slide}
+
 
 \begin{slide}[\slideopts,toc={MultiHead}]{Multi-Head Classification Support}
   
@@ -233,9 +249,17 @@
     \mpitem Configurable via Hydra without code changes
   \end{itemize}
   
-  \vspace{0.5em}
-  \centerline{\includegraphics[width=0.8\textwidth]{viz/diagrams/multihead_architecture.eps}}
+  %\vspace{0.5em}
+  % \centerline{\includegraphics[width=0.5\textwidth]{viz/diagrams/multihead_architecture.eps}}
+  \scalebox{0.7}{
+    \input multihead.tex
+  }
 \end{slide}
+%% \begin{slide}[\slideopts,toc={}]{Multi-Head Classification Support}
+%%   \scalebox{1.0}{
+%%     \input multihead.tex
+%%   }
+%% \end{slide}
 
 \begin{slide}[\slideopts,toc={Benchmarks}]{Benchmark Replications \& Experiments}
   
@@ -264,13 +288,6 @@
     \mpitem \emph{Productivity:} \texttt{make help}, logical naming, batch operations
   \end{itemize}
 \end{slide}
-
-%% Example showing how figures can be brought in:
-%% \begin{slidewhite}[\slideopts,toc={Problem}]{Example Driving Problem: Real-Time Filter Design in an Audio Plugin}
-%%   \vspace{-2em}
-%%   \myFigureRotateToWidth{pgmeejos}{-90}{0.85\twidth}{(Red-Bordered Buttons Added to
-%%     \textbf{Plugin GUI Magic}'s Equalizer Example)}
-%% \end{slidewhite}
 
 \begin{slide}[\slideopts,toc={}]{Summary of Resources Online}
   \begin{itemize}
