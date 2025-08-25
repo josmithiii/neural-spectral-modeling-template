@@ -20,39 +20,47 @@
 
 ### Binary Layout Per Sample
 ```
-Metadata: 6 bytes (height, width, channels) - three 16-bit fields
+Metadata: 6 bytes (height, width, channels) - three 16-bit unsigned integers, little-endian
 Label Data: 1 + 2N bytes
-  - Byte 0: N (number of varying parameters)
-  - Bytes 1,2: param1_id, param1_val
-  - Bytes 3,4: param2_id, param2_val
+  - Byte 0: N (number of varying parameters, 0-255)
+  - Bytes 1,2: param1_id (0-255), param1_val (0-255)
+  - Bytes 3,4: param2_id (0-255), param2_val (0-255)
   - ...
-  - Bytes 2N-1,2N: paramN_id, paramN_val
-Image Data: height*width*channels bytes
+  - Bytes 2N-1,2N: paramN_id (0-255), paramN_val (0-255)
+Image Data: height*width*channels bytes (raw pixel values, typically 0-255)
+Total size: 6 + 1 + 2N + height*width*channels bytes per sample
 ```
 
 ### Example: 2-Parameter Dataset (32x32x3 like CIFAR-100)
 ```
-Metadata: [32, 32, 3] (height=32, width=32, channels=3)
-Labels: [2, 0, 191, 1, 127] (N=2 parameters)
-Image: 3072 bytes (32*32*3 RGB spectrogram)
-Total: 3 + 5 + 3072 = 3080 bytes per sample
+Metadata: [32, 32, 3] (height=32, width=32, channels=3) - 6 bytes
+Labels: [2, 0, 191, 1, 127] (N=2 parameters) - 5 bytes
+Image: 3072 bytes (32*32*3 RGB spectrogram/image data)
+Total: 6 + 5 + 3072 = 3083 bytes per sample
 ```
 
 If note_number=51.5 (range 50-52) and note_velocity=81.0 (range 80-82):
 ```
 Complete sample: [32, 32, 3, 2, 0, 191, 1, 127, <3072 image bytes>]
-  height=32, width=32, channels=3
-  N=2 parameters
-  param_0 (note_number): 191 → 51.5
-  param_1 (note_velocity): 127 → 81.0
+  Metadata: height=32, width=32, channels=3 (6 bytes)
+  Labels: N=2 parameters (1 byte)
+  param_0 (note_number): id=0, val=191 → dequantized to 51.5 (2 bytes)
+  param_1 (note_velocity): id=1, val=127 → dequantized to 81.0 (2 bytes)
+  Image data: 3072 bytes of RGB pixel values
 ```
 
 ### Example: VIMH Metadata for MNIST Images (28x28x1)
 ```
-Metadata: [28, 28, 1] (height=28, width=28, channels=1)
-Labels: [1, 0, 128] (N=1 parameter)
+Metadata: [28, 28, 1] (height=28, width=28, channels=1) - 6 bytes
+Labels: [1, 0, 128] (N=1 parameter) - 3 bytes
 Image: 784 bytes (28*28*1 grayscale)
-Total: 3 + 3 + 784 = 790 bytes per sample
+Total: 6 + 3 + 784 = 793 bytes per sample
+
+Sample breakdown:
+  Metadata: height=28, width=28, channels=1 (6 bytes)
+  Labels: N=1 parameter (1 byte)
+  param_0: id=0, val=128 (2 bytes) - could represent digit thickness/style
+  Image data: 784 bytes of grayscale pixel values
 ```
 
 ## Dataset Structure
@@ -123,9 +131,10 @@ data-vimh/vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p/
 
 ### Limitations
 - Maximum 255 varying parameters per sample
-- Parameter values quantized to 0-255 range
-- Image dimensions limited to 255x255 (due to single byte metadata)
-- Maximum 255 channels per image
+- Parameter values quantized to 0-255 range (8-bit resolution)
+- Image dimensions limited to 65,535×65,535 (16-bit metadata fields)
+- Maximum 65,535 channels per image (16-bit metadata field)
+- Parameter precision: ~100 perceptual steps (8-bit quantization)
 
 ## Makefile Targets
 
@@ -162,10 +171,52 @@ actual_value = param_min + normalized_value * (param_max - param_min)
 - **v2.0**: Added height, width, channels metadata for full generalization
 - **v1.0**: Initial implementation based on CIFAR-100 structure
 
+## File Reading/Writing
+
+### Python Usage
+```python
+from src.data.vimh_dataset import VIMHDataset, VIMHDataModule
+
+# Load existing VIMH dataset
+dataset = VIMHDataset(data_dir="data-vimh/my_dataset", format="binary")
+
+# Access samples
+sample = dataset[0]  # Returns (image, labels) tuple
+image, labels = sample
+# image: torch.Tensor of shape (C, H, W)
+# labels: dict with parameter names and values
+
+# Use with DataModule for training
+datamodule = VIMHDataModule(data_dir="data-vimh/my_dataset")
+datamodule.setup()
+train_loader = datamodule.train_dataloader()
+```
+
+### Dataset Auto-Configuration
+VIMH datasets automatically configure neural network models based on their metadata:
+
+```python
+# Model automatically configures from VIMH dataset info
+python src/train.py experiment=vimh_cnn_16kdss
+# Reads data-vimh/*/vimh_dataset_info.json to determine:
+# - Input image dimensions (height, width, channels)
+# - Number of output heads (equal to varying_parameters)
+# - Parameter names for head naming
+# - Loss function selection based on parameter types
+```
+
+### Performance Considerations
+- **Binary format**: Fastest loading, smallest file size
+- **Pickle format**: Python-friendly but larger files
+- **Memory usage**: ~793 bytes per MNIST sample, ~3083 bytes per CIFAR-100 sample
+- **Loading speed**: ~10x faster initialization compared to traditional formats
+
 ## Related Formats
 
 VIMH was originally inspired by CIFAR-100 but extends it significantly:
-- **CIFAR-100**: Fixed 32x32x3 images, 2 labels (coarse/fine)
-- **VIMH**: Variable image dimensions, 0-255 parameters with metadata
+- **CIFAR-100**: Fixed 32x32x3 images, 2 labels (coarse/fine classes)
+- **VIMH**: Variable image dimensions, 0-255 continuous parameters with self-describing metadata
+- **HDF5**: Alternative format, but VIMH is more compact and self-describing
+- **TFRecord**: Similar concept, but VIMH uses simpler binary format
 
-The format maintains some CIFAR-100 compatibility for 32x32x3 images while enabling much broader applications through its generalized design.
+The format maintains some conceptual CIFAR-100 compatibility for 32x32x3 images while enabling much broader applications through its generalized, self-describing design.

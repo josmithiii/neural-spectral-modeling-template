@@ -158,12 +158,7 @@
   \begin{itemize}
     \mpitem 10 classes, 32×32 RGB, 50K train / 10K test
     
-    \mpitem \emph{NSMT Results:}
-    \begin{itemize}
-      \mpitem CNN (85-92\%)
-      \mpitem ConvNeXt (90-95\%)
-      \mpitem ViT (88-93\%)
-    \end{itemize}
+    \mpitem \emph{NSMT Results:} CNN (85-92\%), ConvNeXt (90-95\%), ViT (88-93\%)
     
     \mpitem \emph{Commands:} \texttt{make cbq10c} (quick), \texttt{make cb10c} (full)
     
@@ -191,9 +186,9 @@
   \emph{Generalized Dataset Format for Multi-Parameter Learning}
   
   \begin{itemize}
-    \mpitem \emph{Self-describing:} Variable dimensions up to 65k×65k×65k
+    \mpitem \emph{Self-describing:} Variable dimensions up to 65k×65k×65k (16-bit metadata)
     
-    \mpitem \emph{Flexible labels:} 0-255 parameters, 8-bit quantized
+    \mpitem \emph{Flexible labels:} 0-255 parameters, 8-bit quantized (~100 steps)
     
     \mpitem \emph{Per sample:} [height, width, channels] + [N params] + [ID,val pairs] + image
     
