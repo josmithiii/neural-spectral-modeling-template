@@ -6,6 +6,7 @@ Welcome to the comprehensive documentation for the Lightning-Hydra-Template-Exte
 
 ### 🚀 Getting Started
 - **[features.md](features.md)** - High-level overview and key features summary
+- **[tutorial_sequence.md](tutorial_sequence.md)** - From setup to advanced experiments (using `make` targets)
 
 ### 🏗️ Technical Details
 - **[architectures.md](architectures.md)** - Detailed architecture documentation, parameter comparisons, and usage guides

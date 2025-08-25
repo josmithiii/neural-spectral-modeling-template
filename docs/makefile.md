@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Makefile provides convenient shortcuts for common development tasks. All targets support both full names and abbreviations for efficient workflow.
+The Makefile provides convenient shortcuts for common development
+tasks. All targets support both full names and abbreviations for
+efficient workflow.
 
 ## 📋 Complete Target Reference
 
