@@ -71,9 +71,23 @@
 
   \end{itemize}
 
+  \vspace{-1em}
+%  \begin{quote}
+\maybepause
+    \centerline{\textit{Those who don't know signal processing are doomed to reinvent it}}
+\maybepause
+    \centerline{\textit{Those who know signal processing are doomed to re-introduce it}}
+%  \end{quote}
+
 \end{slide}
 
-%% NEW SLIDES GO HERE
+\begin{slidewhite}[\slideopts,toc={Problem}]{Example Driving Problem: Real-Time Filter Design in an Audio Plugin}
+
+  \vspace{-2em}
+  \myFigureRotateToWidth{pgmeejos}{-90}{0.85\twidth}{(Red-Bordered Buttons Added to
+    \textbf{Plugin GUI Magic}'s Equalizer Example)}
+
+\end{slidewhite}
 
 \begin{slide}[\slideopts,toc={CNN}]{SimpleCNN Architecture}
   
@@ -144,7 +158,12 @@
   \begin{itemize}
     \mpitem 10 classes, 32×32 RGB, 50K train / 10K test
     
-    \mpitem \emph{NSMT Results:} CNN (85-92\%), ConvNeXt (90-95\%), ViT (88-93\%)
+    \mpitem \emph{NSMT Results:}
+    \begin{itemize}
+      \mpitem CNN (85-92\%)
+      \mpitem ConvNeXt (90-95\%)
+      \mpitem ViT (88-93\%)
+    \end{itemize}
     
     \mpitem \emph{Commands:} \texttt{make cbq10c} (quick), \texttt{make cb10c} (full)
     
@@ -253,24 +272,3 @@
            {\texttt{https://ccrma.stanford.edu/\~{}jos/}}
   \end{itemize}
 \end{slide}
-
-%% \begin{wideslide}[\slideopts,toc={}]{Summary of Resources Online}
-%%   \begin{itemize}
-%%   \item \emph{Neural Spectral Modeling Template (NSMT):}\\
-%%     \href{https://github.com/josmithiii/neural-spectral-modeling-template.git}
-%%   \item[]
-%%   \item \emph{Lightning Hydra Template Extended (LHTE):}\\
-%%     \href{https://github.com/josmithiii/lightning-hydra-template-extended.git}
-%%   \item[]
-%%   \item \emph{Lightning Hydra Template (LHT):}\\
-%%     \href{https://github.com/ashleve/lightning-hydra-template}
-%%   \item[]
-%%   \item JOS Home Page (Videos, Overheads, including these):\\
-%%     \href{https://ccrma.stanford.edu/~jos/Welcome.html}{\texttt{https://ccrma.stanford.edu/\~{}jos/}}
-%%   \item[]
-%% % \item[]
-%% %  \item \emph{Take 1} of this talk (correlated but different):\\
-%% %    \href{https://ccrma.stanford.edu/~jos/mp4/ADCxGather-take1-2024-10-26-20-E1.mp4}
-%% %    {\texttt{https://ccrma.stanford.edu/\~{}jos/mp4/ADCxGather-take1-2024-10-26-20-E1.mp4}}
-%%   \end{itemize}
-%% \end{wideslide}
