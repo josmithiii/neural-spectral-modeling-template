@@ -1,0 +1,5 @@
+gradient_stats:
+  _target_: src.utils.gradient_stats_callback.GradientStatsCallback
+  log_every_n_steps: 10        # Log gradient stats every 10 steps
+  log_histogram: true          # Log gradient histograms to tensorboard
+  track_layer_gradients: true  # Track per-layer gradient statistics

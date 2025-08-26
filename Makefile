@@ -20,6 +20,11 @@ s sync: ## Merge changes from main branch to your current branch
 	git pull
 	git pull origin main
 
+tb tensorboard: ## Launch TensorBoard on port 6006
+	@lsof -i :6006 >/dev/null 2>&1 && echo "TensorBoard already running on port 6006" || \
+		(echo "Starting TensorBoard on port 6006..." && tensorboard --logdir logs/train/runs/ --port 6006 &)
+	@echo "Open http://localhost:6006/"
+
 a activate: ## Activate the uv environment
 	@echo "Add to ~/.tcshrc: alias a 'echo \"source .venv/bin/activate.csh\" && source .venv/bin/activate.csh'"
 	@echo "Then just type: a"
@@ -36,6 +41,10 @@ tr train train-sdn: ## Train the default model (a small SimpleDenseNet)
 
 trc trcnn train-cnn: ## Train with CNN architecture
 	time python src/train.py model=mnist_cnn_small
+
+tg train-with-gradients: ## Train with gradient statistics tracking enabled
+	python src/train.py callbacks=grouped_progress_bar_with_gradients logger=tensorboard
+	@echo "Check gradient stats at http://localhost:6006/#scalars&tagFilter=grad_stats"
 
 trvs train-vit-small: ## Train small ViT (~38K params)
 	time python src/train.py model=mnist_vit_38k
@@ -278,3 +287,13 @@ cbsa benchmark-all: cbs10 cbs100 ## Run complete CIFAR benchmark suite
 	@echo "=== Complete CIFAR benchmark suite finished ==="
 
 allqt all-quick-tests: tqa cbqa ## All quick tests
+
+# UTILITY TARGETS
+
+lc list-configs: ## List available model configurations
+	@echo "Available model configs:"
+	@find configs/model -name "*.yaml" | sed 's|configs/model/||' | sed 's|\.yaml||' | sort
+	@echo "\nAvailable data configs:"  
+	@find configs/data -name "*.yaml" | sed 's|configs/data/||' | sed 's|\.yaml||' | sort
+	@echo "\nAvailable experiment configs:"
+	@find configs/experiment -name "*.yaml" | sed 's|configs/experiment/||' | sed 's|\.yaml||' | sort

@@ -9,6 +9,7 @@ The Lightning-Hydra-Template-Extended supports multiple neural network architect
 | Architecture | Parameters | Type | Best For | Config Files |
 |-------------|------------|------|----------|-------------|
 | **SimpleDenseNet** | 8K-68K | Fully-connected | Quick prototyping | `mnist_sdn_*.yaml` |
+| **SimpleMLP** | 8K-68K | Fully-connected (no BN) | Batch size = 1 | `simple_mlp_*.yaml` |
 | **SimpleCNN** | 8K-3.3M | Convolutional | Image classification | `mnist_cnn_*.yaml` |
 | **ConvNeXt-V2** | 18K-725K | Modern CNN | Efficient performance | `mnist_convnext_*.yaml` |
 | **Vision Transformer** | 38K-821K | Transformer | Large-scale datasets | `mnist_vit_*.yaml` |
@@ -44,6 +45,37 @@ python src/train.py model=mnist_sdn_8k     # 8K parameters
 python src/train.py model=mnist_sdn_68k    # 68K parameters
 ```
 
+### SimpleMLP
+**Type**: Fully-connected neural network without BatchNorm
+**Best for**: Batch size = 1 scenarios, inference-only applications
+
+**Architecture**:
+- **Input**: Flattened 28×28 images (784 features)
+- **Hidden layers**: Configurable (default: [256, 128])
+- **Normalization**: None (crucial for batch_size=1)
+- **Activation**: ReLU
+- **Dropout**: Configurable (default: 0.1)
+- **Output**: Configurable classes
+
+**Key Difference from SimpleDenseNet**:
+SimpleMLP omits BatchNorm layers, making it suitable for scenarios where batch_size=1 is required (e.g., real-time inference, audio synthesis applications).
+
+**Characteristics**:
+- **Parameters**: Configurable (8K-68K typical range)
+- **Speed**: Fast training and inference ⚡
+- **Memory**: Low requirements
+- **Batch size**: Works with any batch size including 1
+
+**Usage**:
+```bash
+# Train SimpleMLP
+python src/train.py model=simple_mlp
+
+# With specific configuration
+python src/train.py model=simple_mlp_256_128  # Hidden layers [256, 128]
+python src/train.py trainer.datamodule.batch_size=1  # Batch size 1
+```
+
 ### SimpleCNN
 **Type**: Convolutional neural network
 **Best for**: Image classification with spatial structure preservation
@@ -66,6 +98,12 @@ The SimpleCNN architecture supports multihead classification for multi-task lear
 - **Primary head**: Digit classification (10 classes)
 - **Secondary heads**: Thickness (5 classes), Smoothness (3 classes)
 
+**Auxiliary Features Support**:
+SimpleCNN can incorporate auxiliary scalar features alongside image data:
+- **Hybrid input**: Image tensor + auxiliary scalar vector
+- **Feature fusion**: Auxiliary features processed through separate MLP, concatenated with CNN features
+- **Use case**: Incorporating measured parameters, metadata, or other scalar inputs
+
 **Usage**:
 ```bash
 # Single-head CNN
@@ -79,6 +117,9 @@ make emhcm
 # Different sizes
 python src/train.py model=mnist_cnn_8k     # 8K parameters
 python src/train.py model=mnist_cnn_421k   # 421K parameters
+
+# With auxiliary features (requires compatible dataset)
+python src/train.py model.net.auxiliary_input_size=5  # 5 auxiliary features
 ```
 
 ### ConvNeXt-V2

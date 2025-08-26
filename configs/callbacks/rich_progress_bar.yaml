@@ -1,4 +1,5 @@
-# https://lightning.ai/docs/pytorch/latest/api/lightning.pytorch.callbacks.RichProgressBar.html
+# https://lightning.ai/docs/pytorch/latest/api/lightning.pytorch.callbacks.ProgressBar.html
+# Changed from RichProgressBar to default ProgressBar to fix Rich console issues
 
 rich_progress_bar:
-  _target_: lightning.pytorch.callbacks.RichProgressBar
+  _target_: lightning.pytorch.callbacks.ProgressBar

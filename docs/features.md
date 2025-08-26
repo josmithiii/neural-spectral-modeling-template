@@ -30,7 +30,8 @@ Easy switching between neural network architectures:
 | Architecture | Parameters | Description |
 |-------------|------------|-------------|
 | **SimpleDenseNet** | 8K-68K | Original fully-connected network |
-| **SimpleCNN** | 8K-3.3M | Convolutional neural network |
+| **SimpleMLP** | 8K-68K | MLP without BatchNorm (for batch_size=1) |
+| **SimpleCNN** | 8K-3.3M | Convolutional neural network with auxiliary support |
 | **ConvNeXt-V2** | 18K-725K | Modern CNN with Global Response Normalization |
 | **Vision Transformer** | 38K-821K | Transformer on image patches |
 | **EfficientNet** | 22K-7M | Highly efficient CNN architecture |
@@ -53,6 +54,39 @@ Convenient shortcuts for common tasks:
 - **Training**: `make train`, `make trc` (CNN), `make trcn` (ConvNeXt)
 - **Quick tests**: `make tq`, `make tqc`, `make tqcn`
 - **Benchmarks**: `make cb10c` (CIFAR-10), `make cbs` (full suite)
+- **Utilities**: `make lc` (list configs), `make tb` (launch TensorBoard)
+- **Advanced**: `make tg` (gradient tracking), `make ca` (architecture comparison)
+
+### 7. Advanced Training Features
+
+#### Soft Target Support
+Reduce quantization artifacts in regression tasks:
+```yaml
+# Enable soft targets with Gaussian distribution
+data:
+  target_width: 0.1  # Controls softness (0.0 = hard targets)
+```
+
+#### Auxiliary Feature Support
+Combine CNN features with scalar auxiliary inputs:
+```python
+# Forward pass with auxiliary features
+output = model(image_tensor, auxiliary_scalar_features)
+```
+
+#### Gradient Statistics Tracking
+Monitor gradient flow during training:
+```bash
+# Train with gradient statistics
+make tg  # or python src/train.py callbacks=grouped_progress_bar_with_gradients
+```
+
+#### Flexible Data Transforms
+Handles variable channel images (e.g., RGB + feature channels):
+```python
+from src.data.flexible_transforms import FlexibleNormalize, ChannelAwareCompose
+# Automatically adapts to 3, 5, or more channels
+```
 
 
 ## 📊 Expected Performance

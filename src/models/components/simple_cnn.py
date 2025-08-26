@@ -18,6 +18,8 @@ class SimpleCNN(nn.Module):
         output_mode: str = "classification",
         parameter_names: Optional[List[str]] = None,
         parameter_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
+        auxiliary_input_size: int = 0,
+        auxiliary_hidden_size: int = 32,
     ) -> None:
         """Initialize a SimpleCNN module.
 
@@ -32,6 +34,8 @@ class SimpleCNN(nn.Module):
         :param output_mode: Output mode - "classification" or "regression".
         :param parameter_names: List of parameter names for regression mode.
         :param parameter_ranges: Dict mapping parameter names to (min, max) ranges.
+        :param auxiliary_input_size: Size of auxiliary scalar input vector (0 = no aux input).
+        :param auxiliary_hidden_size: Hidden size for auxiliary input processing.
         """
         super().__init__()
 
@@ -39,6 +43,9 @@ class SimpleCNN(nn.Module):
         self.output_mode = output_mode
         self.parameter_names = parameter_names or []
         self.parameter_ranges = parameter_ranges or {}
+        self.auxiliary_input_size = auxiliary_input_size
+        self.auxiliary_hidden_size = auxiliary_hidden_size
+        self.fc_hidden = fc_hidden
 
         # Handle configuration based on output mode
         if output_mode == "regression":
@@ -97,13 +104,28 @@ class SimpleCNN(nn.Module):
             nn.Dropout(dropout),
         )
 
+        # Auxiliary input processing (if enabled)
+        if auxiliary_input_size > 0:
+            self.auxiliary_net = nn.Sequential(
+                nn.Linear(auxiliary_input_size, auxiliary_hidden_size),
+                nn.ReLU(),
+                nn.Dropout(dropout / 2),  # Less dropout for auxiliary features
+                nn.Linear(auxiliary_hidden_size, auxiliary_hidden_size),
+                nn.ReLU(),
+            )
+            # Combined feature size includes auxiliary features
+            combined_feature_size = fc_hidden + auxiliary_hidden_size
+        else:
+            self.auxiliary_net = None
+            combined_feature_size = fc_hidden
+
         # Multiple heads or single head for backward compatibility
         if self.is_multihead:
             if output_mode == "regression":
                 # For regression, create heads with sigmoid activation
                 self.heads = nn.ModuleDict({
                     head_name: nn.Sequential(
-                        nn.Linear(fc_hidden, 1),
+                        nn.Linear(combined_feature_size, 1),
                         nn.Sigmoid()
                     )
                     for head_name in heads_config.keys()
@@ -111,7 +133,7 @@ class SimpleCNN(nn.Module):
             else:
                 # Classification heads
                 self.heads = nn.ModuleDict({
-                    head_name: nn.Linear(fc_hidden, num_classes)
+                    head_name: nn.Linear(combined_feature_size, num_classes)
                     for head_name, num_classes in heads_config.items()
                 })
         else:
@@ -119,29 +141,61 @@ class SimpleCNN(nn.Module):
             head_name, num_classes = next(iter(heads_config.items()))
             if output_mode == "regression":
                 self.classifier = nn.Sequential(
-                    nn.Linear(fc_hidden, 1),
+                    nn.Linear(combined_feature_size, 1),
                     nn.Sigmoid()
                 )
             else:
-                self.classifier = nn.Linear(fc_hidden, num_classes)
+                self.classifier = nn.Linear(combined_feature_size, num_classes)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, auxiliary: Optional[torch.Tensor] = None):
         """Perform a single forward pass through the network.
 
         :param x: Input tensor of shape (batch_size, channels, height, width).
+        :param auxiliary: Optional auxiliary input tensor of shape (batch_size, auxiliary_input_size).
         :return: A tensor of logits (single head) or dict of logits (multihead).
         """
+        # Process main input through CNN
         x = self.conv_layers(x)
         shared_features = self.shared_features(x)
 
+        # Combine with auxiliary features if provided
+        if self.auxiliary_net is not None and auxiliary is not None:
+            auxiliary_features = self.auxiliary_net(auxiliary)
+            combined_features = torch.cat([shared_features, auxiliary_features], dim=1)
+        else:
+            combined_features = shared_features
+
         if self.is_multihead:
             return {
-                head_name: head(shared_features)
+                head_name: head(combined_features)
                 for head_name, head in self.heads.items()
             }
         else:
             # Single head output (backward compatibility)
-            return self.classifier(shared_features)
+            return self.classifier(combined_features)
+
+    def _build_heads(self, heads_config: Dict[str, int]) -> None:
+        """Rebuild heads for auto-configuration (regression mode only)."""
+        if self.output_mode != "regression":
+            raise ValueError("_build_heads only supports regression mode")
+
+        # Calculate combined feature size (same as in __init__)
+        if self.auxiliary_input_size > 0:
+            combined_feature_size = self.fc_hidden + self.auxiliary_hidden_size
+        else:
+            combined_feature_size = self.fc_hidden
+
+        # Create regression heads with sigmoid activation
+        self.heads = nn.ModuleDict({
+            head_name: nn.Sequential(
+                nn.Linear(combined_feature_size, 1),
+                nn.Sigmoid()
+            )
+            for head_name in heads_config.keys()
+        })
+
+        self.heads_config = heads_config
+        self.is_multihead = len(heads_config) > 1
 
 
 if __name__ == "__main__":

@@ -1,6 +1,9 @@
 # disable python warnings if they annoy you
 ignore_warnings: False
 
+# suppress specific DataLoader num_workers warnings (useful for MPS)
+ignore_dataloader_warnings: True
+
 # ask user for tags if none are provided in the config
 enforce_tags: True
 

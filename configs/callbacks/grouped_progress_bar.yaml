@@ -1,0 +1,21 @@
+defaults:
+  - model_checkpoint
+  - early_stopping
+  - _self_
+
+# Custom progress bar with grouped test metrics display - replaces rich_progress_bar
+grouped_progress_bar:
+  _target_: src.utils.custom_progress_bar.GroupedMetricsDisplayCallback
+
+model_checkpoint:
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch:03d}"
+  monitor: "val/acc"
+  mode: "max"
+  save_last: True
+  auto_insert_metric_name: False
+
+early_stopping:
+  monitor: "val/acc"
+  patience: 100
+  mode: "max"

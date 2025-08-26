@@ -23,7 +23,8 @@ class VIMHDataset(MultiheadDatasetBase):
         data_path: str,
         train: bool = True,
         transform: Optional[callable] = None,
-        target_transform: Optional[callable] = None
+        target_transform: Optional[callable] = None,
+        target_width: float = 0.0
     ):
         """Initialize VIMH dataset.
 
@@ -31,10 +32,12 @@ class VIMHDataset(MultiheadDatasetBase):
         :param train: Whether to load training or test data
         :param transform: Optional transform to apply to images
         :param target_transform: Optional transform to apply to labels
+        :param target_width: Standard deviation for soft targets (0.0 = hard targets)
         """
         self.train = train
         self.transform = transform
         self.target_transform = target_transform
+        self.target_width = target_width
 
         # Determine the correct file path
         data_path = Path(data_path)
@@ -129,6 +132,23 @@ class VIMHDataset(MultiheadDatasetBase):
             if actual_samples != expected_samples:
                 print(f"Warning: Expected {expected_samples} test samples, got {actual_samples}")
 
+    def _create_soft_targets(self, class_index: int, num_classes: int, target_width: float) -> torch.Tensor:
+        """Create soft targets as Gaussian distribution around true class.
+
+        :param class_index: True class index
+        :param num_classes: Total number of classes
+        :param target_width: Standard deviation for soft targets
+        :return: Soft target distribution or hard target index
+        """
+        if target_width == 0.0:
+            return class_index  # Hard targets (backward compatible)
+
+        # Soft targets - Gaussian distribution
+        class_indices = torch.arange(num_classes, dtype=torch.float32)
+        distances = (class_indices - class_index) ** 2
+        weights = torch.exp(-distances / (2 * target_width ** 2))
+        return weights / weights.sum()  # Normalize to probability distribution
+
     def _get_sample_metadata(self, idx: int) -> Dict[str, Any]:
         """Get metadata for a specific sample.
 
@@ -178,6 +198,14 @@ class VIMHDataset(MultiheadDatasetBase):
         :return: Tuple of (image_tensor, labels_dict)
         """
         image, labels = super().__getitem__(idx)
+
+        # Apply soft targets if enabled
+        if self.target_width > 0.0:
+            soft_labels = {}
+            for param_name, quantized_value in labels.items():
+                num_classes = self.heads_config.get(param_name, 256)  # Default to 256 classes
+                soft_labels[param_name] = self._create_soft_targets(quantized_value, num_classes, self.target_width)
+            labels = soft_labels
 
         # Apply transforms if specified
         if self.transform is not None:
@@ -263,27 +291,31 @@ class VIMHDataset(MultiheadDatasetBase):
 def create_vimh_datasets(
     data_dir: str,
     transform: Optional[callable] = None,
-    target_transform: Optional[callable] = None
+    target_transform: Optional[callable] = None,
+    target_width: float = 0.0
 ) -> Tuple[VIMHDataset, VIMHDataset]:
     """Create train and test VIMH datasets.
 
     :param data_dir: Directory containing the dataset files
     :param transform: Optional transform to apply to images
     :param target_transform: Optional transform to apply to labels
+    :param target_width: Standard deviation for soft targets (0.0 = hard targets)
     :return: Tuple of (train_dataset, test_dataset)
     """
     train_dataset = VIMHDataset(
         data_dir,
         train=True,
         transform=transform,
-        target_transform=target_transform
+        target_transform=target_transform,
+        target_width=target_width
     )
 
     test_dataset = VIMHDataset(
         data_dir,
         train=False,
         transform=transform,
-        target_transform=target_transform
+        target_transform=target_transform,
+        target_width=target_width
     )
 
     return train_dataset, test_dataset

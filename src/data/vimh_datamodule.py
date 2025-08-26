@@ -68,6 +68,7 @@ class VIMHDataModule(LightningDataModule):
         train_transform: Optional[transforms.Compose] = None,
         val_transform: Optional[transforms.Compose] = None,
         test_transform: Optional[transforms.Compose] = None,
+        target_width: float = 0.0,
     ) -> None:
         """Initialize a `VIMHDataModule`.
 
@@ -79,6 +80,7 @@ class VIMHDataModule(LightningDataModule):
         :param train_transform: Optional transforms for training data.
         :param val_transform: Optional transforms for validation data.
         :param test_transform: Optional transforms for test data.
+        :param target_width: Standard deviation for soft targets (0.0 = hard targets).
         """
         super().__init__()
 
@@ -512,13 +514,15 @@ class VIMHDataModule(LightningDataModule):
                 self.data_train = VIMHDataset(
                     self.hparams.data_dir,
                     train=True,
-                    transform=self.train_transform
+                    transform=self.train_transform,
+                    target_width=self.hparams.target_width
                 )
 
                 self.data_test = VIMHDataset(
                     self.hparams.data_dir,
                     train=False,
-                    transform=self.test_transform
+                    transform=self.test_transform,
+                    target_width=self.hparams.target_width
                 )
 
                 # For validation, we'll use the test dataset with val transforms
@@ -526,7 +530,8 @@ class VIMHDataModule(LightningDataModule):
                 self.data_val = VIMHDataset(
                     self.hparams.data_dir,
                     train=False,
-                    transform=self.val_transform
+                    transform=self.val_transform,
+                    target_width=self.hparams.target_width
                 )
 
             except Exception as e:
