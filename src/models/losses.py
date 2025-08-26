@@ -3,7 +3,113 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any, List
+
+
+# ==============================================================================
+# PNP-Adapted Loss Functions
+# Adapted from /l/pnp/src/pnp_synth/neural/loss.py for proven multi-scale spectral analysis
+# ==============================================================================
+
+class DistanceLoss(nn.Module):
+    """Base class for distance-based losses, adapted from PNP codebase."""
+    def __init__(self, p: float = 2.0):
+        super().__init__()
+        self.p = p
+        self.ops = []  # Will be populated by subclasses
+
+    def dist(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Compute distance between tensors."""
+        if self.p == 1.0:
+            return torch.abs(x - y).mean()
+        elif self.p == 2.0:
+            return torch.norm(x - y, p=self.p)
+        else:
+            return torch.norm(x - y, p=self.p)
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor, transform_y: bool = True) -> torch.Tensor:
+        """Forward pass computing multi-scale distance."""
+        loss = torch.tensor(0.0, device=x.device, dtype=x.dtype)
+        for op in self.ops:
+            loss += self.dist(op(x), op(y) if transform_y else y)
+        loss /= len(self.ops) if self.ops else 1
+        return loss
+
+
+class MagnitudeSTFT(nn.Module):
+    """STFT magnitude computation module, adapted from PNP."""
+    def __init__(self, n_fft: int, hop_length: int):
+        super().__init__()
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Compute STFT magnitude."""
+        # Ensure we have proper window device placement
+        window = torch.hann_window(self.n_fft, device=x.device, dtype=x.dtype)
+
+        return torch.stft(
+            x,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            window=window,
+            return_complex=True,
+        ).abs()
+
+
+class MultiScaleSpectralLoss(DistanceLoss):
+    """
+    Multi-resolution STFT loss from PNP codebase, adapted for general-purpose spectral analysis.
+
+    This proven implementation provides superior spectral analysis compared to basic MSE/L1
+    by using multiple STFT resolutions simultaneously. It has been validated in published
+    research (ICASSP, TASLP papers) and provides robust multi-scale spectral comparison.
+
+    Useful for any time-series or frequency-domain data where multi-scale analysis is beneficial.
+
+    Args:
+        max_n_fft: Maximum STFT window size (power of 2)
+        num_scales: Number of different STFT scales to use
+        hop_lengths: Optional list of hop lengths (auto-computed if None)
+        mag_w: Weight for magnitude loss (currently unused but kept for compatibility)
+        logmag_w: Weight for log-magnitude loss (currently unused but kept for compatibility)
+        p: Norm to use for distance computation (1.0 for L1, 2.0 for L2)
+    """
+
+    def __init__(
+        self,
+        max_n_fft: int = 2048,
+        num_scales: int = 6,
+        hop_lengths: Optional[List[int]] = None,
+        mag_w: float = 1.0,
+        logmag_w: float = 0.0,
+        p: float = 1.0,
+    ):
+        super().__init__(p=p)
+
+        # Ensure we can create all scales
+        assert max_n_fft // (2 ** (num_scales - 1)) > 1, \
+            f"max_n_fft={max_n_fft} too small for num_scales={num_scales}"
+
+        # Create STFT window sizes at multiple scales
+        self.max_n_fft = max_n_fft
+        self.n_ffts = [max_n_fft // (2**i) for i in range(num_scales)]
+        self.hop_lengths = (
+            [n // 4 for n in self.n_ffts] if hop_lengths is None else hop_lengths
+        )
+
+        # Weights for different components (kept for future extensibility)
+        self.mag_w = mag_w
+        self.logmag_w = logmag_w
+
+        self.create_ops()
+
+    def create_ops(self):
+        """Create STFT operators for each scale."""
+        self.ops = [
+            MagnitudeSTFT(n_fft, self.hop_lengths[i])
+            for i, n_fft in enumerate(self.n_ffts)
+        ]
 
 
 class OrdinalRegressionLoss(nn.Module):
@@ -304,3 +410,48 @@ class WeightedCrossEntropyLoss(nn.Module):
         total_loss = cross_entropy_loss + distance_penalty
 
         return total_loss.mean()
+
+
+def create_loss_function(loss_config: Dict[str, Any]) -> nn.Module:
+    """
+    Factory function to create loss functions based on configuration.
+
+    Args:
+        loss_config: Configuration dictionary with '_target_' key and parameters
+
+    Returns:
+        Configured loss function
+    """
+    if '_target_' not in loss_config:
+        raise ValueError("Loss configuration must contain '_target_' key")
+
+    target = loss_config['_target_']
+    params = {k: v for k, v in loss_config.items() if k != '_target_'}
+
+    # Handle standard PyTorch losses
+    if target == 'torch.nn.CrossEntropyLoss':
+        return nn.CrossEntropyLoss(**params)
+    elif target == 'torch.nn.MSELoss':
+        return nn.MSELoss(**params)
+    elif target == 'torch.nn.L1Loss':
+        return nn.L1Loss(**params)
+    elif target == 'torch.nn.HuberLoss':
+        return nn.HuberLoss(**params)
+
+    # Handle custom losses
+    elif target == 'src.models.losses.OrdinalRegressionLoss':
+        return OrdinalRegressionLoss(**params)
+    elif target == 'src.models.losses.QuantizedRegressionLoss':
+        return QuantizedRegressionLoss(**params)
+    elif target == 'src.models.losses.WeightedCrossEntropyLoss':
+        return WeightedCrossEntropyLoss(**params)
+    elif target == 'src.models.losses.NormalizedRegressionLoss':
+        return NormalizedRegressionLoss(**params)
+    elif target == 'src.models.losses.MultiScaleSpectralLoss':
+        return MultiScaleSpectralLoss(**params)
+    elif target == 'src.models.soft_target_loss.SoftTargetLoss':
+        from src.models.soft_target_loss import SoftTargetLoss
+        return SoftTargetLoss(**params)
+
+    else:
+        raise ValueError(f"Unknown loss function target: {target}")

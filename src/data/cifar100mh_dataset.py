@@ -155,8 +155,7 @@ class CIFAR100MHDataset(MultiheadDatasetBase):
                     metadata[f'{param_name}_info'] = {
                         'value': param_value,
                         'description': mapping_info.get('description', ''),
-                        'range': [mapping_info.get('min'), mapping_info.get('max')],
-                        'scale': mapping_info.get('scale', 'linear')
+                        'range': [mapping_info.get('min'), mapping_info.get('max')]
                     }
 
         return metadata
