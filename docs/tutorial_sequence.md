@@ -1,7 +1,7 @@
-# NSMT Tutorial Example Sequence: From Setup to Advanced Experiments
+# LHTE Tutorial Example Sequence: From Setup to Advanced Experiments
 
 This tutorial example sequence provides hands-on learning using the
-Neural Spectral Modeling Template (NSMT). Follow these experiments in
+Lightning Hydra Template Extended (LHTE). Follow these experiments in
 order to explore the capabilities of modern deep learning
 architectures on various datasets.
 
