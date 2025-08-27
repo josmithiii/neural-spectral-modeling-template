@@ -153,7 +153,7 @@ def create_flexible_transforms(height: int = 32, width: int = 32, training: bool
     from torchvision import transforms
 
     if height == 32 and width == 32:
-        # CIFAR-style
+        # 32x32 RGB style
         base_mean = (0.4914, 0.4822, 0.4465)
         base_std = (0.2023, 0.1994, 0.2010)
     elif height == 28 and width == 28:

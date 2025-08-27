@@ -97,27 +97,6 @@ make trvs        # Train small ViT (~38K params)
 make trcns       # Train ConvNeXt small (~68K params)
 ```
 
-### CIFAR Benchmarks
-```bash
-# Individual CIFAR-10 benchmarks
-make cb10c       # CIFAR-10 CNN (85-92% expected)
-make cb10cn      # CIFAR-10 ConvNeXt (90-95% expected)
-make cb10v       # CIFAR-10 ViT (88-93% expected)
-
-# CIFAR-100 benchmarks  
-make cb100c      # CIFAR-100 CNN (55-70% expected)
-make cb100cn     # CIFAR-100 ConvNeXt (70-80% expected)
-
-# Quick validations (5 epochs)
-make cbqa        # All quick CIFAR tests
-make cbq10c      # Quick CIFAR-10 CNN
-
-# Complete benchmark suites
-make cbs10       # All CIFAR-10 benchmarks
-make cbs100      # All CIFAR-100 benchmarks
-make cbsa        # Complete CIFAR suite
-```
-
 ### VIMH (Variable Image MultiHead) Training
 ```bash
 # VIMH dataset experiments
@@ -145,7 +124,6 @@ source .venv/bin/activate.csh
 ### Extended Template Features
 This is an **extended** Lightning-Hydra-Template with major enhancements:
 - **Multiple architectures**: SimpleDenseNet, SimpleCNN, ConvNeXt-V2, ViT, EfficientNet
-- **CIFAR benchmark suite**: CIFAR-10/100 with literature-competitive baselines
 - **VIMH (Variable Image MultiHead)**: Advanced multihead dataset format with auto-configuration
 - **Configurable losses**: Hydra-managed loss functions, no hardcoding
 - **50+ make targets**: Convenient shortcuts with abbreviations
@@ -154,7 +132,7 @@ This is an **extended** Lightning-Hydra-Template with major enhancements:
 ### Configuration System (Hydra)
 - **Main configs**: `configs/train.yaml` and `configs/eval.yaml` define default training/evaluation settings
 - **Modular configs**: Organized by component type in `configs/` subdirectories:
-  - `data/`: Data module configurations (MNIST, CIFAR-10/100, VIMH)
+  - `data/`: Data module configurations (MNIST, VIMH)
   - `model/`: Model configurations (multiple architectures with parameter variants)
   - `trainer/`: Lightning trainer configurations (CPU, GPU, MPS, DDP)
   - `callbacks/`: Training callbacks

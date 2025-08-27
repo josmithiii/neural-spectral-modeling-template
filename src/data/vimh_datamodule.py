@@ -135,7 +135,7 @@ class VIMHDataModule(LightningDataModule):
         """Adjust transforms based on actual image dimensions."""
         # Update the default train transforms with proper padding/cropping
         if height == 32 and width == 32:
-            # Use CIFAR-style transforms for 32x32 images
+            # Use 32x32 RGB transforms
             self.default_train_transforms = transforms.Compose([
                 transforms.ToPILImage(),
                 transforms.RandomCrop(32, padding=4),

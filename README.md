@@ -32,10 +32,10 @@ This template now includes comprehensive support for **Variable Image MultiHead 
 python src/train.py experiment=vimh_cnn
 
 # Run complete training example
-python examples/vimh_training.py
+python examples/vimh_example.py
 
-# Quick demo with visualizations
-python examples/vimh_training.py --demo --save-plots
+# Full training with experiment config
+python src/train.py experiment=vimh_cnn_16kdss
 ```
 
 ### 📊 Dataset Format

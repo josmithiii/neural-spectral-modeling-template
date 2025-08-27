@@ -58,7 +58,6 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
 
         # Look for metadata files
         metadata_candidates = [
-            'cifar100mh_dataset_info.json',
             'dataset_info.json',
             'metadata.json',
             'format.json'
@@ -89,8 +88,8 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
 
             # Check for standard dataset files
             if (data_path / 'train_batch').exists() or (data_path / 'test_batch').exists():
-                # Assume CIFAR-100-MH format
-                return self._get_cifar100mh_format()
+                # Use default format for batch files
+                return self._get_default_format()
 
         else:
             # Single file - try to detect format from content
@@ -127,7 +126,7 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
                 # Try to infer dimensions from common image sizes
                 if image_size == 784:  # 28x28x1 (MNIST-like)
                     height, width, channels = 28, 28, 1
-                elif image_size == 3072:  # 32x32x3 (CIFAR-like)
+                elif image_size == 3072:  # 32x32x3
                     height, width, channels = 32, 32, 3
                 else:
                     # Default assumption for generic format
@@ -177,23 +176,6 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
             'default_image_size': '32x32x3'
         }
 
-    def _get_cifar100mh_format(self) -> Dict[str, Any]:
-        """Get CIFAR-100-MH format configuration.
-
-        :return: CIFAR-100-MH format configuration
-        """
-        return {
-            'format': 'CIFAR-100-MH',
-            'version': '1.0',
-            'label_encoding': {
-                'format': '[height] [width] [channels] [N] [param1_id] [param1_val] ...',
-                'N_range': [0, 255],
-                'param_id_range': [0, 255],
-                'param_val_range': [0, 255]
-            },
-            'parameter_names': ['param_0', 'param_1'],
-            'image_size': '32x32x3'
-        }
 
     def _validate_config(self, config: Dict[str, Any]) -> bool:
         """Validate format configuration.
@@ -315,7 +297,7 @@ class MultiheadDatasetFactory:
         """Create a multihead dataset of the specified type.
 
         :param data_path: Path to dataset
-        :param dataset_type: Type of dataset ('auto', 'cifar100mh', 'generic')
+        :param dataset_type: Type of dataset ('auto', 'generic')
         :param kwargs: Additional arguments for dataset constructor
         :return: Dataset instance
         """
@@ -323,20 +305,10 @@ class MultiheadDatasetFactory:
             # Auto-detect dataset type
             data_path_obj = Path(data_path)
 
-            # Check for CIFAR-100-MH indicators
-            if data_path_obj.is_dir():
-                metadata_file = data_path_obj / 'cifar100mh_dataset_info.json'
-                if metadata_file.exists():
-                    dataset_type = 'cifar100mh'
-                else:
-                    dataset_type = 'generic'
-            else:
-                dataset_type = 'generic'
+            # Auto-detect as generic
+            dataset_type = 'generic'
 
-        if dataset_type == 'cifar100mh':
-            from .cifar100mh_dataset import CIFAR100MHDataset
-            return CIFAR100MHDataset(data_path, **kwargs)
-        elif dataset_type == 'generic':
+        if dataset_type == 'generic':
             return GenericMultiheadDataset(data_path, **kwargs)
         else:
             raise ValueError(f"Unknown dataset type: {dataset_type}")
@@ -347,7 +319,7 @@ class MultiheadDatasetFactory:
 
         :return: List of supported format names
         """
-        return ['cifar100mh', 'generic']
+        return ['generic']
 
     @staticmethod
     def get_format_info(format_name: str) -> Dict[str, Any]:
@@ -357,13 +329,6 @@ class MultiheadDatasetFactory:
         :return: Format information dictionary
         """
         formats = {
-            'cifar100mh': {
-                'name': 'CIFAR-100-MH',
-                'description': 'CIFAR-100 Multihead format with embedded metadata',
-                'label_structure': '[height] [width] [channels] [N] [param_id] [param_val] ...',
-                'file_format': 'pickle',
-                'metadata_file': 'cifar100mh_dataset_info.json'
-            },
             'generic': {
                 'name': 'Generic Multihead',
                 'description': 'Generic multihead format with auto-detection',

@@ -44,7 +44,7 @@ class MultiheadDatasetBase(Dataset, ABC):
     def _load_from_file(self) -> None:
         """Load dataset from a single file."""
         if self.data_path.suffix == '.pkl' or 'batch' in self.data_path.name:
-            # Handle pickle format (like CIFAR batches)
+            # Handle pickle format
             with open(self.data_path, 'rb') as f:
                 data = pickle.load(f)
             self._parse_pickle_data(data)
@@ -57,7 +57,6 @@ class MultiheadDatasetBase(Dataset, ABC):
         """Load dataset from a directory with multiple files."""
         # Look for metadata files (try multiple formats)
         metadata_files = [
-            self.data_path / 'cifar100mh_dataset_info.json',
             self.data_path / 'vimh_dataset_info.json',
             self.data_path / 'dataset_info.json'
         ]
@@ -108,13 +107,13 @@ class MultiheadDatasetBase(Dataset, ABC):
 
         # Look for label keys in common formats
         label_key = None
-        for possible_key in ['labels', 'vimh_labels', 'cifar100mh_labels', 'multihead_labels']:
+        for possible_key in ['labels', 'vimh_labels', 'multihead_labels']:
             if possible_key in data:
                 label_key = possible_key
                 break
 
         if label_key is None:
-            raise ValueError("Pickle data must contain labels key ('labels', 'vimh_labels', 'cifar100mh_labels', or 'multihead_labels')")
+            raise ValueError("Pickle data must contain labels key ('labels', 'vimh_labels', or 'multihead_labels')")
 
         images = data['data']  # Shape: (n_samples, height*width*channels)
         labels = data[label_key]  # Shape: (n_samples, label_bytes)
@@ -164,7 +163,6 @@ class MultiheadDatasetBase(Dataset, ABC):
 
         Format depends on the dataset format:
         - VIMH: [height] [width] [channels] [N] [param1_id] [param1_val] [param2_id] [param2_val] ...
-        - CIFAR-100-MH: [N] [param1_id] [param1_val] [param2_id] [param2_val] ...
 
         :param label_data: Array/list of label bytes
         :return: Tuple of (metadata_dict, labels_dict)
@@ -189,7 +187,7 @@ class MultiheadDatasetBase(Dataset, ABC):
             width = self.metadata_format.get('width', 32)
             channels = self.metadata_format.get('channels', 3)
         else:
-            # CIFAR-100-MH format: [N] [param1_id] [param1_val] ...
+            # Legacy format: [N] [param1_id] [param1_val] ...
             num_heads = label_data[0]
             labels_start = 1
 
@@ -202,7 +200,7 @@ class MultiheadDatasetBase(Dataset, ABC):
                 else:
                     height, width, channels = 32, 32, 3  # Default
             else:
-                height, width, channels = 32, 32, 3  # Default for CIFAR format
+                height, width, channels = 32, 32, 3  # Default dimensions
 
         metadata = {
             'height': height,
@@ -355,4 +353,4 @@ class MultiheadDatasetBase(Dataset, ABC):
 if __name__ == "__main__":
     # Basic testing - this will be expanded in unit tests
     print("MultiheadDatasetBase class created successfully")
-    print("This is an abstract base class - use CIFAR100MHDataset for concrete implementation")
+    print("This is an abstract base class - use VIMHDataset for concrete implementation")
