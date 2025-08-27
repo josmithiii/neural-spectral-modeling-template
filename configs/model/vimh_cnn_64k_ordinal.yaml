@@ -22,7 +22,8 @@ net:
   conv1_channels: 64
   conv2_channels: 128
   fc_hidden: 512
-  heads_config: {}  # Will be auto-configured from dataset metadata
+  heads_config: 
+    synth_param1: 10  # Default placeholder - will be auto-configured from dataset metadata
   dropout: 0.5
   input_size: 32  # VIMH image size (32x32 for spectrograms)
 

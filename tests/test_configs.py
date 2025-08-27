@@ -1,6 +1,6 @@
 import hydra
 from hydra.core.hydra_config import HydraConfig
-from omegaconf import DictConfig
+from omegaconf import DictConfig, ListConfig
 import pytest
 
 
@@ -53,7 +53,9 @@ def test_regression_model_config() -> None:
         assert cfg.model.loss_weights == {}
 
         # Test that net has the required parameters for regression mode
-        assert cfg.model.net.parameter_names == []  # Will be auto-configured
+        # parameter_names should have a default placeholder that will be auto-configured
+        assert "parameter_names" in cfg.model.net
+        assert isinstance(cfg.model.net.parameter_names, (list, ListConfig))
 
         # Test instantiation without HydraConfig.set_config requires parameter_names
         # Since parameter_names is empty, instantiation will fail, so we skip this test

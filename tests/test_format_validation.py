@@ -9,8 +9,8 @@ from pathlib import Path
 from unittest.mock import patch, mock_open
 
 from src.data.multihead_dataset_base import MultiheadDatasetBase
-from src.data.cifar100mh_dataset import CIFAR100MHDataset
 from src.data.generic_multihead_dataset import GenericMultiheadDataset
+from src.data.vimh_dataset import VIMHDataset
 
 
 class MockFormatValidator(MultiheadDatasetBase):
@@ -234,7 +234,7 @@ class TestMetadataValidation:
             json.dump(metadata, f)
 
         # Should show warning but not fail
-        dataset = CIFAR100MHDataset(str(temp_dir), train=True)
+        dataset = VIMHDataset(str(temp_dir), train=True)
         assert len(dataset) == 3
 
     def test_validate_metadata_sample_count(self, temp_dir):
@@ -263,7 +263,7 @@ class TestMetadataValidation:
             json.dump(metadata, f)
 
         # Should show warning but not fail
-        dataset = CIFAR100MHDataset(str(temp_dir), train=True)
+        dataset = VIMHDataset(str(temp_dir), train=True)
         assert len(dataset) == 3
 
     def test_validate_metadata_parameter_names(self, temp_dir):
@@ -291,7 +291,7 @@ class TestMetadataValidation:
             json.dump(metadata, f)
 
         # Should use parameter names from metadata
-        dataset = CIFAR100MHDataset(str(temp_dir), train=True)
+        dataset = VIMHDataset(str(temp_dir), train=True)
         heads_config = dataset.get_heads_config()
 
         assert 'note_number' in heads_config
@@ -317,7 +317,7 @@ class TestMetadataValidation:
 
         # Should raise error
         with pytest.raises(ValueError, match="Failed to load metadata"):
-            CIFAR100MHDataset(str(temp_dir), train=True)
+            VIMHDataset(str(temp_dir), train=True)
 
 
 class TestDimensionValidation:
@@ -351,7 +351,7 @@ class TestDimensionValidation:
             json.dump(metadata, f)
 
         # Should work correctly
-        dataset = CIFAR100MHDataset(str(temp_dir), train=True)
+        dataset = VIMHDataset(str(temp_dir), train=True)
         assert dataset.get_image_shape() == (channels, height, width)
 
     def test_validate_wrong_image_dimensions(self, temp_dir):
@@ -383,7 +383,7 @@ class TestDimensionValidation:
 
         # Should raise error
         with pytest.raises(ValueError, match="inconsistent image shape"):
-            CIFAR100MHDataset(str(temp_dir), train=True)
+            VIMHDataset(str(temp_dir), train=True)
 
     def test_validate_variable_image_dimensions(self, temp_dir):
         """Test validation of variable image dimensions."""
@@ -437,7 +437,7 @@ class TestParameterValidation:
             json.dump(metadata, f)
 
         # Should work correctly
-        dataset = CIFAR100MHDataset(str(temp_dir), train=True)
+        dataset = VIMHDataset(str(temp_dir), train=True)
         assert len(dataset) == 3
 
     def test_validate_parameter_id_consistency(self, temp_dir):
@@ -532,7 +532,7 @@ class TestCompressionValidation:
             json.dump(metadata, f)
 
         # Should work perfectly
-        dataset = CIFAR100MHDataset(str(temp_dir), train=True)
+        dataset = VIMHDataset(str(temp_dir), train=True)
         assert len(dataset) == 5
         assert dataset.get_image_shape() == (3, 32, 32)
 

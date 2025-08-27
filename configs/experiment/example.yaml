@@ -3,21 +3,19 @@
 # to execute this experiment run:
 # python train.py experiment=example
 
-# Note: this config file could be renamed from example.yaml to
-# mnist_sdn_68k.yaml to conform with other filenames here, but
-# example.yaml is the original name from the Lightning-Hydra-Template
-# so we kept it.
+# Note: this config file uses VIMH as the example dataset
+# replacing the original MNIST from Lightning-Hydra-Template
 
 defaults:
-  - override /data: mnist
-  - override /model: mnist_sdn_68k
+  - override /data: vimh
+  - override /model: vimh_cnn_64k
   - override /callbacks: default
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["mnist", "simple_dense_net"]
+tags: ["vimh", "cnn"]
 
 seed: 12345
 
@@ -29,10 +27,6 @@ trainer:
 model:
   optimizer:
     lr: 0.002
-  net:
-    lin1_size: 128
-    lin2_size: 256
-    lin3_size: 64
   compile: false
 
 data:
@@ -41,6 +35,6 @@ data:
 logger:
   wandb:
     tags: ${tags}
-    group: "mnist"
+    group: "vimh"
   aim:
-    experiment: "mnist"
+    experiment: "vimh"
