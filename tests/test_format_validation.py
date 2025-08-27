@@ -31,24 +31,27 @@ def temp_dir():
 class TestFormatAutodetection:
     """Test format auto-detection functionality."""
 
-    def test_detect_cifar100mh_format(self, temp_dir):
-        """Test auto-detection of CIFAR-100-MH format."""
-        # Create CIFAR-100-MH format data
+    def test_detect_vimh_format(self, temp_dir):
+        """Test auto-detection of VIMH format."""
+        # Create VIMH format data (32x32x3 = 3072 pixels)
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(5)]
         labels = [[2, 0, i % 10, 1, (i * 2) % 20] for i in range(5)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         # Create metadata file
         metadata = {
-            'format': 'CIFAR-100-MH',
-            'version': '1.0',
+            'format': 'VIMH',
+            'version': '3.0',
+            'height': 32,
+            'width': 32,
+            'channels': 3,
             'parameter_names': ['param_0', 'param_1']
         }
 
         # Save files
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -59,7 +62,7 @@ class TestFormatAutodetection:
         # Test auto-detection
         dataset = GenericMultiheadDataset(str(temp_dir), auto_detect=True)
 
-        assert dataset.metadata_format['format'] == 'CIFAR-100-MH'
+        assert dataset.metadata_format['format'] == 'VIMH'
         assert 'param_0' in dataset.get_heads_config()
         assert 'param_1' in dataset.get_heads_config()
 
@@ -106,7 +109,7 @@ class TestDataValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -126,7 +129,7 @@ class TestDataValidation:
         ]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -142,7 +145,7 @@ class TestDataValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]  # All same structure
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -162,7 +165,7 @@ class TestDataValidation:
             [2, 0, 1, 1, 2],     # 2 heads
         ]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -182,7 +185,7 @@ class TestDataValidation:
             [2, 0, 1, 1, 2],     # Complete
         ]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -195,7 +198,7 @@ class TestDataValidation:
     def test_validate_empty_dataset(self, temp_dir):
         """Test validation of empty dataset."""
         # Create empty data
-        data = {'data': [], 'cifar100mh_labels': []}
+        data = {'data': [], 'vimh_labels': [], 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -215,17 +218,20 @@ class TestMetadataValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         # Create metadata with wrong format
         metadata = {
             'format': 'WRONG-FORMAT',
-            'version': '1.0',
+            'version': '3.0',
+            'height': 32,
+            'width': 32,
+            'channels': 3,
             'parameter_names': ['param_0', 'param_1']
         }
 
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -243,18 +249,21 @@ class TestMetadataValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         # Create metadata with wrong sample count
         metadata = {
-            'format': 'CIFAR-100-MH',
-            'version': '1.0',
+            'format': 'VIMH',
+            'version': '3.0',
+            'height': 32,
+            'width': 32,
+            'channels': 3,
             'train_samples': 5,  # Wrong count
             'parameter_names': ['param_0', 'param_1']
         }
 
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -272,17 +281,20 @@ class TestMetadataValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         # Create metadata with parameter names
         metadata = {
-            'format': 'CIFAR-100-MH',
-            'version': '1.0',
+            'format': 'VIMH',
+            'version': '3.0',
+            'height': 32,
+            'width': 32,
+            'channels': 3,
             'parameter_names': ['note_number', 'note_velocity']
         }
 
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -303,10 +315,10 @@ class TestMetadataValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -332,17 +344,20 @@ class TestDimensionValidation:
         images = [np.random.randint(0, 256, size=image_size).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': height, 'width': width, 'channels': channels}
 
         metadata = {
-            'format': 'CIFAR-100-MH',
-            'version': '1.0',
+            'format': 'VIMH',
+            'version': '3.0',
+            'height': height,
+            'width': width,
+            'channels': channels,
             'image_size': f'{height}x{width}x{channels}',
             'parameter_names': ['param_0', 'param_1']
         }
 
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -363,17 +378,20 @@ class TestDimensionValidation:
         images = [np.random.randint(0, 256, size=wrong_size).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': height, 'width': width, 'channels': channels}
 
         metadata = {
-            'format': 'CIFAR-100-MH',
-            'version': '1.0',
+            'format': 'VIMH',
+            'version': '3.0',
+            'height': height,
+            'width': width,
+            'channels': channels,
             'image_size': f'{height}x{width}x{channels}',
             'parameter_names': ['param_0', 'param_1']
         }
 
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -395,7 +413,7 @@ class TestDimensionValidation:
         ]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -415,11 +433,14 @@ class TestParameterValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]  # Values in range
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         metadata = {
-            'format': 'CIFAR-100-MH',
-            'version': '1.0',
+            'format': 'VIMH',
+            'version': '3.0',
+            'height': 32,
+            'width': 32,
+            'channels': 3,
             'parameter_names': ['param_0', 'param_1'],
             'parameter_mappings': {
                 'param_0': {'min': 0, 'max': 10, 'description': 'Test param 0'},
@@ -428,7 +449,7 @@ class TestParameterValidation:
         }
 
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -450,7 +471,7 @@ class TestParameterValidation:
             [2, 0, 3, 1, 4],     # param_id 0 and 1
         ]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -470,7 +491,7 @@ class TestParameterValidation:
             [2, 0, 3, 1, 4],     # param_id 0 and 1
         ]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -490,7 +511,7 @@ class TestCompressionValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(3)]
         labels = [[2, 0, i, 1, i*2] for i in range(3)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         train_file = temp_dir / 'train_batch'
         with open(train_file, 'wb') as f:
@@ -506,14 +527,17 @@ class TestCompressionValidation:
         images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(5)]
         labels = [[2, 0, i % 10, 1, (i * 2) % 20] for i in range(5)]
 
-        data = {'data': images, 'cifar100mh_labels': labels}
+        data = {'data': images, 'vimh_labels': labels, 'height': 32, 'width': 32, 'channels': 3}
 
         metadata = {
-            'format': 'CIFAR-100-MH',
-            'version': '1.0',
+            'format': 'VIMH',
+            'version': '3.0',
             'dataset_name': 'test_dataset',
             'n_samples': 5,
             'train_samples': 5,
+            'height': 32,
+            'width': 32,
+            'channels': 3,
             'image_size': '32x32x3',
             'parameter_names': ['param_0', 'param_1'],
             'parameter_mappings': {
@@ -523,7 +547,7 @@ class TestCompressionValidation:
         }
 
         train_file = temp_dir / 'train_batch'
-        metadata_file = temp_dir / 'cifar100mh_dataset_info.json'
+        metadata_file = temp_dir / 'vimh_dataset_info.json'
 
         with open(train_file, 'wb') as f:
             pickle.dump(data, f)
@@ -539,8 +563,8 @@ class TestCompressionValidation:
         heads_config = dataset.get_heads_config()
         assert 'param_0' in heads_config
         assert 'param_1' in heads_config
-        assert heads_config['param_0'] == 10  # 0-9 + 1
-        assert heads_config['param_1'] == 20  # 0-19 + 1
+        assert heads_config['param_0'] == 256  # VIMH 8-bit quantization
+        assert heads_config['param_1'] == 256  # VIMH 8-bit quantization
 
         # Test getting parameter info
         param_info = dataset.get_parameter_info('param_0')
