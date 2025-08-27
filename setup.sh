@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Setup script for avix project using uv
+# Setup script for nsmt project using uv
 # Creates virtual environment and installs dependencies
 
 set -e  # Exit on any error
 
-echo "Setting up avix project environment with uv..."
+echo "Setting up Neural Spectral Modeling Template project environment with uv..."
 
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
