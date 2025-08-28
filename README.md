@@ -51,6 +51,14 @@ channel depths, and metadata, as special cases.
 ### 🚀 Quick Start
 
 ```bash
+# Set up the environment (uv)
+sh setup.sh
+
+```bash
+# Generate a default VIMH dataset for some quick tests
+python generate_vimh.py
+
+```bash
 # Train with VIMH dataset
 python src/train.py experiment=vimh_cnn
 
@@ -74,7 +82,7 @@ VIMH datasets use a structured format with:
 ```yaml
 # configs/data/vimh.yaml
 _target_: src.data.vimh_datamodule.VIMHDataModule
-data_dir: data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p
+data_dir: data/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p
 batch_size: 128
 num_workers: 4
 

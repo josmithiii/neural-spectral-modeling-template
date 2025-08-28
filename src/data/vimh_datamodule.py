@@ -60,7 +60,7 @@ class VIMHDataModule(LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str = "data-vimh/",
+        data_dir: str = "data/",
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
@@ -72,7 +72,7 @@ class VIMHDataModule(LightningDataModule):
     ) -> None:
         """Initialize a `VIMHDataModule`.
 
-        :param data_dir: The data directory containing VIMH files. Defaults to `"data-vimh/"`.
+        :param data_dir: The data directory containing VIMH files. Defaults to `"data/"`.
         :param batch_size: The batch size. Defaults to `64`.
         :param num_workers: The number of workers. Defaults to `0`.
         :param pin_memory: Whether to pin memory. Defaults to `False`.
@@ -652,7 +652,7 @@ if __name__ == "__main__":
 
         # Initialize data module
         dm = VIMHDataModule(
-            data_dir="data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p",
+            data_dir="data/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p",
             batch_size=4,
             num_workers=0
         )

@@ -547,7 +547,7 @@ python src/train.py experiment=vimh_cnn
 
 # Train with specific dataset
 python src/train.py experiment=vimh_cnn \
-  data.data_dir=data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p
+  data.data_dir=data/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p
 ```
 
 #### Configuration Example
@@ -559,7 +559,7 @@ defaults:
   - override /trainer: default
 
 data:
-  data_dir: data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p
+  data_dir: data/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p
   batch_size: 128
   num_workers: 4
 
@@ -616,7 +616,7 @@ The example provides:
 # Images: 32x32x3 RGB spectrograms
 # Parameters: [note_number, note_velocity] → audio synthesis
 
-dataset = VIMHDataset("data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p")
+dataset = VIMHDataset("data/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p")
 # Auto-detects: 2 parameters, 256 classes each
 # Image shape: (3, 32, 32)
 # 205 training samples, 51 validation/test samples
@@ -628,7 +628,7 @@ dataset = VIMHDataset("data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p")
 # Images: 28x28x1 grayscale sensor readings
 # Parameters: [pressure, temperature, humidity]
 
-dataset = VIMHDataset("data-vimh/vimh-28x28x1_sensor_data")
+dataset = VIMHDataset("data/vimh-28x28x1_sensor_data")
 # Auto-detects: 3 parameters, different class counts
 # Image shape: (1, 28, 28)
 # Transforms auto-adjust for grayscale
@@ -641,7 +641,7 @@ VIMH datasets integrate seamlessly with the Lightning ecosystem:
 ```python
 # Lightning data module
 dm = VIMHDataModule(
-    data_dir="data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p",
+    data_dir="data/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p",
     batch_size=128,
     num_workers=4
 )
@@ -667,7 +667,7 @@ trainer.fit(model, dm)
 #### Dimension Detection and Validation
 ```python
 # Efficient dimension detection with cross-validation
-dm = VIMHDataModule(data_dir="data-vimh/vimh-32x32x3_dataset")
+dm = VIMHDataModule(data_dir="data/vimh-32x32x3_dataset")
 
 # Validates consistency across:
 # 1. Directory name: vimh-32x32x3_*

@@ -381,7 +381,7 @@ python src/train.py model.optimizer.lr=0.01 model.optimizer.weight_decay=1e-4
 
 ```bash
 # Look at existing VIMH data
-ls data-vimh/
+ls data/
 
 # Examine VIMH structure
 python examples/vimh_training.py --demo --save-plots

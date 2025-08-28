@@ -8,7 +8,7 @@ config-based approaches to multihead neural network training.
 
 Usage:
     python examples/vimh_training.py  # Basic training with default dataset
-    python examples/vimh_training.py --data-dir data-vimh/vimh-32x32_8000Hz_1p0s_256dss_stk_1p
+    python examples/vimh_training.py --data-dir data/vimh-32x32_8000Hz_1p0s_256dss_stk_1p
     python examples/vimh_training.py --demo  # Quick demo mode
     python examples/vimh_training.py --analyze-only --checkpoint path/to/model.ckpt
 """
@@ -429,7 +429,7 @@ def main():
     """Main training function."""
     parser = argparse.ArgumentParser(description="VIMH Training Example")
     parser.add_argument("--data-dir", type=str,
-                       default="data-vimh/vimh-32x32x3_8000Hz_1p0s_16384dss_resonarium_2p",
+                       default="data/vimh-32x32x3_8000Hz_1p0s_16384dss_resonarium_2p",
                        help="Path to VIMH dataset directory")
     parser.add_argument("--max-epochs", type=int, default=100,
                        help="Maximum number of training epochs")

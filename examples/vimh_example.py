@@ -25,7 +25,7 @@ def main():
     print("=" * 60)
     
     # Check if we have any VIMH datasets
-    data_dir = Path("data-vimh")
+    data_dir = Path("data")
     if not data_dir.exists():
         print(f"❌ VIMH data directory not found: {data_dir}")
         print("   Please create VIMH datasets first using the conversion tools.")

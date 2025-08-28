@@ -332,7 +332,7 @@ if __name__ == "__main__":
         sys.path.insert(0, str(src_path))
 
     # Test dataset loading
-    example_data_dir = "data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p"
+    example_data_dir = "data/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p"
 
     try:
         print("Testing VIMH dataset loading...")

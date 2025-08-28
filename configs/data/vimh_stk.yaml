@@ -1,5 +1,5 @@
 _target_: src.data.vimh_datamodule.VIMHDataModule
-data_dir: ${paths.root_dir}/data-vimh/vimh-32x32_8000Hz_1p0s_256dss_stk_1p
+data_dir: ${paths.root_dir}/data/vimh-32x32_8000Hz_1p0s_256dss_stk_1p
 batch_size: 128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
 num_workers: 2
 pin_memory: False
