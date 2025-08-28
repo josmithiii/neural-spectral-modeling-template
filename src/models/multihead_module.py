@@ -170,11 +170,34 @@ class MultiheadLitModule(LightningModule):
         self.is_multihead = len(self.criteria) > 1
 
     def _auto_configure_from_dataset(self, dataset: MultiheadDatasetBase) -> None:
-        """Auto-configure heads from dataset metadata.
+        """Auto-configure heads and input channels from dataset metadata.
 
         :param dataset: The dataset to configure from
         """
         heads_config = dataset.get_heads_config()
+        
+        # Auto-configure input channels from dataset image shape
+        if hasattr(self.net, 'input_channels') and hasattr(dataset, 'image_shape'):
+            dataset_channels = dataset.image_shape[0] if dataset.image_shape else 3
+            if self.net.input_channels != dataset_channels:
+                print(f"Auto-configuring network input channels: {self.net.input_channels} -> {dataset_channels}")
+                self.net.input_channels = dataset_channels
+                
+                # If the network has already been built (has conv layers), we need to rebuild the first layer
+                if hasattr(self.net, 'conv_layers') and hasattr(self.net.conv_layers, '0'):
+                    import torch.nn as nn
+                    first_conv = self.net.conv_layers[0]
+                    if hasattr(first_conv, 'in_channels'):
+                        # Rebuild the first convolutional layer with correct input channels
+                        new_first_conv = nn.Conv2d(
+                            in_channels=dataset_channels,
+                            out_channels=first_conv.out_channels,
+                            kernel_size=first_conv.kernel_size,
+                            stride=first_conv.stride,
+                            padding=first_conv.padding,
+                            bias=first_conv.bias is not None
+                        )
+                        self.net.conv_layers[0] = new_first_conv
 
         # Update network heads configuration
         if hasattr(self.net, 'heads_config'):

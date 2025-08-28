@@ -81,7 +81,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # For VIMH datasets, configure model with parameter names from metadata
     if 'vimh' in cfg.data._target_.lower() and hasattr(cfg.model, 'auto_configure_from_dataset') and cfg.model.auto_configure_from_dataset:
         try:
-            from src.utils.vimh_utils import get_parameter_names_from_metadata, get_heads_config_from_metadata
+            from src.utils.vimh_utils import get_parameter_names_from_metadata, get_heads_config_from_metadata, get_image_dimensions_from_metadata
+            
+            # Auto-configure input channels from dataset metadata
+            if hasattr(cfg.model, 'net') and hasattr(cfg.model.net, 'input_channels'):
+                height, width, channels = get_image_dimensions_from_metadata(cfg.data.data_dir)
+                if cfg.model.net.input_channels != channels:
+                    log.info(f"Auto-configuring network input channels: {cfg.model.net.input_channels} -> {channels}")
+                    cfg.model.net.input_channels = channels
+            
             parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
             if parameter_names and hasattr(cfg.model, 'net'):
                 log.info(f"Configuring model with parameter names from dataset: {parameter_names}")

@@ -33,6 +33,19 @@ def get_parameter_names_from_metadata(data_dir: str) -> List[str]:
     return metadata.get('parameter_names', [])
 
 
+def get_image_dimensions_from_metadata(data_dir: str) -> Tuple[int, int, int]:
+    """Get image dimensions from VIMH dataset metadata.
+
+    :param data_dir: Path to dataset directory
+    :return: Tuple of (height, width, channels)
+    """
+    metadata = load_vimh_metadata(data_dir)
+    height = metadata.get('height', 32)
+    width = metadata.get('width', 32)
+    channels = metadata.get('channels', 3)
+    return height, width, channels
+
+
 def get_parameter_ranges_from_metadata(data_dir: str) -> Dict[str, Tuple[float, float]]:
     """Get parameter ranges from VIMH dataset metadata.
 

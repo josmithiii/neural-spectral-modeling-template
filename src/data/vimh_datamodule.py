@@ -134,20 +134,39 @@ class VIMHDataModule(LightningDataModule):
     def _adjust_transforms_for_image_size(self, height: int, width: int) -> None:
         """Adjust transforms based on actual image dimensions."""
         # Update the default train transforms with proper padding/cropping
+        
+        # Get the number of channels to determine normalization
+        channels = self.image_shape[0] if hasattr(self, 'image_shape') and self.image_shape else 3
+        
         if height == 32 and width == 32:
-            # Use 32x32 RGB transforms
-            self.default_train_transforms = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomRotation(15),
-                transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-            ])
+            if channels == 1:
+                # Use 32x32 grayscale transforms
+                self.default_train_transforms = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(15),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
+                ])
 
-            self.default_transforms = transforms.Compose([
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-            ])
+                self.default_transforms = transforms.Compose([
+                    transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
+                ])
+            else:
+                # Use 32x32 RGB transforms
+                self.default_train_transforms = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(15),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                ])
+
+                self.default_transforms = transforms.Compose([
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                ])
         elif height == 28 and width == 28:
             # Use MNIST-style transforms for 28x28 images
             self.default_train_transforms = transforms.Compose([
