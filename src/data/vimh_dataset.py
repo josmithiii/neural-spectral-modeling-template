@@ -176,7 +176,12 @@ class VIMHDataset(MultiheadDatasetBase):
             raise IndexError(f"Index {idx} out of range")
 
         # Parse metadata from the sample's label structure
-        _, labels = self.samples[idx]
+        # Handle both 2-tuple (pickle format) and 3-tuple (binary format) cases
+        sample = self.samples[idx]
+        if len(sample) == 2:
+            _, labels = sample
+        else:
+            _, labels, _ = sample
 
         # Extract parameter information
         metadata = {
