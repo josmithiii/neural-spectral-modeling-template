@@ -48,6 +48,8 @@ adds CIFAR and VIMH support to that.)  The CIFAR and MNIST support can
 be dropped here because VIMH can support those image resolutions,
 channel depths, and metadata, as special cases.
 
+For documentation, see [docs/index.md](docs/index.md).
+
 ### 🚀 Quick Start
 
 ```bash
@@ -98,7 +100,3 @@ defaults:
 - **Computer Vision**: Multi-target regression tasks
 - **Scientific Computing**: Parameter prediction from visual data
 - **Research**: Multihead neural network architectures
-
-For detailed documentation, see [docs/vimh.md](docs/vimh.md),
-[docs/configuration.md](docs/configuration.md), and
-[docs/multihead.md](docs/multihead.md).
