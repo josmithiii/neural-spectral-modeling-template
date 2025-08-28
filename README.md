@@ -61,11 +61,23 @@ sh setup.sh
 make h
 
 ```bash
-# Generate a default VIMH dataset for some quick tests (same as `make sds`):
+# Generate a default small VIMH dataset for some quick tests (same as `make sds`)
+# (writes ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p)
 python generate_vimh.py --config-name=generate_simple_saw
 
 ```bash
-# Train with VIMH dataset (same as `make tr`)
+# Generate a default large VIMH dataset for some quick tests (same as `make sdl`)
+# (writes ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p)
+python generate_vimh.py --config-name=generate_simple_saw
+
+```bash
+# Train with the small VIMH dataset (same as `make trvs`)
+python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+
+```bash
+# Train with the large VIMH dataset (same as `make trvl`)
+python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+
 python src/train.py experiment=vimh_cnn
 
 # Run complete training example
