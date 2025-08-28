@@ -55,11 +55,15 @@ channel depths, and metadata, as special cases.
 sh setup.sh
 
 ```bash
+# Look over all make targets available (same as `make help`)
+make h
+
+```bash
 # Generate a default VIMH dataset for some quick tests (same as `make sds`):
 python generate_vimh.py --config-name=generate_simple_saw
 
 ```bash
-# Train with VIMH dataset
+# Train with VIMH dataset (same as `make tr`)
 python src/train.py experiment=vimh_cnn
 
 # Run complete training example
