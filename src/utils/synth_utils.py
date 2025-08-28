@@ -334,7 +334,7 @@ def check_params(params: Dict[str, float], *required_params: str) -> None:
             logger.warning(f"Parameter '{param_name}' not found in params")
 
 
-class SimpleSynth:
+class SimpleSawSynth:
     """Simple exponentially decaying sawtooth synthesizer."""
 
     def __init__(self, sample_rate: int = 8000):
@@ -371,14 +371,16 @@ class SimpleSynth:
             if num_samples <= 0:
                 raise ValueError(f"Duration too short for sample rate, got {num_samples} samples")
 
+
             # Use arange for exact sample timing instead of linspace
             t = np.arange(num_samples, dtype=np.float64) / self.sample_rate
 
             # Generate sawtooth wave with proper 1/f spectrum
             # Use fractional part of phase for cleaner sawtooth
             phase = freq * t
-            phase -= np.floor(phase)
-            sawtooth = 2.0 * phase - 1.0
+            phase -= 0.5 # Makes waveform start at zero with positive slope
+            phase -= np.floor(phase) # -0.5 - (-1.0) = 0.5 for sample 0, and rising
+            sawtooth = 2.0 * phase - 1.0  # 0 for sample 0, and rising
 
             # Apply exponential decay
             decay_envelope = np.exp(-t / decay_time)
@@ -418,13 +420,28 @@ def pre_emphasis_filter(audio: np.ndarray, coefficient: float = 0.97) -> np.ndar
 
 
 def prepare_channels(spectrogram: np.ndarray, channels: int) -> np.ndarray:
-    """Prepare spectrogram with correct number of channels."""
+    """Prepare spectrogram with correct number of channels.
+
+    Args:
+        spectrogram: 2D spectrogram array (height, width)
+        channels: Number of output channels
+
+    Returns:
+        Spectrogram with appropriate channel structure
+
+    Future: Will support derived channels like modulation spectra, envelopes, etc.
+    """
     height, width = spectrogram.shape
 
     if channels == 1:
         return spectrogram
     else:
-        # For spectrograms, replicate the single-channel data across all channels
+        # TODO: Future derived channel support
+        # - Channel 0: Original spectrogram
+        # - Channel 1: Modulation spectrum
+        # - Channel 2: Envelope or other derived features
+
+        # For now, replicate the single-channel data for backward compatibility
         # This maintains compatibility with multi-channel image processing pipelines
         final_spectrogram = np.zeros((height, width, channels), dtype=spectrogram.dtype)
         for c in range(channels):

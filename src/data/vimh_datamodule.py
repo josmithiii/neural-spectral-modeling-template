@@ -180,7 +180,7 @@ class VIMHDataModule(LightningDataModule):
         try:
             dir_name = Path(data_dir).name
             if dir_name.startswith('vimh-'):
-                # Extract "32x32x3" from "vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p"
+                # Extract "32x32x3" from "vimh-32x32x3_8000Hz_1p0s_256dss_simple_2p"
                 parts = dir_name.split('_')[0]  # "vimh-32x32x3"
                 dims = parts.split('-')[1]      # "32x32x3"
                 h, w, c = map(int, dims.split('x'))
@@ -652,7 +652,7 @@ if __name__ == "__main__":
 
         # Initialize data module
         dm = VIMHDataModule(
-            data_dir="data/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p",
+            data_dir="data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p",
             batch_size=4,
             num_workers=0
         )
