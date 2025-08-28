@@ -11,7 +11,24 @@ sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset (16k sample
 	python generate_vimh.py --config-name=generate_simple_saw dataset.size=16384
 	ls ./data/
 
+# DISPLAY VIMH DATASETS "dd"
+
+ddr display-dataset-recent: ## Display the most recently created dataset (default)
+	python display_vimh.py
+
+dds display-dataset-small: ## Display the small example VIMH dataset (256 samples)
+	python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+
+ddl display-dataset-large: ## Display the larger example VIMH dataset (16k samples)
+	python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+
 # TRAINING TARGETS "tr"
+
+tr train train-vimh: ## Train the default model ( ) on the default dataset ( ) (`make tr`)
+	time python src/train.py
+
+trq train-quick: ## Train quickly the default model and dataset (quick sanity test)
+	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
 trvs train-vimh-small: ## Train the small example VIMH dataset using the default model (CNN 64k)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
@@ -19,11 +36,6 @@ trvs train-vimh-small: ## Train the small example VIMH dataset using the default
 trvl train-vimh-large: ## Train the large example VIMH dataset using the default model (CNN 64k)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
-tr train train-vimh: ## Train the default VIMH model
-	time python src/train.py
-
-tq train-quick: ## Train quickly VIMH, 1 epoch
-	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
 # CLEANING MAKE TARGETS
 

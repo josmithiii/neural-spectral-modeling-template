@@ -56,29 +56,37 @@ For documentation, see [docs/index.md](docs/index.md).
 # Set up the environment (uv)
 sh setup.sh
 
-```bash
 # Look over all make targets available (same as `make help`)
 make h
 
-```bash
 # Generate a default small VIMH dataset for some quick tests (same as `make sds`)
 # (writes ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p)
 python generate_vimh.py --config-name=generate_simple_saw
 
-```bash
 # Generate a default large VIMH dataset for some quick tests (same as `make sdl`)
 # (writes ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p)
 python generate_vimh.py --config-name=generate_simple_saw
 
-```bash
-# Train with the small VIMH dataset (same as `make trvs`)
+
+# Display the most recently created dataset (default) (`make ddr`)
+python display_vimh.py
+
+# Display the small example VIMH dataset (256 samples) (`make dds`)
+python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+
+# Display the larger example VIMH dataset (16k samples) (`make ddl`)
+python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+
+
+# Train the default model (CNN-64k) on the default dataset (small example) (`make tr`)
+python src/train.py
+
+# Train with the small VIMH dataset (`make trvs`)
 python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 
-```bash
-# Train with the large VIMH dataset (same as `make trvl`)
+# Train with the large VIMH dataset (`make trvl`)
 python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
-python src/train.py experiment=vimh_cnn
 
 # Run complete training example
 python examples/vimh_example.py
