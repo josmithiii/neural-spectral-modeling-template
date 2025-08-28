@@ -49,4 +49,4 @@ ckpt_path: null
 seed: null
 
 # metric to optimize during hyperparameter search
-optimized_metric: "val/acc"
+optimized_metric: "val/acc_best"

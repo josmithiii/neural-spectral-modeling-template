@@ -270,9 +270,91 @@ class MultiheadDatasetBase(Dataset, ABC):
 
         :param data: Raw binary data
         """
-        # This is a placeholder for direct binary format parsing
-        # Implementation depends on specific binary format
-        raise NotImplementedError("Direct binary parsing not yet implemented")
+        # Parse VIMH binary format
+        offset = 0
+        
+        while offset < len(data):
+            # Parse metadata: height, width, channels (6 bytes, 2 bytes each)
+            if offset + 6 > len(data):
+                break
+            height, width, channels = struct.unpack("<HHH", data[offset:offset+6])
+            offset += 6
+            
+            # Parse scale factors: spec_min, spec_max (8 bytes, 4 bytes each)  
+            if offset + 8 > len(data):
+                break
+            spec_min, spec_max = struct.unpack("<ff", data[offset:offset+8])
+            offset += 8
+            
+            # Parse label data: num_params (1 byte)
+            if offset + 1 > len(data):
+                break
+            num_params = struct.unpack("B", data[offset:offset+1])[0]
+            offset += 1
+            
+            # Parse parameter pairs: (param_id, param_value) * num_params
+            if offset + 2 * num_params > len(data):
+                break
+            
+            label_dict = {}
+            for _ in range(num_params):
+                param_id, param_value = struct.unpack("BB", data[offset:offset+2])
+                offset += 2
+                
+                # Convert quantized value back to normalized [0,1] range
+                normalized_value = param_value / 255.0  # QUANTIZATION_LEVELS = 255
+                
+                # Get parameter name from metadata if available
+                if (self.metadata_format and 'parameter_names' in self.metadata_format 
+                    and param_id < len(self.metadata_format['parameter_names'])):
+                    param_name = self.metadata_format['parameter_names'][param_id]
+                    label_dict[param_name] = normalized_value
+                else:
+                    # Fallback to generic parameter name
+                    label_dict[f'param_{param_id}'] = normalized_value
+            
+            # Parse image data
+            image_size = height * width * channels
+            if offset + image_size > len(data):
+                break
+            
+            image_data = data[offset:offset+image_size]
+            offset += image_size
+            
+            # Reconstruct image tensor
+            image_array = np.frombuffer(image_data, dtype=np.uint8).copy()  # Make writable copy
+            
+            if channels == 1:
+                # Single channel: reshape to (1, height, width) for proper channel format
+                image_array = image_array.reshape(1, height, width)
+                image_tensor = torch.from_numpy(image_array).float()
+            else:
+                # Multi-channel: already in planar format (C,H,W) - this is what PyTorch expects
+                image_array = image_array.reshape(channels, height, width)
+                image_tensor = torch.from_numpy(image_array).float()
+            
+            # Store sample with scale factors in metadata
+            metadata_dict = {
+                'height': height,
+                'width': width, 
+                'channels': channels,
+                'spec_min': spec_min,
+                'spec_max': spec_max
+            }
+            
+            self.samples.append((image_tensor, label_dict, metadata_dict))
+        
+        # Set image shape from first sample if available
+        if self.samples:
+            self.image_shape = self.samples[0][0].shape
+            
+            # Build heads config from parameter names and ranges
+            self.heads_config = {}
+            if self.metadata_format and 'parameter_names' in self.metadata_format:
+                for param_name in self.metadata_format['parameter_names']:
+                    # For binary format, we store normalized values [0,1]
+                    # The actual parameter ranges are in the metadata_format
+                    self.heads_config[param_name] = {'classes': 256}  # 0-255 quantization levels
 
     def _validate_format(self) -> bool:
         """Validate the loaded dataset format.
@@ -288,7 +370,15 @@ class MultiheadDatasetBase(Dataset, ABC):
         first_image_shape = first_sample[0].shape
         first_num_heads = len(first_sample[1])
 
-        for i, (image, labels) in enumerate(self.samples):
+        for i, sample in enumerate(self.samples):
+            # Handle both 2-tuple (image, labels) and 3-tuple (image, labels, metadata) formats
+            if len(sample) == 2:
+                image, labels = sample
+            elif len(sample) == 3:
+                image, labels, metadata = sample
+            else:
+                raise ValueError(f"Sample {i} has unexpected format with {len(sample)} elements")
+            
             if image.shape != first_image_shape:
                 raise ValueError(f"Sample {i} has inconsistent image shape: {image.shape} vs {first_image_shape}")
 
@@ -338,7 +428,15 @@ class MultiheadDatasetBase(Dataset, ABC):
         if idx >= len(self.samples):
             raise IndexError(f"Index {idx} out of range for dataset of size {len(self.samples)}")
 
-        return self.samples[idx]
+        sample = self.samples[idx]
+        
+        # Handle both 2-tuple (image, labels) and 3-tuple (image, labels, metadata) formats
+        if len(sample) == 2:
+            return sample  # Original format from pickle
+        elif len(sample) == 3:
+            return sample[0], sample[1]  # Return just image and labels, metadata stored separately
+        else:
+            raise ValueError(f"Unexpected sample format with {len(sample)} elements")
 
     @abstractmethod
     def _get_sample_metadata(self, idx: int) -> Dict[str, Any]:

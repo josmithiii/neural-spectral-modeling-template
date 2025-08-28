@@ -68,7 +68,7 @@ Sample breakdown:
 Each VIMH dataset includes binary or pickle format, or both:
 
 ```
-data-vimh/vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p/
+data/vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p/
 ├── train          # Binary training data
 ├── test           # Binary test data
 ├── train_batch    # Pickle training data
@@ -178,7 +178,7 @@ actual_value = param_min + normalized_value * (param_max - param_min)
 from src.data.vimh_dataset import VIMHDataset, VIMHDataModule
 
 # Load existing VIMH dataset
-dataset = VIMHDataset(data_dir="data-vimh/my_dataset", format="binary")
+dataset = VIMHDataset(data_dir="data/my_dataset", format="binary")
 
 # Access samples
 sample = dataset[0]  # Returns (image, labels) tuple
@@ -187,7 +187,7 @@ image, labels = sample
 # labels: dict with parameter names and values
 
 # Use with DataModule for training
-datamodule = VIMHDataModule(data_dir="data-vimh/my_dataset")
+datamodule = VIMHDataModule(data_dir="data/my_dataset")
 datamodule.setup()
 train_loader = datamodule.train_dataloader()
 ```
@@ -198,7 +198,7 @@ VIMH datasets automatically configure neural network models based on their metad
 ```python
 # Model automatically configures from VIMH dataset info
 python src/train.py experiment=vimh_cnn_16kdss
-# Reads data-vimh/*/vimh_dataset_info.json to determine:
+# Reads data/*/vimh_dataset_info.json to determine:
 # - Input image dimensions (height, width, channels)
 # - Number of output heads (equal to varying_parameters)
 # - Parameter names for head naming

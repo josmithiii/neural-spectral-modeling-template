@@ -53,7 +53,19 @@ For documentation, see [docs/index.md](docs/index.md).
 ### 🚀 Quick Start
 
 ```bash
-# Train with VIMH dataset
+# Set up the environment (uv)
+sh setup.sh
+
+```bash
+# Look over all make targets available (same as `make help`)
+make h
+
+```bash
+# Generate a default VIMH dataset for some quick tests (same as `make sds`):
+python generate_vimh.py --config-name=generate_simple_saw
+
+```bash
+# Train with VIMH dataset (same as `make tr`)
 python src/train.py experiment=vimh_cnn
 
 # Run complete training example
@@ -76,7 +88,7 @@ VIMH datasets use a structured format with:
 ```yaml
 # configs/data/vimh.yaml
 _target_: src.data.vimh_datamodule.VIMHDataModule
-data_dir: data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p
+data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 batch_size: 128
 num_workers: 4
 

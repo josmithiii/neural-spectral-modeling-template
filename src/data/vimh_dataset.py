@@ -44,8 +44,25 @@ class VIMHDataset(MultiheadDatasetBase):
         if data_path.is_dir():
             # Load from directory structure
             self.data_dir = data_path
-            self.batch_file = self.data_dir / ('train_batch' if train else 'test_batch')
             self.metadata_file = self.data_dir / 'vimh_dataset_info.json'
+            
+            # Try both pickle and binary formats (pickle format first for backward compatibility)
+            candidate_files = [
+                self.data_dir / ('train_batch' if train else 'test_batch'),  # pickle format
+                self.data_dir / ('train' if train else 'test')                # binary format
+            ]
+            
+            self.batch_file = None
+            for candidate in candidate_files:
+                if candidate.exists():
+                    self.batch_file = candidate
+                    break
+            
+            if self.batch_file is None:
+                raise FileNotFoundError(
+                    f"No {'training' if train else 'test'} data found in {self.data_dir}. "
+                    f"Looked for: {[f.name for f in candidate_files]}"
+                )
         else:
             # Single file specified
             self.batch_file = data_path
@@ -332,7 +349,7 @@ if __name__ == "__main__":
         sys.path.insert(0, str(src_path))
 
     # Test dataset loading
-    example_data_dir = "data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p"
+    example_data_dir = "data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p"
 
     try:
         print("Testing VIMH dataset loading...")

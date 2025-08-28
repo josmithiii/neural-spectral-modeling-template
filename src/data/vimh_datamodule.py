@@ -60,7 +60,7 @@ class VIMHDataModule(LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str = "data-vimh/",
+        data_dir: str = "data/",
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
@@ -72,7 +72,7 @@ class VIMHDataModule(LightningDataModule):
     ) -> None:
         """Initialize a `VIMHDataModule`.
 
-        :param data_dir: The data directory containing VIMH files. Defaults to `"data-vimh/"`.
+        :param data_dir: The data directory containing VIMH files. Defaults to `"data/"`.
         :param batch_size: The batch size. Defaults to `64`.
         :param num_workers: The number of workers. Defaults to `0`.
         :param pin_memory: Whether to pin memory. Defaults to `False`.
@@ -134,20 +134,39 @@ class VIMHDataModule(LightningDataModule):
     def _adjust_transforms_for_image_size(self, height: int, width: int) -> None:
         """Adjust transforms based on actual image dimensions."""
         # Update the default train transforms with proper padding/cropping
+        
+        # Get the number of channels to determine normalization
+        channels = self.image_shape[0] if hasattr(self, 'image_shape') and self.image_shape else 3
+        
         if height == 32 and width == 32:
-            # Use 32x32 RGB transforms
-            self.default_train_transforms = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomRotation(15),
-                transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-            ])
+            if channels == 1:
+                # Use 32x32 grayscale transforms
+                self.default_train_transforms = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(15),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
+                ])
 
-            self.default_transforms = transforms.Compose([
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-            ])
+                self.default_transforms = transforms.Compose([
+                    transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
+                ])
+            else:
+                # Use 32x32 RGB transforms
+                self.default_train_transforms = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(15),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                ])
+
+                self.default_transforms = transforms.Compose([
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                ])
         elif height == 28 and width == 28:
             # Use MNIST-style transforms for 28x28 images
             self.default_train_transforms = transforms.Compose([
@@ -180,7 +199,7 @@ class VIMHDataModule(LightningDataModule):
         try:
             dir_name = Path(data_dir).name
             if dir_name.startswith('vimh-'):
-                # Extract "32x32x3" from "vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p"
+                # Extract "32x32x3" from "vimh-32x32x3_8000Hz_1p0s_256dss_simple_2p"
                 parts = dir_name.split('_')[0]  # "vimh-32x32x3"
                 dims = parts.split('-')[1]      # "32x32x3"
                 h, w, c = map(int, dims.split('x'))
@@ -652,7 +671,7 @@ if __name__ == "__main__":
 
         # Initialize data module
         dm = VIMHDataModule(
-            data_dir="data-vimh/vimh-32x32_8000Hz_1p0s_256dss_resonarium_2p",
+            data_dir="data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p",
             batch_size=4,
             num_workers=0
         )

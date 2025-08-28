@@ -1,0 +1,84 @@
+# @package _global_
+# SimpleSawSynth dataset generation configuration
+
+# Dataset parameters
+dataset:
+  size: 256 # Number of samples to generate
+  sampling_rate: 8000 # Sample rate in Hz
+  duration: 1.0 # Duration per sample in seconds
+
+# Generation parameters
+generate:
+  batch_size: 8 # Processing batch size
+  output_dir: "data" # Base output directory
+  pre_emphasis_coefficient: 0.0 # Pre-emphasis filter coefficient (disabled for flat spectrum test)
+  taper: false # Taper breath pressure at note ends
+  threshold_db: -40 # Audio threshold in dB
+
+  # Output image dimensions
+  height: 32 # Spectrogram height (mel bins)
+  width: 32 # Spectrogram width (time bins)
+  channels: 1 # Number of channels (1=grayscale, 3=RGB for derived channels)
+
+# Synthesizer configuration
+synthesizer:
+  type: simple_saw
+
+  # Parameters that can vary during dataset generation
+  parameters:
+    # MIDI note number (0-127) - FIXED to avoid non-convex loss wrt fundamental frequency
+    note_number:
+      # Technical test:
+      min_value: 43.350 # 100 Hz - exactly 80 samples per cycle at 8000 Hz
+      max_value: 43.350
+      default: 43.350
+      description: "MIDI note number (fixed at 100 Hz)"
+      # Low E:
+      # min_value: 40.0 # 40 is Low E on a guitar (82.4 Hz)
+      # max_value: 40.0
+      # default: 40.0
+      # description: "MIDI note number (fixed)"
+
+    # MIDI velocity (0-127, but we use floating point)
+    note_velocity:
+      # min_value: 10.0     # Really 0 is the min, but this sets our datasample range
+      min_value: 126.0 # TEST
+      step: 0.5        # Nominal JND
+      max_value: 127.0 # MIDI velocity max is 127
+      default: 127.0 # Full amplitude
+      description: "MIDI velocity (amplitude)"
+
+    # Log10 of decay time in seconds
+    log10_decay_time:
+      #     min_value: 100.0    # TEST
+      #     max_value: 100.1    # log10(2.0) = 0.301
+      min_value: -2.0 # log10(0.01) = -2.0
+      step: 0.1       # Rough JND
+      max_value: 0.3  # log10(2.0) = 0.301
+      default: -0.3   # log10(0.5) = -0.301
+      description: "Log10 of exponential decay time constant"
+
+# STFT parameters for spectrogram generation
+stft:
+  type: "stft" # "stft" or "mel"
+  # n_fft: 512      # EfficientLEAF choice
+  # hop_length: 64  # EfficientLEAF choice
+  n_fft: 80 # Must be >= n_window for STFT
+  n_window: 80 # pitch_synchronous (one period at 100 Hz)
+  hop_length: 80 # pitch_synchronous
+  window_type: "rectangular" # "rectangular", "hann", "hamming", "blackman"
+  bins_per_harmonic: 1.0
+
+mel:
+  freq_min: 40.0
+  freq_max_ratio: 0.9
+
+# Logging configuration
+log_level: DEBUG
+
+# Hydra configuration
+hydra:
+  run:
+    dir: outputs/generate_simple_saw/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    chdir: false
