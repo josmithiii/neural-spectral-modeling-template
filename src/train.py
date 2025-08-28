@@ -185,7 +185,15 @@ def main(cfg: DictConfig) -> Optional[float]:
         trainer_config = 'unknown'
     
     log.info(f"MODEL CONFIG:     {model_config} ({cfg.model._target_})")
-    log.info(f"DATA CONFIG:      {data_config} ({cfg.data._target_})")
+    data_dir = getattr(cfg.data, 'data_dir', 'unknown')
+    # Show relative path if it's under project root
+    import os
+    if data_dir != 'unknown' and os.path.isabs(data_dir):
+        try:
+            data_dir = os.path.relpath(data_dir)
+        except:
+            pass  # Keep original if relpath fails
+    log.info(f"DATA CONFIG:      {data_config} (data_dir={data_dir})")
     log.info(f"TRAINER CONFIG:   {trainer_config} ({cfg.trainer._target_})")
     if cfg.get("experiment"):
         log.info(f"EXPERIMENT:       {cfg.experiment}")
