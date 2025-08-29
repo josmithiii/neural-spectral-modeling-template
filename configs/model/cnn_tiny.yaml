@@ -1,0 +1,31 @@
+# Small CNN with ~8K parameters for trivial datasets
+_target_: src.models.multihead_module.MultiheadLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.003
+  weight_decay: 0.001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 5
+
+loss_weights: {}
+
+net:
+  _target_: src.models.components.simple_cnn.SimpleCNN
+  input_channels: 1
+  conv1_channels: 16  # Much smaller
+  conv2_channels: 32  # Much smaller
+  fc_hidden: 64       # Much smaller
+  heads_config: 
+    synth_param1: 10
+  dropout: 0.3
+  input_size: 32
+
+compile: false
+auto_configure_from_dataset: true

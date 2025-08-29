@@ -24,20 +24,27 @@ ddl display-dataset-large: ## Display the larger example VIMH dataset (16k sampl
 
 # EXPERIMENTS "e" - Complete Configuration Examples
 
-ec exp-cnn: ## Train CNN on default dataset
-	time python src/train.py experiment=cnn  # ./configs/experiment/
+ex exp-example: ## Train CNN on default dataset
+	time python src/train.py experiment=example  # ./configs/experiment/example.yaml
 
-evimh16k exp-vimh-16kdss: ## Run VIMH CNN training with 16K dataset samples (SimpleSynth)
-	time python src/train.py experiment=cnn_16kdss
+# TRIVIAL DATASET EXPERIMENTS "et" - Small models for testing on trivial synthetic data
 
-evimho exp-vimh-16kdss-ordinal: ## Run VIMH CNN training with ordinal regression loss (distance-aware)
-	time python src/train.py experiment=cnn_16kdss_ordinal
+etms exp-trivial-micro-small: ## Micro CNN (~2K params) on small dataset (256 samples)
+	time python src/train.py experiment=trivial_micro_small
 
-evimhr exp-vimh-16kdss-regression: ## Run VIMH CNN training with pure regression heads (sigmoid + parameter mapping)
-	time python src/train.py experiment=cnn_16kdss_regression
+etts exp-trivial-tiny-small: ## Tiny CNN (~8K params) on small dataset (256 samples)
+	time python src/train.py experiment=trivial_tiny_small
 
-evimhstk exp-vimh-stk: ## Run VIMH CNN training with STK dataset
-	time python src/train.py experiment=cnn_stk
+etml exp-trivial-micro-large: ## Micro CNN (~2K params) on large dataset (16K samples)
+	time python src/train.py experiment=trivial_micro_large
+
+ettl exp-trivial-tiny-large: ## Tiny CNN (~8K params) on large dataset (16K samples)
+	time python src/train.py experiment=trivial_tiny_large
+
+et64l exp-trivial-64k-large: ## "64K" CNN (actually 1.4M params) on large dataset - for comparison
+	time python src/train.py experiment=trivial_64k_large
+
+etall: ex etms etts etml ettl et64l ## Run all trivial dataset experiments: ex etms etts etml ettl et64l
 
 # CLEANING MAKE TARGETS
 

@@ -1,0 +1,31 @@
+# @package _global_
+
+# Micro CNN on small (256 samples) trivial dataset
+# python src/train.py experiment=trivial_micro_small
+
+defaults:
+  - override /data: vimh
+  - override /model: cnn_micro
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["trivial", "micro", "small_data"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 3
+  max_epochs: 5
+  
+model:
+  optimizer:
+    lr: 0.005
+    weight_decay: 0.01
+
+data:
+  data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+  batch_size: 32
+
+logger:
+  tensorboard:
+    name: "trivial_micro_small"
