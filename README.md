@@ -80,6 +80,10 @@ python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
 # Full training with experiment config
 python src/train.py experiment=cnn_16kdss
+
+# Look over all configuration overrides available (see especially "experiment: ...")
+python src/train.py --help
+
 ```
 
 ### 📊 Dataset Format
