@@ -69,6 +69,7 @@ class VIMHDataModule(LightningDataModule):
         val_transform: Optional[transforms.Compose] = None,
         test_transform: Optional[transforms.Compose] = None,
         target_width: float = 0.0,
+        auxiliary_features: Optional[List[str]] = None,
     ) -> None:
         """Initialize a `VIMHDataModule`.
 
@@ -81,6 +82,7 @@ class VIMHDataModule(LightningDataModule):
         :param val_transform: Optional transforms for validation data.
         :param test_transform: Optional transforms for test data.
         :param target_width: Standard deviation for soft targets (0.0 = hard targets).
+        :param auxiliary_features: List of auxiliary feature types to extract (e.g., ["decay_time"]).
         """
         super().__init__()
 
@@ -409,19 +411,27 @@ class VIMHDataModule(LightningDataModule):
 
         return parameter_bounds
 
-    def _multihead_collate_fn(self, batch: List[Tuple[torch.Tensor, Dict[str, int]]]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        """Custom collate function for multihead labels.
+    def _multihead_collate_fn(self, batch: List[Tuple[torch.Tensor, Dict[str, int], Optional[torch.Tensor]]]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Optional[torch.Tensor]]:
+        """Custom collate function for multihead labels and auxiliary features.
 
-        Converts a batch of (image, labels_dict) pairs into batched tensors.
+        Converts a batch of (image, labels_dict, auxiliary_features) tuples into batched tensors.
 
-        :param batch: List of (image_tensor, labels_dict) tuples
-        :return: Tuple of (batched_images, batched_labels_dict)
+        :param batch: List of (image_tensor, labels_dict, auxiliary_features) tuples
+        :return: Tuple of (batched_images, batched_labels_dict, batched_auxiliary_features)
         """
         images = []
         labels_dict = {}
+        auxiliary_features = []
 
-        # Separate images and labels
-        for image, labels in batch:
+        # Separate images, labels, and auxiliary features
+        for item in batch:
+            if len(item) == 3:
+                image, labels, aux_features = item
+            else:
+                # Backward compatibility
+                image, labels = item
+                aux_features = None
+                
             images.append(image)
 
             # Initialize label tensors on first iteration
@@ -432,6 +442,9 @@ class VIMHDataModule(LightningDataModule):
             # Collect labels for each head
             for head_name, label_value in labels.items():
                 labels_dict[head_name].append(label_value)
+                
+            # Collect auxiliary features
+            auxiliary_features.append(aux_features)
 
         # Stack images
         batched_images = torch.stack(images)
@@ -441,7 +454,12 @@ class VIMHDataModule(LightningDataModule):
         for head_name, label_list in labels_dict.items():
             batched_labels[head_name] = torch.tensor(label_list, dtype=torch.long)
 
-        return batched_images, batched_labels
+        # Stack auxiliary features if any are present
+        batched_auxiliary = None
+        if auxiliary_features and auxiliary_features[0] is not None:
+            batched_auxiliary = torch.stack(auxiliary_features)
+
+        return batched_images, batched_labels, batched_auxiliary
 
     @property
     def num_classes(self) -> Dict[str, int]:
@@ -534,14 +552,16 @@ class VIMHDataModule(LightningDataModule):
                     self.hparams.data_dir,
                     train=True,
                     transform=self.train_transform,
-                    target_width=self.hparams.target_width
+                    target_width=self.hparams.target_width,
+                    auxiliary_features=self.hparams.auxiliary_features
                 )
 
                 self.data_test = VIMHDataset(
                     self.hparams.data_dir,
                     train=False,
                     transform=self.test_transform,
-                    target_width=self.hparams.target_width
+                    target_width=self.hparams.target_width,
+                    auxiliary_features=self.hparams.auxiliary_features
                 )
 
                 # For validation, we'll use the test dataset with val transforms
@@ -550,7 +570,8 @@ class VIMHDataModule(LightningDataModule):
                     self.hparams.data_dir,
                     train=False,
                     transform=self.val_transform,
-                    target_width=self.hparams.target_width
+                    target_width=self.hparams.target_width,
+                    auxiliary_features=self.hparams.auxiliary_features
                 )
 
             except Exception as e:

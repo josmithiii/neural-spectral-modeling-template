@@ -1,0 +1,40 @@
+# @package _global_
+
+# Auxiliary input CNN experiment with decay time features
+# Uses 256 sample dataset with auxiliary decay time features extracted from temporal envelope
+
+defaults:
+  - override /data: vimh
+  - override /model: cnn_64k_auxiliary
+  - override /callbacks: default
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["vimh", "cnn", "auxiliary", "decay_time"]
+
+seed: 12345
+
+# Use smaller dataset with 256 samples
+data:
+  data_dir: ${paths.root_dir}/data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+  batch_size: 32  # Smaller batch for tiny dataset
+  auxiliary_features: ["decay_time"]  # Enable decay time feature extraction
+
+trainer:
+  min_epochs: 10
+  max_epochs: 50  # More epochs for small dataset
+  gradient_clip_val: 0.5
+
+model:
+  optimizer:
+    lr: 0.002
+  compile: false
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "auxiliary_features"
+  aim:
+    experiment: "auxiliary_features"

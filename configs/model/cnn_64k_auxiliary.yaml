@@ -1,0 +1,35 @@
+_target_: src.models.multihead_module.MultiheadLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+# Criteria and loss_weights will be auto-configured from dataset metadata
+loss_weights: {}  # Will be auto-configured from dataset metadata
+
+net:
+  _target_: src.models.components.simple_cnn.SimpleCNN
+  input_channels: 1
+  conv1_channels: 64
+  conv2_channels: 128
+  fc_hidden: 512
+  heads_config: 
+    synth_param1: 10  # Default placeholder - will be auto-configured from dataset metadata
+  dropout: 0.5
+  input_size: 32  # VIMH image size (32x32 for spectrograms)
+  auxiliary_input_size: 1  # 1 decay time feature
+  auxiliary_hidden_size: 32  # Hidden size for auxiliary processing
+
+compile: false
+
+# Auto-configure heads from dataset metadata
+auto_configure_from_dataset: true

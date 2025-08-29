@@ -1,0 +1,40 @@
+# @package _global_
+
+# Auxiliary input CNN experiment with decay time features
+# Uses 16K sample dataset with auxiliary decay time features extracted from temporal envelope
+
+defaults:
+  - override /data: vimh_16kdss
+  - override /model: cnn_64k_auxiliary
+  - override /callbacks: default
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["vimh", "cnn", "auxiliary", "decay_time", "16kdss"]
+
+seed: 12345
+
+# Enable auxiliary features in data config
+data:
+  auxiliary_features: ["decay_time"]  # Enable decay time feature extraction
+  num_workers: 0  # MPS doesn't support multiprocessing
+
+trainer:
+  min_epochs: 10
+  max_epochs: 30  # Reasonable for larger dataset
+  gradient_clip_val: 0.5
+
+model:
+  optimizer:
+    lr: 0.001  # Slightly lower LR for larger dataset
+    weight_decay: 0.0001
+  compile: false
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "auxiliary_features"
+  aim:
+    experiment: "auxiliary_features"

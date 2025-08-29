@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
 import torch
 from .multihead_dataset_base import MultiheadDatasetBase
+from ..utils.auxiliary_features import extract_auxiliary_features, compute_temporal_envelope_from_spectrogram
 
 
 class VIMHDataset(MultiheadDatasetBase):
@@ -24,7 +25,8 @@ class VIMHDataset(MultiheadDatasetBase):
         train: bool = True,
         transform: Optional[callable] = None,
         target_transform: Optional[callable] = None,
-        target_width: float = 0.0
+        target_width: float = 0.0,
+        auxiliary_features: Optional[list] = None
     ):
         """Initialize VIMH dataset.
 
@@ -33,11 +35,13 @@ class VIMHDataset(MultiheadDatasetBase):
         :param transform: Optional transform to apply to images
         :param target_transform: Optional transform to apply to labels
         :param target_width: Standard deviation for soft targets (0.0 = hard targets)
+        :param auxiliary_features: List of auxiliary feature types to extract (e.g., ["decay_time"])
         """
         self.train = train
         self.transform = transform
         self.target_transform = target_transform
         self.target_width = target_width
+        self.auxiliary_features = auxiliary_features or []
 
         # Determine the correct file path
         data_path = Path(data_path)
@@ -213,13 +217,16 @@ class VIMHDataset(MultiheadDatasetBase):
 
         return metadata
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, int]]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, int], Optional[torch.Tensor]]:
         """Get a sample from the dataset.
 
         :param idx: Sample index
-        :return: Tuple of (image_tensor, labels_dict)
+        :return: Tuple of (image_tensor, labels_dict, auxiliary_features)
         """
         image, labels = super().__getitem__(idx)
+        
+        # Store the original image for auxiliary feature extraction (before transforms)
+        original_image = image.clone()
 
         # Apply soft targets if enabled
         if self.target_width > 0.0:
@@ -236,7 +243,17 @@ class VIMHDataset(MultiheadDatasetBase):
         if self.target_transform is not None:
             labels = self.target_transform(labels)
 
-        return image, labels
+        # Extract auxiliary features if requested
+        auxiliary_features = None
+        if self.auxiliary_features:
+            # Create data dict for auxiliary feature extraction
+            data_dict = {'image': original_image.unsqueeze(0)}  # Add batch dimension for processing
+            
+            # Extract auxiliary features and squeeze batch dimension since we're processing single samples
+            batch_features = extract_auxiliary_features(data_dict, self.auxiliary_features)
+            auxiliary_features = batch_features.squeeze(0)  # [num_features] instead of [1, num_features]
+
+        return image, labels, auxiliary_features
 
     def get_parameter_info(self, param_name: str) -> Dict[str, Any]:
         """Get detailed information about a specific parameter.

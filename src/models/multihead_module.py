@@ -324,13 +324,17 @@ class MultiheadLitModule(LightningModule):
 
         return preds
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, auxiliary: Optional[torch.Tensor] = None):
         """Perform a forward pass through the model `self.net`.
 
         :param x: A tensor of images.
+        :param auxiliary: Optional auxiliary tensor.
         :return: A tensor of logits (single head) or dict of logits (multihead).
         """
-        return self.net(x)
+        if hasattr(self.net, 'forward') and 'auxiliary' in self.net.forward.__code__.co_varnames:
+            return self.net(x, auxiliary)
+        else:
+            return self.net(x)
 
     def on_train_start(self) -> None:
         """Lightning hook that is called when training begins."""
@@ -354,8 +358,14 @@ class MultiheadLitModule(LightningModule):
             - A dict of predictions per head.
             - A dict of target labels per head.
         """
-        x, y = batch
-        logits = self.forward(x)
+        if len(batch) == 3:
+            x, y, auxiliary = batch
+        else:
+            # Backward compatibility
+            x, y = batch
+            auxiliary = None
+            
+        logits = self.forward(x, auxiliary)
 
         if self.is_multihead:
             # Multihead case: y is dict, logits is dict
