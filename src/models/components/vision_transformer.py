@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Optional
+from typing import Optional, Dict
 
 
 class EmbedLayer(nn.Module):
@@ -189,13 +189,24 @@ class VisionTransformer(nn.Module):
         n_layers: int = 6,
         n_attention_heads: int = 4,
         forward_mul: int = 2,
-        output_size: int = 10,
+        output_size: Optional[int] = None,
+        heads_config: Optional[Dict[str, int]] = None,
         dropout: float = 0.1,
         use_torch_layers: bool = False,
     ):
         super().__init__()
         
         self.use_torch_layers = use_torch_layers
+        
+        # Handle multihead configuration
+        if heads_config is None:
+            if output_size is not None:
+                heads_config = {'digit': output_size}
+            else:
+                heads_config = {'digit': 10}  # Default
+                
+        self.heads_config = heads_config
+        self.is_multihead = len(heads_config) > 1
         
         # Always use custom embedding layer
         self.embedding = EmbedLayer(n_channels, embed_dim, image_size, patch_size, dropout=dropout)
@@ -220,7 +231,41 @@ class VisionTransformer(nn.Module):
             ])
             self.norm = nn.LayerNorm(embed_dim)
             
-        self.classifier = Classifier(embed_dim, output_size)
+        # Multiple heads or single head for backward compatibility
+        if self.is_multihead:
+            self.heads = nn.ModuleDict({
+                head_name: nn.Sequential(
+                    nn.Linear(embed_dim, embed_dim),
+                    nn.Tanh(),
+                    nn.Linear(embed_dim, num_classes)
+                )
+                for head_name, num_classes in heads_config.items()
+            })
+        else:
+            # Single head (backward compatibility)
+            head_name, num_classes = next(iter(heads_config.items()))
+            self.classifier = Classifier(embed_dim, num_classes)
+
+        self.apply(self._init_weights)
+
+    def _build_heads(self, heads_config: Dict[str, int]) -> None:
+        """Rebuild heads for auto-configuration."""
+        # Create new multihead configuration
+        self.heads = nn.ModuleDict({
+            head_name: nn.Sequential(
+                nn.Linear(self.embedding.pos_embedding.shape[-1], self.embedding.pos_embedding.shape[-1]),  # embed_dim
+                nn.Tanh(),
+                nn.Linear(self.embedding.pos_embedding.shape[-1], num_classes)
+            )
+            for head_name, num_classes in heads_config.items()
+        })
+        
+        self.heads_config = heads_config
+        self.is_multihead = len(heads_config) > 1
+        
+        # Remove single classifier if it exists
+        if hasattr(self, 'classifier'):
+            del self.classifier
 
         self.apply(self._init_weights)
 
@@ -260,8 +305,17 @@ class VisionTransformer(nn.Module):
                 x = block(x)
             x = self.norm(x)
             
-        x = self.classifier(x)
-        return x
+        # Get CLS token embedding
+        cls_embedding = x[:, 0, :]  # B, S, E --> B, E
+        
+        if self.is_multihead:
+            return {
+                head_name: head(cls_embedding)
+                for head_name, head in self.heads.items()
+            }
+        else:
+            # Single head output (backward compatibility)
+            return self.classifier(x)
 
 
 if __name__ == "__main__":

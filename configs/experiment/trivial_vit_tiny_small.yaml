@@ -1,0 +1,31 @@
+# @package _global_
+
+# Tiny ViT on small (256 samples) trivial dataset  
+# python src/train.py experiment=trivial_vit_tiny_small
+
+defaults:
+  - override /data: vimh
+  - override /model: vit_tiny
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["trivial", "vit", "tiny", "small_data"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 3
+  max_epochs: 10
+
+model:
+  optimizer:
+    lr: 0.003
+    weight_decay: 0.001
+
+data:
+  data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+  batch_size: 32
+
+logger:
+  tensorboard:
+    name: "trivial_vit_tiny_small"

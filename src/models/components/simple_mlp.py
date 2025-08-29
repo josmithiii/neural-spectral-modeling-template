@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 
 class SimpleMLP(nn.Module):
-    """A simple fully-connected neural net without BatchNorm (for batch_size=1)."""
+    """A simple fully-connected neural net with Dropout and without BatchNorm (for batch_size=1), otherwise same as SimpleDenseNet."""
 
     def __init__(
         self,

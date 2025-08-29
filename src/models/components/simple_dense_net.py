@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 
 class SimpleDenseNet(nn.Module):
-    """A simple fully-connected neural net for computing predictions."""
+    """A simple fully-connected neural net for computing predictions, inherited from Pytorch Lightning Hydra Template for MNIST."""
 
     def __init__(
         self,

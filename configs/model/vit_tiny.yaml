@@ -1,0 +1,33 @@
+# Tiny ViT with ~25K parameters for trivial datasets
+_target_: src.models.multihead_module.MultiheadLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.003
+  weight_decay: 0.001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 5
+
+loss_weights: {}
+
+net:
+  _target_: src.models.components.vision_transformer.VisionTransformer
+  n_channels: 1
+  image_size: 32
+  patch_size: 4       # Smaller patches for more tokens
+  embed_dim: 64       # Small embedding
+  n_layers: 3         # Few layers
+  n_attention_heads: 4
+  forward_mul: 2
+  output_size: 10     # Will be auto-configured
+  dropout: 0.3
+  use_torch_layers: false
+
+compile: false
+auto_configure_from_dataset: true

@@ -1,0 +1,33 @@
+# Micro ViT with ~8K parameters for trivial datasets
+_target_: src.models.multihead_module.MultiheadLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.005
+  weight_decay: 0.01
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 3
+
+loss_weights: {}
+
+net:
+  _target_: src.models.components.vision_transformer.VisionTransformer
+  n_channels: 1
+  image_size: 32
+  patch_size: 8       # Larger patches for fewer tokens
+  embed_dim: 32       # Very small embedding
+  n_layers: 2         # Few layers
+  n_attention_heads: 4
+  forward_mul: 2
+  output_size: 10     # Will be auto-configured
+  dropout: 0.2
+  use_torch_layers: false
+
+compile: false
+auto_configure_from_dataset: true

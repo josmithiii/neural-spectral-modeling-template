@@ -202,6 +202,13 @@ class MultiheadLitModule(LightningModule):
         # Update network heads configuration
         if hasattr(self.net, 'heads_config'):
             self.net.heads_config = heads_config
+            
+            # If the network has a _build_heads method, use it to rebuild heads
+            # Only call if the network explicitly needs dynamic head rebuilding (like VisionTransformer)
+            if hasattr(self.net, '_build_heads') and callable(getattr(self.net, '_build_heads')):
+                # Check if it's a VisionTransformer or similar that needs dynamic rebuilding
+                if type(self.net).__name__ == 'VisionTransformer':
+                    self.net._build_heads(heads_config)
         else:
             # If network doesn't have heads_config, log a warning
             print(f"Warning: Network {type(self.net).__name__} doesn't have heads_config attribute")

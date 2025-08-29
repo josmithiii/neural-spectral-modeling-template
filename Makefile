@@ -46,6 +46,22 @@ et64l exp-trivial-64k-large: ## "64K" CNN (actually 1.4M params) on large datase
 
 etall: ex etms etts etml ettl et64l ## Run all trivial dataset experiments: ex etms etts etml ettl et64l
 
+# TRIVIAL DATASET ViT EXPERIMENTS "evit" - Small ViT models for testing on trivial synthetic data
+
+evitms exp-trivial-vit-micro-small: ## Micro ViT (~8K params) on small dataset (256 samples)
+	time python src/train.py experiment=trivial_vit_micro_small
+
+evitts exp-trivial-vit-tiny-small: ## Tiny ViT (~25K params) on small dataset (256 samples)
+	time python src/train.py experiment=trivial_vit_tiny_small
+
+evitml exp-trivial-vit-micro-large: ## Micro ViT (~8K params) on large dataset (16K samples)
+	time python src/train.py experiment=trivial_vit_micro_large
+
+evittl exp-trivial-vit-tiny-large: ## Tiny ViT (~25K params) on large dataset (16K samples)
+	time python src/train.py experiment=trivial_vit_tiny_large
+
+evitall: evitms evitts evitml evittl ## Run all ViT trivial dataset experiments
+
 # CLEANING MAKE TARGETS
 
 dc dclean: ## Clean data files
