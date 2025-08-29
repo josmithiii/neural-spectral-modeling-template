@@ -107,6 +107,22 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 if not hasattr(cfg.model, 'loss_weights') or not cfg.model.loss_weights or len(cfg.model.loss_weights) == 0:
                     cfg.model.loss_weights = {name: 1.0 for name in parameter_names}
                     log.info(f"Auto-configured loss_weights: {cfg.model.loss_weights}")
+
+            # Auto-configure auxiliary input size based on dataset auxiliary features
+            if (hasattr(cfg.data, 'auxiliary_features') and cfg.data.auxiliary_features and 
+                hasattr(cfg.model, 'net') and hasattr(cfg.model.net, 'auxiliary_input_size')):
+                
+                # Calculate auxiliary input size based on feature types
+                auxiliary_input_size = 0
+                for feature_type in cfg.data.auxiliary_features:
+                    if feature_type == "decay_time":
+                        auxiliary_input_size += 1  # decay_time extracts 1 feature
+                    # Add other feature types as needed in the future
+                
+                if auxiliary_input_size > 0:
+                    old_size = cfg.model.net.get('auxiliary_input_size', 0)
+                    cfg.model.net.auxiliary_input_size = auxiliary_input_size
+                    log.info(f"Auto-configured auxiliary_input_size: {old_size} -> {auxiliary_input_size} (based on {cfg.data.auxiliary_features})")
         except Exception as e:
             log.warning(f"Failed to auto-configure model from dataset metadata: {e}")
 

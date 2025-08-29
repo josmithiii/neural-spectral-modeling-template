@@ -26,7 +26,7 @@ net:
     synth_param1: 10  # Default placeholder - will be auto-configured from dataset metadata
   dropout: 0.5
   input_size: 32  # VIMH image size (32x32 for spectrograms)
-  auxiliary_input_size: 1  # 1 decay time feature
+  auxiliary_input_size: 0  # Will be auto-configured based on dataset auxiliary_features
   auxiliary_hidden_size: 32  # Hidden size for auxiliary processing
 
 compile: false
