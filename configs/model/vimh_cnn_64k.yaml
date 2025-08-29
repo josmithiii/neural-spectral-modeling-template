@@ -18,7 +18,7 @@ loss_weights: {}  # Will be auto-configured from dataset metadata
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
-  input_channels: 3  # VIMH typically has 3 color channels for spectrograms
+  input_channels: 1
   conv1_channels: 64
   conv2_channels: 128
   fc_hidden: 512
