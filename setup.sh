@@ -14,9 +14,9 @@ if ! command -v uv &> /dev/null; then
     exit 1
 fi
 
-# Create virtual environment with Python 3.8+
+# Create virtual environment with Python 3.9+
 echo "Creating virtual environment..."
-uv venv .venv --python 3.8
+uv venv .venv --python 3.9
 
 # Activate environment and install dependencies
 echo "Installing dependencies..."
