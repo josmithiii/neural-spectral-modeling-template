@@ -122,7 +122,7 @@ s sync: ## Merge changes from main branch to your current branch
 
 tb tensorboard: ## Launch TensorBoard on port 6006
 	@lsof -i :6006 >/dev/null 2>&1 && echo "TensorBoard already running on port 6006" || \
-		(echo "Starting TensorBoard on port 6006..." && tensorboard --logdir logs/train/runs/ --reload_interval 1 --port 6006 &)
+		(echo "Starting TensorBoard on port 6006..." && tensorboard --logdir logs/ --reload_interval 1 --port 6006 &)
 	@echo "Open http://localhost:6006/"
 
 a activate: ## Activate the uv environment
