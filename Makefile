@@ -22,20 +22,22 @@ dds display-dataset-small: ## Display the small example VIMH dataset (256 sample
 ddl display-dataset-large: ## Display the larger example VIMH dataset (16k samples)
 	python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
-# TRAINING TARGETS "tr"
+# EXPERIMENTS "e" - Complete Configuration Examples
 
-tr train train-vimh: ## Train the default model on the default dataset (`make tr`)
-	time python src/train.py
+ec exp-cnn: ## Train CNN on default dataset
+	time python src/train.py experiment=cnn  # ./configs/experiment/
 
-trq train-quick: ## Train quickly the default model and dataset (quick sanity test)
-	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
+evimh16k exp-vimh-16kdss: ## Run VIMH CNN training with 16K dataset samples (SimpleSynth)
+	time python src/train.py experiment=cnn_16kdss
 
-trs train-vimh-small: ## Train the small example VIMH dataset using the default model (CNN 64k)
-	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+evimho exp-vimh-16kdss-ordinal: ## Run VIMH CNN training with ordinal regression loss (distance-aware)
+	time python src/train.py experiment=cnn_16kdss_ordinal
 
-trl train-vimh-large: ## Train the large example VIMH dataset using the default model (CNN 64k)
-	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+evimhr exp-vimh-16kdss-regression: ## Run VIMH CNN training with pure regression heads (sigmoid + parameter mapping)
+	time python src/train.py experiment=cnn_16kdss_regression
 
+evimhstk exp-vimh-stk: ## Run VIMH CNN training with STK dataset
+	time python src/train.py experiment=cnn_stk
 
 # CLEANING MAKE TARGETS
 
@@ -67,18 +69,18 @@ td test-diagram: ## Generate model architecture diagrams (text + graphical)
 	python viz/enhanced_model_diagrams.py
 
 tda test-diagram-all: ## Generate diagrams for all VIMH model architectures
-	python viz/enhanced_model_diagrams.py -c vimh_cnn_64k
-	python viz/enhanced_model_diagrams.py -c vimh_cnn_64k_ordinal
-	python viz/enhanced_model_diagrams.py -c vimh_cnn_64k_regression
-	python viz/enhanced_model_diagrams.py -c vimh_cnn_stk
+	python viz/enhanced_model_diagrams.py -c cnn_64k
+	python viz/enhanced_model_diagrams.py -c cnn_64k_ordinal
+	python viz/enhanced_model_diagrams.py -c cnn_64k_regression
+	python viz/enhanced_model_diagrams.py -c cnn_stk
 
 tdl test-diagram-list: ## List available model configs for diagrams
 	python viz/enhanced_model_diagrams.py --list-configs
 
-tds test-diagram-simple: ## Generate simple text-only diagrams (default vimh_cnn_64k)
+tds test-diagram-simple: ## Generate simple text-only diagrams (default cnn_64k)
 	python viz/simple_model_diagram.py
 
-tdsc test-diagram-simple-config: ## Generate simple diagram for specific config (usage: make tdsc CONFIG=vimh_cnn_64k)
+tdsc test-diagram-simple-config: ## Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_64k)
 	python viz/simple_model_diagram.py --config $(CONFIG)
 
 tdsl test-diagram-simple-list: ## List available configs for simple diagrams
@@ -86,30 +88,13 @@ tdsl test-diagram-simple-list: ## List available configs for simple diagrams
 
 tdss test-diagram-simple-samples: ## Generate simple diagrams for VIMH architectures
 	@echo "=== VIMH CNN (64K params) ==="
-	python viz/simple_model_diagram.py --config vimh_cnn_64k
+	python viz/simple_model_diagram.py --config cnn_64k
 	@echo "\n=== VIMH CNN Ordinal (64K params) ==="
-	python viz/simple_model_diagram.py --config vimh_cnn_64k_ordinal
+	python viz/simple_model_diagram.py --config cnn_64k_ordinal
 	@echo "\n=== VIMH CNN Regression (64K params) ==="
-	python viz/simple_model_diagram.py --config vimh_cnn_64k_regression
+	python viz/simple_model_diagram.py --config cnn_64k_regression
 	@echo "\n=== VIMH CNN STK ==="
-	python viz/simple_model_diagram.py --config vimh_cnn_stk
-
-# EXPERIMENTS "e" - VIMH Configuration Examples
-
-evimh exp-vimh: ## Run VIMH CNN training with basic dataset
-	time python src/train.py experiment=vimh_cnn
-
-evimh16k exp-vimh-16kdss: ## Run VIMH CNN training with 16K dataset samples (SimpleSynth)
-	time python src/train.py experiment=vimh_cnn_16kdss
-
-evimho exp-vimh-16kdss-ordinal: ## Run VIMH CNN training with ordinal regression loss (distance-aware)
-	time python src/train.py experiment=vimh_cnn_16kdss_ordinal
-
-evimhr exp-vimh-16kdss-regression: ## Run VIMH CNN training with pure regression heads (sigmoid + parameter mapping)
-	time python src/train.py experiment=vimh_cnn_16kdss_regression
-
-evimhstk exp-vimh-stk: ## Run VIMH CNN training with STK dataset
-	time python src/train.py experiment=vimh_cnn_stk
+	python viz/simple_model_diagram.py --config cnn_stk
 
 # UTILITY TARGETS
 
@@ -140,3 +125,18 @@ lc list-configs: ## List available model configurations
 	@find configs/data -name "*.yaml" | sed 's|configs/data/||' | sed 's|\.yaml||' | sort
 	@echo "\nAvailable experiment configs:"
 	@find configs/experiment -name "*.yaml" | sed 's|configs/experiment/||' | sed 's|\.yaml||' | sort
+
+# TRAINING TARGETS "tr" (no "experiment" - use hydra overrides to set desired config)
+
+tr train: ## Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml
+	time python src/train.py
+
+trq train-quick: ## Train super quickly the default model and dataset (quick sanity test to see if things are working)
+	python src/train.py trainer.max_epochs=1
+
+trs train-vimh-small: ## Train the small example VIMH dataset using the default model (CNN 64k)
+	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+
+trl train-vimh-large: ## Train the large example VIMH dataset using the default model (CNN 64k)
+	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+

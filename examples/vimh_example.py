@@ -123,7 +123,7 @@ def main():
     
     print("🎉 VIMH example completed successfully!")
     print("\nNext steps:")
-    print("- Try full training: python src/train.py experiment=vimh_cnn_16kdss")
+    print("- Try full training: python src/train.py experiment=cnn_16kdss")
     print("- Experiment with different architectures")
     print("- Adjust hyperparameters for your specific dataset")
 

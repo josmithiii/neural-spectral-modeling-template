@@ -197,7 +197,7 @@ VIMH datasets automatically configure neural network models based on their metad
 
 ```python
 # Model automatically configures from VIMH dataset info
-python src/train.py experiment=vimh_cnn_16kdss
+python src/train.py experiment=cnn_16kdss
 # Reads data/*/vimh_dataset_info.json to determine:
 # - Input image dimensions (height, width, channels)
 # - Number of output heads (equal to varying_parameters)

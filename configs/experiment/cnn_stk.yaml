@@ -1,17 +1,17 @@
 # @package _global_
 
 # to execute this experiment run:
-# python src/train.py experiment=vimh_cnn
+# python src/train.py experiment=cnn_stk
 
 defaults:
-  - override /data: vimh
-  - override /model: vimh_cnn_64k
+  - override /data: vimh_stk
+  - override /model: cnn_stk
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["vimh", "multihead", "cnn", "real_labels"]
+tags: ["vimh", "multihead", "cnn", "stk", "real_labels"]
 
 seed: 12345
 
@@ -50,6 +50,6 @@ callbacks:
 logger:
   wandb:
     tags: ${tags}
-    group: "vimh"
+    group: "vimh_stk"
   aim:
-    experiment: "vimh"
+    experiment: "vimh_stk"

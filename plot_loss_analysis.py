@@ -211,7 +211,7 @@ def analyze_loss_behavior(df: pd.DataFrame):
 def main():
     parser = argparse.ArgumentParser(description='Analyze VIMH ordinal regression loss')
     parser.add_argument('--csv_path', type=str,
-                       default='logs/train/runs/2025-07-15_04-30-06/csv/vimh_cnn_16kdss_ordinal/version_0/metrics.csv',
+                       default='logs/train/runs/2025-07-15_04-30-06/csv/cnn_16kdss_ordinal/version_0/metrics.csv',
                        help='Path to metrics CSV file')
     parser.add_argument('--save_path', type=str,
                        default='vimh_loss_analysis.png',

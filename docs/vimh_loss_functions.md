@@ -92,7 +92,7 @@ criterion = WeightedCrossEntropyLoss(
 
 ### Original CrossEntropyLoss (Current)
 ```yaml
-# configs/model/vimh_cnn_64k.yaml
+# configs/model/cnn_64k.yaml
 criteria:
   note_number:
     _target_: torch.nn.CrossEntropyLoss
@@ -102,7 +102,7 @@ criteria:
 
 ### New OrdinalRegressionLoss (Recommended)
 ```yaml
-# configs/model/vimh_cnn_64k_ordinal.yaml
+# configs/model/cnn_64k_ordinal.yaml
 criteria:
   note_number:
     _target_: src.models.losses.OrdinalRegressionLoss
@@ -124,7 +124,7 @@ criteria:
 
 ```bash
 # Use the new distance-aware loss
-python src/train.py experiment=vimh_cnn_16kdss_ordinal
+python src/train.py experiment=cnn_16kdss_ordinal
 
 # Or use the make target
 make evimho
@@ -134,10 +134,10 @@ make evimho
 
 ```bash
 # Original classification loss
-python src/train.py experiment=vimh_cnn_16kdss
+python src/train.py experiment=cnn_16kdss
 
 # New distance-aware loss
-python src/train.py experiment=vimh_cnn_16kdss_ordinal
+python src/train.py experiment=cnn_16kdss_ordinal
 ```
 
 ## Implementation Details

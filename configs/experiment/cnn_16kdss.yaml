@@ -1,18 +1,18 @@
 # @package _global_
 
-# Experiment configuration for VIMH CNN training with ordinal regression loss
-# Uses distance-aware loss function for quantized continuous parameters
+# Experiment configuration for VIMH CNN training with 16K dataset samples
+# Optimized for serious training evaluation with larger resonarium dataset
 
 defaults:
   - override /data: vimh_16kdss
-  - override /model: vimh_cnn_64k_ordinal
+  - override /model: cnn_64k
   - override /trainer: default
 
 # Tags for experiment tracking
-tags: ["vimh", "cnn", "resonarium", "16kdss", "ordinal-regression", "distance-aware"]
+tags: ["vimh", "cnn", "resonarium", "16kdss", "serious-training"]
 
 # Experiment name
-name: "vimh_cnn_16kdss_ordinal_resonarium"
+name: "cnn_16kdss_resonarium"
 
 # Fixed seed for reproducibility
 seed: 12345
@@ -72,7 +72,7 @@ callbacks:
   model_checkpoint:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${paths.output_dir}/checkpoints
-    filename: "vimh_cnn_16kdss_ordinal-{epoch:02d}-{val/acc_best:.3f}"
+    filename: "cnn_16kdss-{epoch:02d}-{val/acc_best:.3f}"
     monitor: "val/acc_best"
     verbose: false
     save_last: true
@@ -105,11 +105,11 @@ logger:
   csv:
     _target_: lightning.pytorch.loggers.CSVLogger
     save_dir: "${paths.output_dir}/csv/"
-    name: "vimh_cnn_16kdss_ordinal"
+    name: "cnn_16kdss"
 
   tensorboard:
     _target_: lightning.pytorch.loggers.TensorBoardLogger
     save_dir: "${paths.output_dir}/tensorboard/"
-    name: "vimh_cnn_16kdss_ordinal"
+    name: "cnn_16kdss"
     log_graph: false
     default_hp_metric: true

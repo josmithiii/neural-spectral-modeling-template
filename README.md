@@ -78,21 +78,8 @@ python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
 
-# Train the default model on the default dataset (`make tr`) (defaults defined in configs/train.yaml)
-python src/train.py
-
-# Train the default model on the small VIMH dataset (`make trs`)
-python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
-
-# Train default model on the large VIMH dataset (`make trl`)
-python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
-
-
-# Run complete training example
-python examples/vimh_example.py
-
 # Full training with experiment config
-python src/train.py experiment=vimh_cnn_16kdss
+python src/train.py experiment=cnn_16kdss
 ```
 
 ### 📊 Dataset Format
@@ -113,10 +100,10 @@ batch_size: 128
 num_workers: 4
 
 # Model auto-configures from dataset
-# configs/experiment/vimh_cnn.yaml
+# configs/experiment/cnn.yaml
 defaults:
   - override /data: vimh
-  - override /model: vimh_cnn_64k
+  - override /model: cnn_64k
 ```
 
 ### 📈 Performance

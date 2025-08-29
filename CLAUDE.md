@@ -107,7 +107,7 @@ make evimhr      # VIMH pure regression heads
 make evimhstk    # VIMH STK dataset training
 
 # Direct VIMH training
-python src/train.py experiment=vimh_cnn_16kdss
+python src/train.py experiment=cnn_16kdss
 python examples/vimh_training.py --demo --save-plots
 ```
 

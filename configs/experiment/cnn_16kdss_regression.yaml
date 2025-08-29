@@ -5,14 +5,14 @@
 
 defaults:
   - override /data: vimh_16kdss
-  - override /model: vimh_cnn_64k_regression
+  - override /model: cnn_64k_regression
   - override /trainer: default
 
 # Tags for experiment tracking
 tags: ["vimh", "cnn", "resonarium", "16kdss", "regression", "sigmoid", "continuous"]
 
 # Experiment name
-name: "vimh_cnn_16kdss_regression_resonarium"
+name: "cnn_16kdss_regression_resonarium"
 
 # Fixed seed for reproducibility
 seed: 12345
@@ -72,7 +72,7 @@ callbacks:
   model_checkpoint:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${paths.output_dir}/checkpoints
-    filename: "vimh_cnn_16kdss_regression-{epoch:02d}-{val/mae_best:.4f}"
+    filename: "cnn_16kdss_regression-{epoch:02d}-{val/mae_best:.4f}"
     monitor: "val/mae_best"
     verbose: false
     save_last: true
@@ -105,11 +105,11 @@ logger:
   csv:
     _target_: lightning.pytorch.loggers.CSVLogger
     save_dir: "${paths.output_dir}/csv/"
-    name: "vimh_cnn_16kdss_regression"
+    name: "cnn_16kdss_regression"
 
   tensorboard:
     _target_: lightning.pytorch.loggers.TensorBoardLogger
     save_dir: "${paths.output_dir}/tensorboard/"
-    name: "vimh_cnn_16kdss_regression"
+    name: "cnn_16kdss_regression"
     log_graph: false
     default_hp_metric: true
