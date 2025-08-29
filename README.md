@@ -78,13 +78,13 @@ python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
 
-# Train the default model (CNN-64k) on the default dataset (small example) (`make tr`)
+# Train the default model on the default dataset (`make tr`) (defaults defined in configs/train.yaml)
 python src/train.py
 
-# Train with the small VIMH dataset (`make trvs`)
+# Train the default model on the small VIMH dataset (`make trs`)
 python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 
-# Train with the large VIMH dataset (`make trvl`)
+# Train default model on the large VIMH dataset (`make trl`)
 python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
 

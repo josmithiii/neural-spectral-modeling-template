@@ -24,16 +24,16 @@ ddl display-dataset-large: ## Display the larger example VIMH dataset (16k sampl
 
 # TRAINING TARGETS "tr"
 
-tr train train-vimh: ## Train the default model ( ) on the default dataset ( ) (`make tr`)
+tr train train-vimh: ## Train the default model on the default dataset (`make tr`)
 	time python src/train.py
 
 trq train-quick: ## Train quickly the default model and dataset (quick sanity test)
 	python src/train.py trainer.max_epochs=1 +trainer.limit_train_batches=10 +trainer.limit_val_batches=5
 
-trvs train-vimh-small: ## Train the small example VIMH dataset using the default model (CNN 64k)
+trs train-vimh-small: ## Train the small example VIMH dataset using the default model (CNN 64k)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 
-trvl train-vimh-large: ## Train the large example VIMH dataset using the default model (CNN 64k)
+trl train-vimh-large: ## Train the large example VIMH dataset using the default model (CNN 64k)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
 
@@ -122,7 +122,7 @@ s sync: ## Merge changes from main branch to your current branch
 
 tb tensorboard: ## Launch TensorBoard on port 6006
 	@lsof -i :6006 >/dev/null 2>&1 && echo "TensorBoard already running on port 6006" || \
-		(echo "Starting TensorBoard on port 6006..." && tensorboard --logdir logs/train/runs/ --port 6006 &)
+		(echo "Starting TensorBoard on port 6006..." && tensorboard --logdir logs/train/runs/ --reload_interval 1 --port 6006 &)
 	@echo "Open http://localhost:6006/"
 
 a activate: ## Activate the uv environment

@@ -7,7 +7,7 @@ defaults:
   - data: vimh
   - model: vimh_cnn_64k
   - callbacks: default
-  - logger: null # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
+  - logger: tensorboard # set logger here or use command line (e.g. `python train.py logger=null` to disable)
   - trainer: default
   - paths: default
   - extras: default
