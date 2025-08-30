@@ -133,54 +133,52 @@ class VIMHDataModule(LightningDataModule):
         self.parameter_bounds: Dict[str, Tuple[float, float]] = {}  # Parameter (min, max) for regression
         self.image_shape: Tuple[int, int, int] = (3, 32, 32)  # Default, will be updated
 
-    def _adjust_transforms_for_image_size(self, height: int, width: int) -> None:
+    def _adjust_transforms_for_image_size(self, height: int, width: int, channels: int) -> None:
         """Adjust transforms based on actual image dimensions."""
         # Update the default train transforms with proper padding/cropping
         
-        # Get the number of channels to determine normalization
-        channels = self.image_shape[0] if hasattr(self, 'image_shape') and self.image_shape else 3
-        
-        if height == 32 and width == 32:
-            if channels == 1:
-                # Use 32x32 grayscale transforms
-                self.default_train_transforms = transforms.Compose([
-                    transforms.ToPILImage(),
-                    transforms.RandomCrop(32, padding=4),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.RandomRotation(15),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
-                ])
-
-                self.default_transforms = transforms.Compose([
-                    transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
-                ])
-            else:
-                # Use 32x32 RGB transforms
-                self.default_train_transforms = transforms.Compose([
-                    transforms.ToPILImage(),
-                    transforms.RandomCrop(32, padding=4),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.RandomRotation(15),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-                ])
-
-                self.default_transforms = transforms.Compose([
-                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-                ])
-        elif height == 28 and width == 28:
-            # Use MNIST-style transforms for 28x28 images
+        if channels == 1:
+            # Use grayscale transforms for single-channel images
             self.default_train_transforms = transforms.Compose([
                 transforms.ToPILImage(),
-                transforms.RandomRotation(10),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
                 transforms.ToTensor(),
-                transforms.Normalize((0.5,), (0.5,))
+                transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
             ])
 
             self.default_transforms = transforms.Compose([
-                transforms.Normalize((0.5,), (0.5,))
+                transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
             ])
+        else:
+            # Use RGB transforms for multi-channel images
+            if height == 32 and width == 32:
+                # CIFAR-10 style normalization for 32x32 RGB
+                self.default_train_transforms = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(15),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                ])
+
+                self.default_transforms = transforms.Compose([
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                ])
+            else:
+                # Generic RGB transforms for other sizes
+                self.default_train_transforms = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(15),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Generic RGB normalization
+                ])
+
+                self.default_transforms = transforms.Compose([
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Generic RGB normalization
+                ])
 
         # Update transforms if they were using defaults
         if self.using_default_train_transform:
@@ -545,7 +543,7 @@ class VIMHDataModule(LightningDataModule):
                 self.parameter_bounds = self._load_parameter_bounds(self.hparams.data_dir)
 
                 # Adjust transforms based on detected image dimensions
-                self._adjust_transforms_for_image_size(height, width)
+                self._adjust_transforms_for_image_size(height, width, channels)
 
                 # Now load datasets with correctly adjusted transforms
                 self.data_train = VIMHDataset(
