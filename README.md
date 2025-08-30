@@ -61,11 +61,11 @@ make h
 
 # Generate a default small VIMH dataset for some quick tests (same as `make sds`)
 # (writes ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p)
-python generate_vimh.py --config-name=generate_simple_saw
+python generate_vimh.py --config-name=synth/generate_simple_saw
 
 # Generate a default large VIMH dataset for some quick tests (same as `make sdl`)
 # (writes ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p)
-python generate_vimh.py --config-name=generate_simple_saw
+python generate_vimh.py --config-name=synth/generate_simple_saw
 
 
 # Display the most recently created dataset (default) (`make ddr`)

@@ -4,11 +4,11 @@ h help:  ## Show help
 # SYNTHETIC DATASET MAKE TARGETS "sd"
 
 sds synth-dataset-small: ## Synthesize a small example VIMH dataset (256 samples)
-	python generate_vimh.py --config-name=generate_simple_saw
+	python generate_vimh.py --config-name=synth/generate_simple_saw
 	ls ./data/
 
 sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset (16k samples)
-	python generate_vimh.py --config-name=generate_simple_saw dataset.size=16384
+	python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384
 	ls ./data/
 
 # DISPLAY VIMH DATASETS "dd"
