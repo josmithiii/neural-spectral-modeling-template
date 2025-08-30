@@ -91,6 +91,8 @@ emall: emall-gen emb eme emr ## Generate datasets and train CNNs on all Moog VCF
 
 emall-gen: sdmb sdme sdmr ## Generate all Moog datasets before training
 
+emall-train: emb eme emr ## Run all Moog dataset training experiments
+
 # CLEANING MAKE TARGETS
 
 dc dclean: ## Clean data files
