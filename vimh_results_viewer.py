@@ -10,6 +10,7 @@ import os
 import sys
 import json
 import glob
+import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 import argparse
@@ -162,6 +163,73 @@ class VIMHResultsViewer:
         print(f"Image shape: {self.image_shape}")
         print(f"Parameter heads: {list(self.heads_config.keys())}")
     
+    def _load_cnn_config_from_training_run(self) -> Dict[str, Any]:
+        """Load CNN architecture configuration from training run YAML files."""
+        checkpoint_dir = Path(self.checkpoint_path).parent
+        run_dir = checkpoint_dir.parent  # Go up from checkpoints/ to run directory
+        
+        # Default configuration as fallback
+        default_config = {
+            "input_channels": self.image_shape[0],
+            "conv1_channels": 64,
+            "conv2_channels": 128,
+            "fc_hidden": 512,
+            "heads_config": self.heads_config,
+            "dropout": 0.5,
+            "input_size": self.image_shape[1],  # Height
+            "output_mode": "classification",
+            "auxiliary_input_size": 0,
+            "auxiliary_hidden_size": 32
+        }
+        
+        # Try multiple possible locations for the configuration
+        config_paths = [
+            run_dir / "tensorboard" / "version_0" / "hparams.yaml",
+            run_dir / ".hydra" / "config.yaml"
+        ]
+        
+        for config_path in config_paths:
+            if config_path.exists():
+                try:
+                    with open(config_path, 'r') as f:
+                        config_data = yaml.safe_load(f)
+                    
+                    # Extract CNN config from the YAML structure
+                    if 'model' in config_data and 'net' in config_data['model']:
+                        net_config = config_data['model']['net']
+                        
+                        # Build CNN config from the YAML data
+                        cnn_config = {
+                            "input_channels": net_config.get("input_channels", self.image_shape[0]),
+                            "conv1_channels": net_config.get("conv1_channels", 64),
+                            "conv2_channels": net_config.get("conv2_channels", 128),
+                            "fc_hidden": net_config.get("fc_hidden", 512),
+                            "heads_config": net_config.get("heads_config", self.heads_config),
+                            "dropout": net_config.get("dropout", 0.5),
+                            "input_size": net_config.get("input_size", self.image_shape[1]),
+                            "output_mode": net_config.get("output_mode", "classification"),
+                            "auxiliary_input_size": net_config.get("auxiliary_input_size", 0),
+                            "auxiliary_hidden_size": net_config.get("auxiliary_hidden_size", 32)
+                        }
+                        
+                        print(f"✓ Loaded CNN config from {config_path.name}:")
+                        print(f"  • Input channels: {cnn_config['input_channels']}")
+                        print(f"  • Conv channels: {cnn_config['conv1_channels']}, {cnn_config['conv2_channels']}")
+                        print(f"  • FC hidden: {cnn_config['fc_hidden']}")
+                        print(f"  • Input size: {cnn_config['input_size']}")
+                        print(f"  • Dropout: {cnn_config['dropout']}")
+                        
+                        return cnn_config
+                        
+                except Exception as e:
+                    print(f"Warning: Error reading {config_path}: {e}")
+                    continue
+        
+        print(f"WARNING: No valid training run configuration found in {run_dir}")
+        print("Checked paths:", [str(p) for p in config_paths])
+        print("Using default CNN configuration")
+        return default_config
+    
     def _load_model(self):
         """Load the model from checkpoint."""
         print(f"Loading checkpoint: {self.checkpoint_path}")
@@ -170,17 +238,11 @@ class VIMHResultsViewer:
             # Import the network architecture
             from src.models.components.simple_cnn import SimpleCNN
             
-            # Create network with current dataset configuration
-            # Use reasonable defaults for CNN architecture
-            net = SimpleCNN(
-                input_channels=self.image_shape[0],  # Number of channels
-                conv1_channels=64,
-                conv2_channels=128, 
-                fc_hidden=512,
-                heads_config=self.heads_config,  # Use dataset heads config
-                dropout=0.5,
-                input_size=self.image_shape[1]  # Height (assuming square images)
-            )
+            # Load model architecture config from training run metadata
+            cnn_config = self._load_cnn_config_from_training_run()
+            
+            # Create network with dataset-specified configuration
+            net = SimpleCNN(**cnn_config)
             
             # Create dummy optimizer and scheduler for loading
             dummy_optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
