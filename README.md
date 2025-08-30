@@ -97,7 +97,7 @@ VIMH datasets use a structured format with:
 ### 🔧 Configuration
 
 ```yaml
-# configs/data/vimh.yaml
+# configs/data/vimh_256dss.yaml
 _target_: src.data.vimh_datamodule.VIMHDataModule
 data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 batch_size: 128
