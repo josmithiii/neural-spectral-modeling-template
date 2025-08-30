@@ -1,0 +1,7 @@
+# Pitch-synchronous STFT for 100Hz fundamental (80 samples at 8kHz)
+type: "stft"
+n_fft: 80
+n_window: 80
+hop_length: 80
+window_type: "rectangular"
+bins_per_harmonic: 1.0

@@ -11,6 +11,20 @@ sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset (16k sample
 	python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384
 	ls ./data/
 
+sdmb synth-dataset-moog-basic: ## Synthesize VIMH dataset with basic Moog VCF (256 samples)
+	python generate_vimh.py --config-name=synth/generate_moog_basic
+	ls ./data/
+
+sdme synth-dataset-moog-envelope: ## Synthesize VIMH dataset with Moog envelope sweeps (512 samples)
+	python generate_vimh.py --config-name=synth/generate_moog_envelope
+	ls ./data/
+
+sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with high-resonance Moog exploration (384 samples)
+	python generate_vimh.py --config-name=synth/generate_moog_resonance
+	ls ./data/
+
+sdma synth-dataset-moog-all: sdmb sdme sdmr ## Generate all Moog VCF datasets: basic, envelope, resonance
+
 # DISPLAY VIMH DATASETS "dd"
 
 ddr display-dataset-recent: ## Display the most recently created dataset (default)
@@ -61,6 +75,21 @@ evittl exp-trivial-vit-tiny-large: ## Tiny ViT (~25K params) on large dataset (1
 	time python src/train.py experiment=trivial_vit_tiny_large
 
 evitall: evitms evitts evitml evittl ## Run all ViT trivial dataset experiments
+
+# MOOG VCF DATASET EXPERIMENTS "em" - CNN training on Moog filter datasets
+
+emb exp-moog-basic: ## Train CNN on basic Moog VCF dataset (4 params)
+	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_4p
+
+eme exp-moog-envelope: ## Train CNN on Moog envelope sweep dataset (10 params)
+	time python src/train.py data.data_dir=data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_10p
+
+emr exp-moog-resonance: ## Train CNN on high-resonance Moog dataset (8 params)
+	time python src/train.py data.data_dir=data/vimh-48x48x1_8000Hz_1p5s_384dss_simple_8p
+
+emall: emall-gen emb eme emr ## Generate datasets and train CNNs on all Moog VCF experiments
+
+emall-gen: sdmb sdme sdmr ## Generate all Moog datasets before training
 
 # CLEANING MAKE TARGETS
 

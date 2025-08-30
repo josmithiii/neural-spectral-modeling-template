@@ -1,0 +1,7 @@
+# High resolution STFT for resonant peak analysis  
+type: "stft"
+n_fft: 256
+n_window: 128
+hop_length: 32
+window_type: "hann"
+bins_per_harmonic: 1.0

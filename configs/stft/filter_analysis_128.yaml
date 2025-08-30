@@ -1,0 +1,7 @@
+# Higher resolution STFT for filter effect analysis
+type: "stft"
+n_fft: 128
+n_window: 64
+hop_length: 32
+window_type: "hann"
+bins_per_harmonic: 1.0

@@ -334,16 +334,150 @@ def check_params(params: Dict[str, float], *required_params: str) -> None:
             logger.warning(f"Parameter '{param_name}' not found in params")
 
 
+class MoogVCF:
+    """Moog-style 4-pole ladder filter with resonance control."""
+    
+    def __init__(self, sample_rate: int):
+        self.sample_rate = sample_rate
+        self.reset()
+        
+    def reset(self):
+        """Reset filter state."""
+        self.stage = np.zeros(4, dtype=np.float64)  # 4 filter stages
+        self.stage_tanh = np.zeros(4, dtype=np.float64)
+        self.delay = np.zeros(4, dtype=np.float64)
+        
+    def process(self, audio: np.ndarray, cutoff_freq: np.ndarray, resonance: np.ndarray) -> np.ndarray:
+        """Process audio through Moog ladder filter.
+        
+        Args:
+            audio: Input audio signal
+            cutoff_freq: Cutoff frequency in Hz (can be array for time-varying)
+            resonance: Resonance amount 0-1 (can be array for time-varying)
+        """
+        output = np.zeros_like(audio, dtype=np.float64)
+        
+        # Convert to per-sample arrays if needed
+        if np.isscalar(cutoff_freq):
+            cutoff_freq = np.full_like(audio, cutoff_freq)
+        if np.isscalar(resonance):
+            resonance = np.full_like(audio, resonance)
+            
+        for i, (sample, fc, res) in enumerate(zip(audio, cutoff_freq, resonance)):
+            # Clamp parameters
+            fc = np.clip(fc, 20.0, self.sample_rate * 0.45)  # Nyquist safety
+            res = np.clip(res, 0.0, 0.99)  # Stability limit
+            
+            # Pre-warp frequency for bilinear transform
+            fc_warped = np.tan(np.pi * fc / self.sample_rate)
+            
+            # Resonance feedback coefficient
+            k = 4.0 * res
+            
+            # Input with resonance feedback
+            input_sample = sample - k * self.delay[3]
+            
+            # Process through 4 stages
+            for stage_idx in range(4):
+                # One-pole lowpass: y[n] = (1-a)*x[n] + a*y[n-1]
+                # where a = 1 / (1 + 2*fc_warped) for stability
+                a = 1.0 / (1.0 + 2.0 * fc_warped)
+                
+                # Stage input is previous stage output (or filter input for first stage)
+                stage_input = input_sample if stage_idx == 0 else self.stage_tanh[stage_idx - 1]
+                
+                # Update stage
+                self.stage[stage_idx] = (1.0 - a) * stage_input + a * self.stage[stage_idx]
+                
+                # Apply soft saturation (tanh) for Moog character
+                self.stage_tanh[stage_idx] = np.tanh(self.stage[stage_idx])
+                
+            # Update delays for next sample
+            self.delay = self.stage_tanh.copy()
+            
+            # Output is final stage
+            output[i] = self.stage_tanh[3]
+            
+        return output.astype(np.float32)
+
+
+class ADSREnvelope:
+    """ADSR envelope generator for filter modulation."""
+    
+    def __init__(self, sample_rate: int):
+        self.sample_rate = sample_rate
+        
+    def generate(self, duration: float, attack: float, decay: float, 
+                sustain: float, release: float) -> np.ndarray:
+        """Generate ADSR envelope.
+        
+        Args:
+            duration: Total note duration in seconds
+            attack: Attack time in seconds
+            decay: Decay time in seconds  
+            sustain: Sustain level (0-1)
+            release: Release time in seconds
+        """
+        num_samples = int(duration * self.sample_rate)
+        envelope = np.zeros(num_samples, dtype=np.float64)
+        
+        # Convert times to sample counts
+        attack_samples = int(attack * self.sample_rate)
+        decay_samples = int(decay * self.sample_rate) 
+        release_samples = int(release * self.sample_rate)
+        
+        # Ensure we don't exceed total duration
+        total_transient = attack_samples + decay_samples + release_samples
+        if total_transient > num_samples:
+            # Scale down proportionally
+            scale = num_samples / total_transient
+            attack_samples = int(attack_samples * scale)
+            decay_samples = int(decay_samples * scale)
+            release_samples = int(release_samples * scale)
+            
+        # Calculate sustain duration
+        sustain_samples = num_samples - attack_samples - decay_samples - release_samples
+        sustain_samples = max(0, sustain_samples)  # Ensure non-negative
+        
+        idx = 0
+        
+        # Attack phase: 0 -> 1
+        if attack_samples > 0:
+            envelope[idx:idx + attack_samples] = np.linspace(0.0, 1.0, attack_samples)
+            idx += attack_samples
+            
+        # Decay phase: 1 -> sustain
+        if decay_samples > 0:
+            envelope[idx:idx + decay_samples] = np.linspace(1.0, sustain, decay_samples)
+            idx += decay_samples
+            
+        # Sustain phase: constant sustain level
+        if sustain_samples > 0:
+            envelope[idx:idx + sustain_samples] = sustain
+            idx += sustain_samples
+            
+        # Release phase: sustain -> 0
+        if release_samples > 0 and idx < num_samples:
+            remaining = num_samples - idx
+            actual_release = min(release_samples, remaining)
+            start_level = sustain if sustain_samples > 0 else (1.0 if decay_samples == 0 else envelope[idx-1])
+            envelope[idx:idx + actual_release] = np.linspace(start_level, 0.0, actual_release)
+            
+        return envelope.astype(np.float32)
+
+
 class SimpleSawSynth:
-    """Simple exponentially decaying sawtooth synthesizer."""
+    """Simple exponentially decaying sawtooth synthesizer with Moog VCF."""
 
     def __init__(self, sample_rate: int = 8000):
         if sample_rate <= 0:
             raise ValueError(f"Sample rate must be positive, got {sample_rate}")
         self.sample_rate = sample_rate
+        self.vcf = MoogVCF(sample_rate)
+        self.adsr = ADSREnvelope(sample_rate)
 
     def generate_audio(self, params: Dict[str, float]) -> np.ndarray:
-        """Generate audio with given parameters."""
+        """Generate audio with given parameters including filter and envelope control."""
         check_params(params, "note_number", "note_velocity", "duration", "log10_decay_time")
 
         try:
@@ -356,6 +490,18 @@ class SimpleSawSynth:
                 decay_time = 10.0**log10_decay_time
             else:
                 decay_time = 10.0**DEFAULT_LOG10_DECAY_TIME
+
+            # Filter parameters (optional)
+            filter_enabled = params.get("filter_enabled", False)
+            base_cutoff = params.get("filter_cutoff", 1000.0)  # Hz
+            base_resonance = params.get("filter_resonance", 0.0)  # 0-1
+            
+            # Envelope parameters for filter modulation (optional)
+            env_attack = params.get("filter_env_attack", 0.01)  # seconds
+            env_decay = params.get("filter_env_decay", 0.1)   # seconds  
+            env_sustain = params.get("filter_env_sustain", 0.3)  # 0-1
+            env_release = params.get("filter_env_release", 0.2)  # seconds
+            env_amount = params.get("filter_env_amount", 0.0)  # Filter envelope depth (octaves)
 
             # Validate parameters
             if duration <= 0:
@@ -370,7 +516,6 @@ class SimpleSawSynth:
             num_samples = int(duration * self.sample_rate)
             if num_samples <= 0:
                 raise ValueError(f"Duration too short for sample rate, got {num_samples} samples")
-
 
             # Use arange for exact sample timing instead of linspace
             t = np.arange(num_samples, dtype=np.float64) / self.sample_rate
@@ -388,22 +533,28 @@ class SimpleSawSynth:
             # Apply velocity (amplitude scaling)
             amplitude = note_velocity / 127.0
 
-            # Generate impulse train at fundamental frequency
-            # Detect rising edges of sawtooth (new cycles)
-            impulse_train = np.zeros_like(sawtooth)
-            if len(sawtooth) > 1:
-                # Find where sawtooth wraps around (goes from high to low value)
-                phase_wraps = np.diff(sawtooth) < -1.0  # Large negative diff indicates wrap
-                impulse_train[1:][phase_wraps] = 1.0
-                # Also set first sample as impulse
-                impulse_train[0] = 1.0
-            else:
-                impulse_train[0] = 1.0
-
-            # Combine all effects
+            # Generate audio (before filtering)
             audio = amplitude * sawtooth * decay_envelope
-            # TEST IMPULSE-TRAIN HACK - flat spectrum (no decay envelope):
-            # audio = amplitude * impulse_train
+
+            # Apply Moog VCF if enabled
+            if filter_enabled:
+                # Reset filter state for clean start
+                self.vcf.reset()
+                
+                # Generate filter envelope if modulation is enabled
+                if env_amount != 0.0:
+                    filter_envelope = self.adsr.generate(duration, env_attack, env_decay, env_sustain, env_release)
+                    # Convert envelope amount from octaves to frequency multiplier
+                    freq_multiplier = 2.0 ** (env_amount * filter_envelope)
+                    cutoff_freq = base_cutoff * freq_multiplier
+                else:
+                    cutoff_freq = base_cutoff
+                
+                # Apply resonance envelope if desired (could be controlled separately)
+                resonance = base_resonance
+                
+                # Filter the audio
+                audio = self.vcf.process(audio, cutoff_freq, resonance)
 
             return audio.astype(np.float32)
 

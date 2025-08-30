@@ -1,0 +1,3 @@
+# Default mel filter parameters
+freq_min: 40.0
+freq_max_ratio: 0.9
