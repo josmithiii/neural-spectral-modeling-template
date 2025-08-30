@@ -313,8 +313,8 @@ class VIMHResultsViewer:
         # Sample navigation
         ax_prev = plt.axes([0.1, 0.02, 0.1, 0.04])
         ax_next = plt.axes([0.21, 0.02, 0.1, 0.04])
-        self.btn_prev = Button(ax_prev, 'Previous')
-        self.btn_next = Button(ax_next, 'Next')
+        self.btn_prev = Button(ax_prev, 'Previous', color='#404040', hovercolor='#606060')
+        self.btn_next = Button(ax_next, 'Next', color='#404040', hovercolor='#606060')
         
         # Sample slider
         ax_slider = plt.axes([0.35, 0.02, 0.3, 0.03])
@@ -327,8 +327,8 @@ class VIMHResultsViewer:
         # Dataset/Model selection buttons
         ax_dataset = plt.axes([0.7, 0.02, 0.1, 0.04])
         ax_model = plt.axes([0.81, 0.02, 0.1, 0.04])
-        self.btn_dataset = Button(ax_dataset, 'Dataset')
-        self.btn_model = Button(ax_model, 'Model')
+        self.btn_dataset = Button(ax_dataset, 'Dataset', color='#404040', hovercolor='#606060')
+        self.btn_model = Button(ax_model, 'Model', color='#404040', hovercolor='#606060')
         
         # Status text
         self.status_text = self.ax_controls.text(
