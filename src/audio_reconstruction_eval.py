@@ -148,6 +148,13 @@ class AudioReconstructionEvaluator:
             mel_config=mel_config
         )
         
+        # Debug: Print spectrogram processor configuration (can be removed)
+        # log.info(f"SpectrogramProcessor config:")
+        # log.info(f"  Sample rate: {self.sample_rate} Hz") 
+        # log.info(f"  Dimensions: {height}x{width}")
+        # log.info(f"  STFT config: {stft_config}")
+        # log.info(f"  MEL config: {mel_config}")
+        
         # Parameter mappings for denormalization
         self.param_mappings = self.dataset_info.get("parameter_mappings", {})
         self.param_names = self.dataset_info.get("parameter_names", [])
@@ -233,7 +240,7 @@ class AudioReconstructionEvaluator:
                 actual_value = sample_metadata[param_info_key]["actual_value"]
                 true_params[param_name] = actual_value
             else:
-                log.warning(f"Could not find true value for parameter {param_name}")
+                raise ValueError(f"Could not find true value for parameter {param_name} in sample metadata")
                 
         return true_params
     
@@ -319,22 +326,29 @@ class AudioReconstructionEvaluator:
         Returns:
             Generated audio array
         """
-        # Check that we have required parameters, fill in defaults if missing
-        check_params(params, "note_number", "note_velocity", "duration", "log10_decay_time")
+        # Start with a copy to avoid modifying original
+        complete_params = params.copy()
         
-        # Set duration from dataset info
-        params = params.copy()
-        params["duration"] = self.duration
+        # Add fixed parameters from dataset metadata to ensure identical synthesis
+        if hasattr(self, 'dataset_info') and 'fixed_parameters' in self.dataset_info:
+            fixed_params = self.dataset_info['fixed_parameters']
+            for param_name, param_info in fixed_params.items():
+                if param_name not in complete_params:
+                    complete_params[param_name] = param_info['value']
+                    log.debug(f"Added fixed parameter {param_name} = {param_info['value']}")
         
-        # Generate audio
-        try:
-            audio = self.synth.generate_audio(params)
-            return audio
-        except Exception as e:
-            log.error(f"Error synthesizing audio: {e}")
-            # Return silence as fallback
-            num_samples = int(self.duration * self.sample_rate)
-            return np.zeros(num_samples, dtype=np.float32)
+        # Set duration from dataset info 
+        complete_params["duration"] = self.duration
+        
+        # Debug: Print complete parameter set for verification (can be disabled)
+        # log.info(f"Complete synthesis parameters: {complete_params}")
+        
+        # Check that we have required parameters
+        check_params(complete_params, "note_number", "note_velocity", "duration", "log10_decay_time")
+        
+        # Generate audio - fail fast, no fallbacks
+        audio = self.synth.generate_audio(complete_params)
+        return audio
     
     def compute_audio_metrics(self, true_audio: np.ndarray, pred_audio: np.ndarray) -> Dict[str, float]:
         """
@@ -459,12 +473,17 @@ class AudioReconstructionEvaluator:
         pred_audio = results["pred_audio"]
         input_spec = results["input_spectrogram"]
         
-        # Remove channel dimension for plotting if present
+        # Remove channel dimension and normalize for plotting
         if len(input_spec.shape) == 3:
             if input_spec.shape[0] == 1:  # (1, H, W) format - channels first
                 input_spec = input_spec[0, :, :]  # Remove channel dimension: (1, H, W) -> (H, W)
             else:  # (H, W, 1) format - channels last  
                 input_spec = input_spec[:, :, 0]  # Remove channel dimension: (H, W, 1) -> (H, W)
+        
+        # Convert from normalized [0, 1] back to [0, 255] to match true spectrogram format
+        # Dataset spectrograms are normalized during loading, but we want to display them 
+        # in the same scale as the true spectrogram for proper comparison
+        input_spec = (input_spec * 255.0).astype(np.uint8)
         
         # Time axis
         t = np.arange(len(true_audio)) / self.sample_rate
@@ -504,21 +523,10 @@ class AudioReconstructionEvaluator:
         
         # 5. True audio spectrogram (re-synthesized)
         plt.subplot(3, 3, 5)
-        true_spec, _, _ = self.spec_processor.audio_to_spectrogram({}, true_audio)
+        # Use the same parameters that were used for original dataset generation
+        true_spec, _, _ = self.spec_processor.audio_to_spectrogram(results["true_params"], true_audio)
         
-        # Debug: Print spectrogram comparison info (can be removed after verification)
-        # if results["sample_idx"] < 2:  # Only for first couple samples
-        #     print(f"\n🔍 SPECTROGRAM ANALYSIS for sample {results['sample_idx']}:")
-        #     print(f"   Input spec shape: {input_spec.shape}, range: [{input_spec.min():.3f}, {input_spec.max():.3f}]")
-        #     print(f"   True spec shape: {true_spec.shape}, range: [{true_spec.min():.3f}, {true_spec.max():.3f}]")
-        #     
-        #     # Check if they're even close
-        #     if input_spec.shape == true_spec.shape:
-        #         diff = np.abs(input_spec - true_spec)
-        #         print(f"   Pixel-wise difference: mean={diff.mean():.3f}, max={diff.max():.3f}")
-        #         print(f"   Correlation: {np.corrcoef(input_spec.flatten(), true_spec.flatten())[0,1]:.3f}")
-        #     else:
-        #         print(f"   ❌ Shape mismatch! Cannot compare directly.")
+        # The spectrograms should now match since we're using the same parameters and processing
         
         plt.imshow(true_spec, aspect='auto', origin='lower', cmap='viridis')
         plt.title("True Synthesis Spectrogram")
@@ -811,12 +819,15 @@ class InteractiveAudioEvaluator:
         pred_audio = self.current_results["pred_audio"]
         input_spec = self.current_results["input_spectrogram"]
         
-        # Remove channel dimension if present
+        # Remove channel dimension and normalize for plotting  
         if len(input_spec.shape) == 3:
             if input_spec.shape[0] == 1:  # (1, H, W) format - channels first
                 input_spec = input_spec[0, :, :]  # Remove channel dimension: (1, H, W) -> (H, W)
             else:  # (H, W, 1) format - channels last  
                 input_spec = input_spec[:, :, 0]  # Remove channel dimension: (H, W, 1) -> (H, W)
+        
+        # Convert from normalized [0, 1] back to [0, 255] to match true spectrogram format
+        input_spec = (input_spec * 255.0).astype(np.uint8)
         
         t = np.arange(len(true_audio)) / self.evaluator.sample_rate
         
