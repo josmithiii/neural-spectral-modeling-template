@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Optional, Dict
+from omegaconf import ListConfig
 
 
 class EmbedLayer(nn.Module):
@@ -23,10 +24,19 @@ class EmbedLayer(nn.Module):
     Returns:
         Tensor: Embedding of the image of shape B, S, E
     """    
-    def __init__(self, n_channels: int, embed_dim: int, image_size: int, patch_size: int, dropout: float = 0.0):
+    def __init__(self, n_channels: int, embed_dim: int, image_size, patch_size: int, dropout: float = 0.0):
         super().__init__()
         self.conv1 = nn.Conv2d(n_channels, embed_dim, kernel_size=patch_size, stride=patch_size)
-        self.pos_embedding = nn.Parameter(torch.zeros(1, (image_size // patch_size) ** 2, embed_dim), requires_grad=True)
+        
+        # Handle both square (int) and rectangular (list/tuple/ListConfig) image sizes
+        if isinstance(image_size, (list, tuple, ListConfig)):
+            height, width = image_size
+            num_patches = (height // patch_size) * (width // patch_size)
+        else:
+            # Square image (backward compatibility)
+            num_patches = (image_size // patch_size) ** 2
+            
+        self.pos_embedding = nn.Parameter(torch.zeros(1, num_patches, embed_dim), requires_grad=True)
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim), requires_grad=True)
         self.dropout = nn.Dropout(dropout)
 
@@ -183,7 +193,7 @@ class VisionTransformer(nn.Module):
         self,
         input_size: int = 784,  # For backward compatibility with template, will be ignored
         n_channels: int = 1,
-        image_size: int = 28,
+        image_size = 28,  # Can be int (square) or tuple/list [height, width] (rectangular)
         patch_size: int = 4,
         embed_dim: int = 64,
         n_layers: int = 6,

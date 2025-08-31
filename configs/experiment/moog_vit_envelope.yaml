@@ -5,7 +5,7 @@
 # Note: This uses 32x64 images which may require ViT architecture adjustments
 
 defaults:
-  - override /data: vimh
+  - override /data: vimh_256dss
   - override /model: vit_tiny  # Medium ViT for 10-parameter dataset
   - override /callbacks: default
   - override /trainer: default
@@ -23,7 +23,7 @@ model:
     lr: 0.003
     weight_decay: 0.005
   net:
-    image_size: [32, 64]  # Non-square images - may need debugging
+    image_size: [32, 64]  # Non-square images - requires ViT modification for rectangular support
     patch_size: 8  # Larger patches for rectangular images
 
 data:
