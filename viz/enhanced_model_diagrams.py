@@ -179,25 +179,11 @@ def generate_from_config(config_name: str, output_dir: str = "diagrams"):
 
     except Exception as e:
         print(f"Error loading config {config_name}: {e}")
-        print("Falling back to hardcoded SimpleCNN...")
-
-        # Fallback to hardcoded model
-        model = SimpleCNN(
-            input_channels=1,
-            conv1_channels=3,
-            conv2_channels=6,
-            fc_hidden=25,
-            output_size=10,
-            dropout=0.25
-        )
-
-        create_text_summary(model, model_name=f"SimpleCNN (fallback)")
-        create_ascii_diagram_cnn()
-        create_graphical_diagram(model, model_name="SimpleCNN", output_dir=output_dir)
+        sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(description="Generate model architecture diagrams")
-    parser.add_argument("--config", "-c", default="mnist_cnn_8k",
+    parser.add_argument("--config", "-c", default=None,
                        help="Model config name (default: mnist_cnn_8k)")
     parser.add_argument("--output", "-o", default="diagrams",
                        help="Output directory for diagrams (default: diagrams)")
