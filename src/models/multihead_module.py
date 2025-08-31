@@ -215,17 +215,20 @@ class MultiheadLitModule(LightningModule):
 
         # Update criteria if using auto-configuration
         if self.auto_configure_from_dataset:
-            # If criteria were pre-configured, preserve them and update with parameter ranges
-            if self.criteria:
+            # Check if we have hardcoded 'digit' head that needs replacement
+            has_hardcoded_digit = self.criteria and 'digit' in self.criteria and 'digit' not in heads_config
+            
+            if self.criteria and not has_hardcoded_digit:
+                # If criteria were pre-configured (and not hardcoded digit), preserve them and update with parameter ranges
                 self._update_criteria_with_parameter_ranges(dataset)
             else:
-                # No pre-configured criteria, use default CrossEntropyLoss
+                # No pre-configured criteria or hardcoded digit - replace with dataset heads
                 self.criteria = {}
                 for head_name in heads_config.keys():
                     self.criteria[head_name] = torch.nn.CrossEntropyLoss()
 
-            # Update loss weights if not already set
-            if not self.loss_weights:
+            # Update loss weights - reset them if we replaced criteria due to hardcoded digit
+            if not self.loss_weights or has_hardcoded_digit:
                 self.loss_weights = {name: 1.0 for name in self.criteria.keys()}
 
         # Update multihead flag
