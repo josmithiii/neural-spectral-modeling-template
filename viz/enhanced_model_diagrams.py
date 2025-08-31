@@ -184,7 +184,7 @@ def generate_from_config(config_name: str, output_dir: str = "diagrams"):
 def main():
     parser = argparse.ArgumentParser(description="Generate model architecture diagrams")
     parser.add_argument("--config", "-c", default=None,
-                       help="Model config name (default: mnist_cnn_8k)")
+                       help="Model config name (default: generate for all configs)")
     parser.add_argument("--output", "-o", default="diagrams",
                        help="Output directory for diagrams (default: diagrams)")
     parser.add_argument("--list-configs", action="store_true",
@@ -202,7 +202,29 @@ def main():
             print("No configs/model directory found")
         return
 
-    generate_from_config(args.config, args.output)
+    # If no config specified, generate for all configs
+    if args.config is None:
+        config_path = Path("configs/model")
+        if not config_path.exists():
+            print("No configs/model directory found")
+            sys.exit(1)
+        
+        config_files = list(config_path.glob("*.yaml"))
+        if not config_files:
+            print("No model config files found in configs/model/")
+            sys.exit(1)
+        
+        print(f"Generating diagrams for all {len(config_files)} model configs...")
+        for i, config_file in enumerate(config_files, 1):
+            config_name = config_file.stem
+            print(f"\n[{i}/{len(config_files)}] Processing {config_name}...")
+            try:
+                generate_from_config(config_name, args.output)
+            except Exception as e:
+                print(f"Failed to generate diagram for {config_name}: {e}")
+                continue
+    else:
+        generate_from_config(args.config, args.output)
 
     print(f"\n{'='*80}")
     print("Model diagram generation complete!")

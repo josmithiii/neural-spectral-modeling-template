@@ -140,19 +140,8 @@ ta test-all: ## Run all pytest tests
 
 # TEST DIAGRAM TARGETS "td*"
 
-tdga test-diagram-graphical-all: ## Generate model architecture diagrams (text + graphical)
+td tda test-diagram-all: ## Generate enhanced diagrams for all architectures (text + graphical)
 	python viz/enhanced_model_diagrams.py
-
-tda test-diagram-all: ## Generate enhanced diagrams for all architectures (simple diagrams with more annotation)
-	python viz/enhanced_model_diagrams.py --config cnn_64k
-	python viz/enhanced_model_diagrams.py --config cnn_64k_ordinal
-	python viz/enhanced_model_diagrams.py --config cnn_64k_regression
-	python viz/enhanced_model_diagrams.py --config cnn_64k_auxiliary
-	python viz/enhanced_model_diagrams.py --config cnn_micro
-	python viz/enhanced_model_diagrams.py --config cnn_tiny
-	python viz/enhanced_model_diagrams.py --config cnn_stk
-	python viz/enhanced_model_diagrams.py --config vit_micro
-	python viz/enhanced_model_diagrams.py --config vit_tiny
 
 tdl test-diagram-list: ## List available model configs for diagrams
 	python viz/enhanced_model_diagrams.py --list-configs
