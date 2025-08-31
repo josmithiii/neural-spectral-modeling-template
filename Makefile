@@ -94,7 +94,7 @@ emall-gen: sdmb sdme sdmr ## Generate all Moog datasets before training
 emall-train: emb eme emr ## Run all Moog dataset training experiments
 
 # AUDIO EVAL
-ae audio_eval:
+ae audio-eval:
 	python src/audio_reconstruction_eval.py ## Eval latest best model checkpoint using default dataset
 
 # CLEANING MAKE TARGETS

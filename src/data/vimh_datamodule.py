@@ -641,10 +641,18 @@ class VIMHDataModule(LightningDataModule):
 
         :return: A dictionary containing the datamodule state that you want to save.
         """
-        return {
+        state = {
             'heads_config': self.heads_config,
             'image_shape': self.image_shape,
         }
+        
+        # Also save dataset metadata if available for audio reconstruction evaluation
+        if hasattr(self, 'data_train') and self.data_train is not None:
+            dataset_info = self.data_train.get_dataset_info()
+            if 'metadata_format' in dataset_info:
+                state['dataset_metadata'] = dataset_info['metadata_format']
+        
+        return state
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         """Called when loading a checkpoint. Implement to reload datamodule state given datamodule
@@ -654,16 +662,26 @@ class VIMHDataModule(LightningDataModule):
         """
         self.heads_config = state_dict.get('heads_config', {})
         self.image_shape = state_dict.get('image_shape', (3, 32, 32))
+        
+        # Restore dataset metadata if available
+        if 'dataset_metadata' in state_dict:
+            self._saved_dataset_metadata = state_dict['dataset_metadata']
 
     def get_dataset_info(self) -> Dict[str, Any]:
         """Get comprehensive information about the loaded dataset.
 
         :return: Dictionary with dataset information.
         """
+        # Try to return saved metadata first (for loaded checkpoints)
+        if hasattr(self, '_saved_dataset_metadata') and self._saved_dataset_metadata:
+            return self._saved_dataset_metadata
+            
         if self.data_train is None:
             return {'error': 'Dataset not loaded yet. Call setup() first.'}
 
-        return {
+        # Get full dataset info from the actual dataset
+        dataset_info = self.data_train.get_dataset_info()
+        base_info = {
             'heads_config': self.heads_config,
             'image_shape': self.image_shape,
             'num_train_samples': len(self.data_train) if self.data_train else 0,
@@ -673,6 +691,12 @@ class VIMHDataModule(LightningDataModule):
             'num_workers': self.hparams.num_workers,
             'data_dir': self.hparams.data_dir,
         }
+        
+        # Merge with actual dataset metadata if available
+        if 'metadata_format' in dataset_info:
+            base_info.update(dataset_info['metadata_format'])
+        
+        return base_info
 
 
 if __name__ == "__main__":
