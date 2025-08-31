@@ -159,3 +159,5 @@ configs/local/default.yaml
 
 # Temporarily saved past versions:
 archive/
+outputs
+audio_eval_results
