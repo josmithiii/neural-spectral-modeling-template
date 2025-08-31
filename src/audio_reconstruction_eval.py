@@ -674,21 +674,21 @@ class InteractiveAudioEvaluator:
     def create_widget(self):
         """Create the interactive matplotlib widget."""
         self.fig, self.axes = plt.subplots(2, 3, figsize=(18, 10))
-        plt.subplots_adjust(bottom=0.2)  # Increased bottom margin
+        plt.subplots_adjust(bottom=0.25)  # Increased bottom margin further
         
         # Add slider for sample selection
-        ax_slider = plt.axes([0.1, 0.08, 0.5, 0.03])  # Moved up from 0.05 to 0.08
+        ax_slider = plt.axes([0.1, 0.12, 0.5, 0.03])  # Moved up to 0.12
         self.sample_slider = Slider(
             ax_slider, 'Sample', 0, len(self.evaluator.test_dataset) - 1,
             valinit=0, valfmt='%d'
         )
         self.sample_slider.on_changed(self.update_sample)
         
-        # Add buttons (moved up from 0.05 to 0.08)
-        ax_prev = plt.axes([0.65, 0.08, 0.05, 0.03])
-        ax_next = plt.axes([0.71, 0.08, 0.05, 0.03])
-        ax_play_true = plt.axes([0.77, 0.08, 0.08, 0.03])
-        ax_play_pred = plt.axes([0.86, 0.08, 0.08, 0.03])
+        # Add buttons (moved up to 0.12)
+        ax_prev = plt.axes([0.65, 0.12, 0.05, 0.03])
+        ax_next = plt.axes([0.71, 0.12, 0.05, 0.03])
+        ax_play_true = plt.axes([0.77, 0.12, 0.08, 0.03])
+        ax_play_pred = plt.axes([0.86, 0.12, 0.08, 0.03])
         
         self.btn_prev = Button(ax_prev, 'Prev')
         self.btn_next = Button(ax_next, 'Next')
