@@ -43,14 +43,14 @@ class VGGStyleDiagram:
         )
         ax.add_patch(main_face)
         
-        # Simple 3D effect with subtle shadows
+        # Simple 3D effect with subtle shadows (light from lower-left)
         if depth > 0:
-            # Right shadow
+            # Right shadow (goes up and right - flipped to match top shadow)
             shadow_color = '#CCCCCC'  # Light gray shadow
             right_shadow = patches.Polygon(
                 [(x + width, y), 
-                 (x + width + depth*0.3, y - depth*0.3),
-                 (x + width + depth*0.3, y + height - depth*0.3),
+                 (x + width + depth*0.3, y + depth*0.3),
+                 (x + width + depth*0.3, y + height + depth*0.3),
                  (x + width, y + height)],
                 facecolor=shadow_color,
                 edgecolor='gray',
@@ -59,7 +59,7 @@ class VGGStyleDiagram:
             )
             ax.add_patch(right_shadow)
             
-            # Top shadow  
+            # Top shadow (goes up and right)
             top_shadow = patches.Polygon(
                 [(x, y + height),
                  (x + depth*0.3, y + height + depth*0.3),
