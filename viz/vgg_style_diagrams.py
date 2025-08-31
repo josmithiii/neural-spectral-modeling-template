@@ -101,6 +101,41 @@ class VGGStyleDiagram:
                 ha='center', va='center', 
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
                          edgecolor='gray', alpha=0.9))
+    
+    def create_multihead_outputs(self, ax, start_x: float, block_y: float, 
+                                num_heads: int, head_names: list, arrow_gap: float) -> float:
+        """Create multiple output heads arranged vertically."""
+        if num_heads <= 1:
+            return start_x
+            
+        head_height = 0.8
+        total_height = head_height * min(3, num_heads) + 0.4 * max(0, min(3, num_heads) - 1)
+        start_y = block_y + total_height/2 - head_height/2
+        
+        # Show up to 3 heads, then ellipsis
+        heads_to_show = min(3, num_heads)
+        
+        for i in range(heads_to_show):
+            y_pos = start_y - i * (head_height + 0.4)
+            
+            # Create small output block
+            self.create_3d_block(ax, start_x, y_pos - head_height/2, 1.2, head_height, 0.2, 
+                               self.colors['output'])
+            
+            if i < len(head_names):
+                head_name = head_names[i]
+                # Truncate long names
+                if len(head_name) > 8:
+                    head_name = head_name[:8] + "..."
+                self.add_text_label(ax, start_x + 0.6, y_pos, head_name, fontsize=8)
+            
+            if i == 1 and num_heads > 3:
+                # Add ellipsis
+                ax.text(start_x + 0.6, y_pos - (head_height + 0.4), '⋮', fontsize=16, 
+                       ha='center', va='center')
+                break
+        
+        return start_x + 1.2
 
     def create_cnn_diagram(self, model_name: str, architecture: Dict[str, Any], 
                           save_path: str) -> None:
@@ -132,6 +167,9 @@ class VGGStyleDiagram:
                            f"{input_shape[1]}×{input_shape[2]}×{input_shape[3]}")
         current_x += 1.2 + arrow_gap  # Move past block width + gap
         
+        # Track spatial dimensions through the network
+        current_height, current_width = architecture['input_shape'][2], architecture['input_shape'][3]
+        
         # Convolutional blocks
         for i, conv_block in enumerate(architecture['conv_blocks']):
             # Add arrow with consistent spacing
@@ -150,7 +188,12 @@ class VGGStyleDiagram:
             # Labels with more details
             kernel_size = conv_block.get('kernel_size', 3)
             stride = conv_block.get('stride', 1)
+            padding = conv_block.get('padding', 1)
             params = conv_block.get('params', 0)
+            
+            # Update spatial dimensions after convolution
+            current_height = (current_height + 2*padding - kernel_size) // stride + 1
+            current_width = (current_width + 2*padding - kernel_size) // stride + 1
             
             self.add_text_label(ax, current_x+block_width/2, block_y+0.5, 
                                f'Conv{i+1}')
@@ -162,6 +205,10 @@ class VGGStyleDiagram:
                 self.add_text_label(ax, current_x+block_width/2, block_y-0.7, 
                                    f'{params:,} params')
             
+            # Add spatial dimensions below the block
+            self.add_text_label(ax, current_x+block_width/2, block_y-block_height/2-0.6, 
+                               f'{channels}×{current_height}×{current_width}')
+            
             current_x += block_width + arrow_gap
             
             if conv_block.get('pool', False):
@@ -169,51 +216,209 @@ class VGGStyleDiagram:
                 self.add_arrow(ax, current_x, current_x + arrow_length, block_y)
                 current_x += arrow_length + arrow_gap
                 
+                # Update spatial dimensions after pooling (2x2 with stride 2)
+                current_height = current_height // 2
+                current_width = current_width // 2
+                
                 pool_width = 0.6
                 self.create_3d_block(ax, current_x, block_y-0.5, pool_width, 1, 0.2, 
                                    self.colors['pool'])
-                self.add_text_label(ax, current_x + pool_width/2, block_y, 'Pool\n2×2')
+                self.add_text_label(ax, current_x + pool_width/2, block_y+0.2, 'Pool\n2×2')
+                
+                # Add spatial dimensions below pooling
+                self.add_text_label(ax, current_x + pool_width/2, block_y-0.8, 
+                                   f'{channels}×{current_height}×{current_width}')
                 current_x += pool_width + arrow_gap
         
         # Feature extraction
         self.add_arrow(ax, current_x, current_x + arrow_length, block_y)
         current_x += arrow_length + arrow_gap
         
+        # AdaptiveAvgPool reduces to fixed output size (typically 1x1 or 4x4)
+        adaptive_out_size = 1  # Most common case for classification
+        flattened_features = channels * adaptive_out_size * adaptive_out_size
+        
         feature_width = 1.0
         self.create_3d_block(ax, current_x, block_y-1, feature_width, 2, 0.2, 
                            self.colors['pool'])
-        self.add_text_label(ax, current_x + feature_width/2, block_y, 'Adaptive\nAvgPool')
+        self.add_text_label(ax, current_x + feature_width/2, block_y+0.3, 'Adaptive\nAvgPool')
+        self.add_text_label(ax, current_x + feature_width/2, block_y-0.3, 'Output: 1×1 or 4×4')
+        
+        # Add output dimensions below
+        self.add_text_label(ax, current_x + feature_width/2, block_y-1.3, 
+                           f'{flattened_features} features')
+        
+        # Check for auxiliary inputs
+        has_auxiliary = architecture.get('has_auxiliary', False)
+        aux_input_size = architecture.get('auxiliary_input_size', 0)
+        aux_hidden_size = architecture.get('auxiliary_hidden_size', 32)
+        
+        # Check if auxiliary should be shown (either configured or placeholder)
+        show_auxiliary = has_auxiliary and (isinstance(aux_input_size, str) or aux_input_size > 0)
+        
+        if show_auxiliary:
+            # Show auxiliary input path
+            aux_start_x = current_x + feature_width/2
+            aux_y_offset = -2.5  # Position below the main path
+            
+            # Auxiliary input block
+            aux_input_width = 0.8
+            self.create_3d_block(ax, aux_start_x - aux_input_width/2, block_y + aux_y_offset - 0.4, 
+                               aux_input_width, 0.8, 0.15, '#9013FE')  # Purple like input
+            self.add_text_label(ax, aux_start_x, block_y + aux_y_offset, 'Aux Input', fontsize=8)
+            # Handle placeholder values
+            if isinstance(aux_input_size, str):
+                size_label = f'{aux_input_size}D'
+            else:
+                size_label = f'{aux_input_size}D'
+            self.add_text_label(ax, aux_start_x, block_y + aux_y_offset - 0.6, 
+                               size_label, fontsize=7)
+            
+            # Auxiliary MLP
+            aux_mlp_x = aux_start_x + 1.5
+            self.create_3d_block(ax, aux_mlp_x - 0.6, block_y + aux_y_offset - 0.4, 
+                               1.2, 0.8, 0.15, '#7ED321')  # Green like FC
+            self.add_text_label(ax, aux_mlp_x, block_y + aux_y_offset, 'Aux MLP', fontsize=8)
+            self.add_text_label(ax, aux_mlp_x, block_y + aux_y_offset - 0.6, 
+                               f'→{aux_hidden_size}D', fontsize=7)
+            
+            # Arrow from aux input to aux MLP
+            self.add_arrow(ax, aux_start_x + aux_input_width/2, aux_mlp_x - 0.6, 
+                          block_y + aux_y_offset, '#2ECC71', width=0.2)
+        
         current_x += feature_width + arrow_gap
         
-        # Fully connected layers
-        for i, fc_layer in enumerate(architecture['fc_layers']):
-            self.add_arrow(ax, current_x, current_x + arrow_length, block_y)
-            current_x += arrow_length + arrow_gap
+        # Check if this is a multihead model
+        is_multihead = architecture.get('is_multihead', False)
+        heads_info = architecture.get('heads_info', {})
+        
+        if is_multihead:
+            # For multihead models, show shared FC layer, then multiple heads
+            shared_fc = architecture['fc_layers'][0] if architecture['fc_layers'] else None
             
-            # Make output block more compact
-            is_output = i == len(architecture['fc_layers']) - 1
-            fc_width = 1.0 if is_output else 1.2  # Narrower output block
-            fc_height = 2.0 if i == 0 else 1.5  # First FC layer bigger
+            if shared_fc:
+                # Shared features layer
+                self.add_arrow(ax, current_x, current_x + arrow_length, block_y)
+                current_x += arrow_length + arrow_gap
+                
+                fc_width = 1.2
+                fc_height = 2.0
+                
+                self.create_3d_block(ax, current_x, block_y-fc_height/2, 
+                                   fc_width, fc_height, 0.3, 
+                                   self.colors['fc'])
+                
+                # Check if auxiliary features are concatenated here
+                has_auxiliary = architecture.get('has_auxiliary', False)
+                aux_input_size = architecture.get('auxiliary_input_size', 0)
+                aux_hidden_size = architecture.get('auxiliary_hidden_size', 32)
+                show_auxiliary = has_auxiliary and (isinstance(aux_input_size, str) or aux_input_size > 0)
+                
+                if show_auxiliary:
+                    self.add_text_label(ax, current_x+fc_width/2, block_y+0.7, 'Shared\nFeatures')
+                    self.add_text_label(ax, current_x+fc_width/2, block_y+0.2, 
+                                       f"{shared_fc['out_features']} units")
+                    self.add_text_label(ax, current_x+fc_width/2, block_y-0.2, '(concat with aux)')
+                    
+                    # Draw concatenation arrow from aux MLP
+                    aux_mlp_x = current_x - 2.5  # Approximate position of aux MLP
+                    concat_y = block_y - 1.0  # Lower connection point
+                    
+                    # Curved arrow from aux MLP to shared features  
+                    self.add_arrow(ax, aux_mlp_x + 0.6, current_x, concat_y, '#FF6B6B', width=0.2)
+                    self.add_text_label(ax, (aux_mlp_x + current_x)/2, concat_y - 0.3, 
+                                       'concat', fontsize=7)
+                else:
+                    self.add_text_label(ax, current_x+fc_width/2, block_y+0.5, 'Shared\nFeatures')
+                    self.add_text_label(ax, current_x+fc_width/2, block_y+0.1, 
+                                       f"{shared_fc['out_features']} units")
+                
+                if shared_fc.get('params', 0) > 0:
+                    self.add_text_label(ax, current_x+fc_width/2, block_y-0.5, 
+                                       f"{shared_fc['params']:,} params")
+                
+                current_x += fc_width + arrow_gap
             
-            self.create_3d_block(ax, current_x, block_y-fc_height/2, 
-                               fc_width, fc_height, 0.3, 
-                               self.colors['fc'])
-            
-            layer_name = f"FC{i+1}" if not is_output else "Output"
-            self.add_text_label(ax, current_x+fc_width/2, block_y+0.5, layer_name)
-            self.add_text_label(ax, current_x+fc_width/2, block_y+0.1, 
-                               f"{fc_layer['out_features']} units")
-            
-            # Add parameter count if available
-            if fc_layer.get('params', 0) > 0:
-                self.add_text_label(ax, current_x+fc_width/2, block_y-0.3, 
-                                   f"{fc_layer['params']:,} params")
-            
-            if fc_layer.get('activation'):
-                self.add_text_label(ax, current_x+fc_width/2, block_y-0.7, 
-                                   fc_layer['activation'])
-            
-            current_x += fc_width + arrow_gap
+            # Multiple output heads
+            if heads_info:
+                self.add_arrow(ax, current_x, current_x + arrow_length, block_y)
+                current_x += arrow_length + arrow_gap
+                
+                num_heads = len(heads_info)
+                head_names = list(heads_info.keys())
+                
+                # Always use the multihead visualization for ordinal models to show the structure
+                if num_heads >= 1:
+                    if num_heads == 1:
+                        # For single head, create vertically symmetric blocks around the arrow level
+                        head_name, num_classes = next(iter(heads_info.items()))
+                        
+                        head_height = 0.7
+                        gap = 0.3  # Gap between blocks
+                        
+                        # Upper block (main output head) - centered above arrow level
+                        upper_y = block_y + gap/2 + head_height/2
+                        self.create_3d_block(ax, current_x, upper_y - head_height/2, 1.2, head_height, 0.2, 
+                                           self.colors['output'])
+                        self.add_text_label(ax, current_x + 0.6, upper_y, head_name, fontsize=9)
+                        
+                        # Ellipsis centered on the arrow level
+                        self.add_text_label(ax, current_x + 0.6, block_y, '⋮', fontsize=14)
+                        
+                        # Lower block (potential heads) - centered below arrow level  
+                        lower_y = block_y - gap/2 - head_height/2
+                        self.create_3d_block(ax, current_x, lower_y - head_height/2, 1.2, head_height, 0.1, 
+                                           self.colors['output'], alpha=0.4)
+                        
+                        # Add classes info below the lower block
+                        self.add_text_label(ax, current_x + 0.6, lower_y - head_height/2 - 0.4, 
+                                           f"{num_classes} classes", fontsize=8)
+                        
+                        current_x += 1.2
+                    else:
+                        # Multiple heads - use original logic
+                        self.create_multihead_outputs(ax, current_x, block_y, num_heads, head_names, arrow_gap)
+                        
+                        # Add summary info
+                        total_classes = sum(heads_info.values())
+                        self.add_text_label(ax, current_x + 0.6, block_y-2, 
+                                           f"{num_heads} heads\n{total_classes} total classes", fontsize=8)
+                        current_x += 1.2
+        else:
+            # Traditional single-head CNN
+            for i, fc_layer in enumerate(architecture['fc_layers']):
+                self.add_arrow(ax, current_x, current_x + arrow_length, block_y)
+                current_x += arrow_length + arrow_gap
+                
+                # Make output block more compact
+                is_output = i == len(architecture['fc_layers']) - 1
+                fc_width = 1.0 if is_output else 1.2  # Narrower output block
+                fc_height = 2.0 if i == 0 else 1.5  # First FC layer bigger
+                
+                self.create_3d_block(ax, current_x, block_y-fc_height/2, 
+                                   fc_width, fc_height, 0.3, 
+                                   self.colors['fc'])
+                
+                layer_name = f"FC{i+1}" if not is_output else "Output"
+                self.add_text_label(ax, current_x+fc_width/2, block_y+0.5, layer_name)
+                self.add_text_label(ax, current_x+fc_width/2, block_y+0.1, 
+                                   f"{fc_layer['out_features']} units")
+                
+                # Add parameter count if available
+                if fc_layer.get('params', 0) > 0:
+                    self.add_text_label(ax, current_x+fc_width/2, block_y-0.3, 
+                                       f"{fc_layer['params']:,} params")
+                
+                if fc_layer.get('activation'):
+                    self.add_text_label(ax, current_x+fc_width/2, block_y-0.7, 
+                                       fc_layer['activation'])
+                
+                # Add output dimensions below the block for final layer
+                if is_output:
+                    self.add_text_label(ax, current_x+fc_width/2, block_y-fc_height/2-0.6, 
+                                       f"{fc_layer['out_features']} classes")
+                
+                current_x += fc_width + arrow_gap
         
         # Save as EPS
         plt.tight_layout()
@@ -366,6 +571,9 @@ def parse_architecture_from_config(config_name: str) -> Dict[str, Any]:
                             stride = getattr(layer, 'stride', (1, 1))
                             if isinstance(stride, tuple):
                                 stride = stride[0]
+                            padding = getattr(layer, 'padding', (1, 1))
+                            if isinstance(padding, tuple):
+                                padding = padding[0]
                             
                             # Calculate layer parameters
                             layer_params = sum(p.numel() for p in layer.parameters()) if hasattr(layer, 'parameters') else 0
@@ -374,34 +582,86 @@ def parse_architecture_from_config(config_name: str) -> Dict[str, Any]:
                                 'out_channels': layer.out_channels,
                                 'kernel_size': kernel_size,
                                 'stride': stride,
+                                'padding': padding,
                                 'params': layer_params,
                                 'pool': True  # Assume pooling for VGG-style
                             })
                 
-                # Extract FC layer info
-                if hasattr(model.net, 'classifier') or hasattr(model.net, 'fc'):
-                    classifier = getattr(model.net, 'classifier', getattr(model.net, 'fc', None))
-                    if classifier:
-                        # Handle both single layer and sequential layers
-                        if hasattr(classifier, '__iter__') and not hasattr(classifier, 'out_features'):
-                            # It's a Sequential/ModuleList - iterate through layers
-                            for layer in classifier:
+                # Check for multihead structure first
+                # Consider it multihead if it has heads_config with multiple heads OR if it's already multihead
+                has_heads_config = hasattr(model.net, 'heads_config') and model.net.heads_config
+                actual_multihead = hasattr(model.net, 'is_multihead') and model.net.is_multihead
+                
+                # For ordinal models, even single head should be treated as multihead-style if configured
+                is_multihead_style = (has_heads_config and len(model.net.heads_config) >= 1) or actual_multihead
+                is_multihead = actual_multihead
+                heads_info = {}
+                
+                if has_heads_config and 'ordinal' in config_name.lower():
+                    # For ordinal models, treat as multihead-style even with single head
+                    heads_info = dict(model.net.heads_config)
+                    # Improve generic head names
+                    heads_to_rename = {}
+                    for old_name, classes in heads_info.items():
+                        if old_name.startswith('synth_param'):
+                            heads_to_rename[old_name] = 'Out Heads'
+                    
+                    # Apply renaming
+                    for old_name, new_name in heads_to_rename.items():
+                        heads_info[new_name] = heads_info.pop(old_name)
+                    
+                    is_multihead = True  # Force multihead visualization for ordinal
+                elif is_multihead and hasattr(model.net, 'heads'):
+                    # Extract multihead information
+                    for head_name, head_module in model.net.heads.items():
+                        if hasattr(head_module, '__iter__'):
+                            # Sequential head (regression mode)
+                            for layer in head_module:
                                 if hasattr(layer, 'out_features'):
-                                    activation = 'ReLU' if hasattr(layer, 'relu') or 'ReLU' in str(layer) else None
-                                    layer_params = sum(p.numel() for p in layer.parameters()) if hasattr(layer, 'parameters') else 0
-                                    fc_layers.append({
-                                        'out_features': layer.out_features,
-                                        'params': layer_params,
-                                        'activation': activation
-                                    })
-                        elif hasattr(classifier, 'out_features'):
-                            # It's a single Linear layer
-                            layer_params = sum(p.numel() for p in classifier.parameters()) if hasattr(classifier, 'parameters') else 0
-                            fc_layers.append({
-                                'out_features': classifier.out_features,
-                                'params': layer_params,
-                                'activation': None
-                            })
+                                    heads_info[head_name] = layer.out_features
+                                    break
+                        elif hasattr(head_module, 'out_features'):
+                            # Single linear layer head
+                            heads_info[head_name] = head_module.out_features
+                    
+                    # Extract shared features layer
+                    if hasattr(model.net, 'shared_features'):
+                        shared_features = model.net.shared_features
+                        # Find the linear layer in shared_features
+                        for layer in shared_features:
+                            if hasattr(layer, 'out_features'):
+                                layer_params = sum(p.numel() for p in layer.parameters()) if hasattr(layer, 'parameters') else 0
+                                fc_layers.append({
+                                    'out_features': layer.out_features,
+                                    'params': layer_params,
+                                    'activation': 'ReLU'
+                                })
+                                break
+                else:
+                    # Extract traditional FC layer info
+                    if hasattr(model.net, 'classifier') or hasattr(model.net, 'fc'):
+                        classifier = getattr(model.net, 'classifier', getattr(model.net, 'fc', None))
+                        if classifier:
+                            # Handle both single layer and sequential layers
+                            if hasattr(classifier, '__iter__') and not hasattr(classifier, 'out_features'):
+                                # It's a Sequential/ModuleList - iterate through layers
+                                for layer in classifier:
+                                    if hasattr(layer, 'out_features'):
+                                        activation = 'ReLU' if hasattr(layer, 'relu') or 'ReLU' in str(layer) else None
+                                        layer_params = sum(p.numel() for p in layer.parameters()) if hasattr(layer, 'parameters') else 0
+                                        fc_layers.append({
+                                            'out_features': layer.out_features,
+                                            'params': layer_params,
+                                            'activation': activation
+                                        })
+                            elif hasattr(classifier, 'out_features'):
+                                # It's a single Linear layer
+                                layer_params = sum(p.numel() for p in classifier.parameters()) if hasattr(classifier, 'parameters') else 0
+                                fc_layers.append({
+                                    'out_features': classifier.out_features,
+                                    'params': layer_params,
+                                    'activation': None
+                                })
                 
                 # Fallback to reasonable defaults if extraction fails
                 if not conv_blocks:
@@ -422,8 +682,27 @@ def parse_architecture_from_config(config_name: str) -> Dict[str, Any]:
                     else:  # micro
                         fc_layers = [{'out_features': 32, 'activation': 'ReLU'}, {'out_features': output_dim, 'activation': None}]
                 
+                # Check for auxiliary inputs
+                has_auxiliary_attr = hasattr(model.net, 'auxiliary_input_size')
+                aux_input_size = getattr(model.net, 'auxiliary_input_size', 0)
+                aux_hidden_size = getattr(model.net, 'auxiliary_hidden_size', 32)
+                
+                # For auxiliary models, show visualization even if not auto-configured yet
+                if 'auxiliary' in config_name.lower() and has_auxiliary_attr:
+                    has_auxiliary = True
+                    # Use placeholder values if not configured
+                    if aux_input_size == 0:
+                        aux_input_size = "N"  # Placeholder for auto-configuration
+                else:
+                    has_auxiliary = has_auxiliary_attr and aux_input_size > 0
+                
                 architecture['conv_blocks'] = conv_blocks
                 architecture['fc_layers'] = fc_layers
+                architecture['is_multihead'] = is_multihead
+                architecture['heads_info'] = heads_info
+                architecture['has_auxiliary'] = has_auxiliary
+                architecture['auxiliary_input_size'] = aux_input_size
+                architecture['auxiliary_hidden_size'] = aux_hidden_size
             
             return architecture
             
