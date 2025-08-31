@@ -104,9 +104,9 @@ emvite exp-moog-vit-envelope: ## Train ViT on Moog envelope sweep dataset (10 pa
 emvitr exp-moog-vit-resonance: ## Train ViT on high-resonance Moog dataset (8 params) - square 48x48
 	time python src/train.py experiment=moog_vit_resonance
 
-emvitall: emall-gen emvitb emvite emvitr ## Generate datasets and train ViTs on all Moog VCF experiments
+emvit emvit-train-all: emvitb emvite emvitr ## Run all Moog ViT training experiments
 
-evat emvitall-train: emvitb emvite emvitr ## Run all Moog ViT training experiments
+emvitgta emvit-gen-train-all: emall-gen emvit ## Generate datasets and train ViTs on all Moog VCF experiments
 
 # AUDIO EVAL
 ae audio-eval:
