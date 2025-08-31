@@ -147,11 +147,20 @@ class VGGStyleDiagram:
                                block_width, block_height, 0.4, 
                                self.colors['conv'])
             
-            # Labels
-            self.add_text_label(ax, current_x+block_width/2, block_y+0.3, 
+            # Labels with more details
+            kernel_size = conv_block.get('kernel_size', 3)
+            stride = conv_block.get('stride', 1)
+            params = conv_block.get('params', 0)
+            
+            self.add_text_label(ax, current_x+block_width/2, block_y+0.5, 
                                f'Conv{i+1}')
+            self.add_text_label(ax, current_x+block_width/2, block_y+0.1, 
+                               f'{channels} filters')
             self.add_text_label(ax, current_x+block_width/2, block_y-0.3, 
-                               f'{channels} filters\n3×3, pad=1')
+                               f'{kernel_size}×{kernel_size}, s={stride}')
+            if params > 0:
+                self.add_text_label(ax, current_x+block_width/2, block_y-0.7, 
+                                   f'{params:,} params')
             
             current_x += block_width + arrow_gap
             
@@ -191,12 +200,17 @@ class VGGStyleDiagram:
                                self.colors['fc'])
             
             layer_name = f"FC{i+1}" if not is_output else "Output"
-            self.add_text_label(ax, current_x+fc_width/2, block_y+0.3, layer_name)
-            self.add_text_label(ax, current_x+fc_width/2, block_y-0.3, 
+            self.add_text_label(ax, current_x+fc_width/2, block_y+0.5, layer_name)
+            self.add_text_label(ax, current_x+fc_width/2, block_y+0.1, 
                                f"{fc_layer['out_features']} units")
             
+            # Add parameter count if available
+            if fc_layer.get('params', 0) > 0:
+                self.add_text_label(ax, current_x+fc_width/2, block_y-0.3, 
+                                   f"{fc_layer['params']:,} params")
+            
             if fc_layer.get('activation'):
-                self.add_text_label(ax, current_x+fc_width/2, block_y-0.8, 
+                self.add_text_label(ax, current_x+fc_width/2, block_y-0.7, 
                                    fc_layer['activation'])
             
             current_x += fc_width + arrow_gap
@@ -231,7 +245,13 @@ class VGGStyleDiagram:
         # Input + Patch Embedding
         self.create_3d_block(ax, current_x, block_y-1, 1.5, 2, 0.3, 
                            self.colors['input'])
-        self.add_text_label(ax, current_x+0.75, block_y, 'Patch\nEmbedding')
+        self.add_text_label(ax, current_x+0.75, block_y+0.3, 'Patch\nEmbedding')
+        
+        # Add patch embedding details
+        patch_size = architecture.get('patch_size', 4)
+        embed_dim = architecture.get('embed_dim', 64)
+        self.add_text_label(ax, current_x+0.75, block_y-0.3, f'{patch_size}×{patch_size} patches')
+        self.add_text_label(ax, current_x+0.75, block_y-0.7, f'{embed_dim}D embed')
         current_x += 2.5
         
         # Transformer blocks
@@ -243,9 +263,14 @@ class VGGStyleDiagram:
             self.create_3d_block(ax, current_x, block_y-1.2, 2, 2.4, 0.4, 
                                self.colors['conv'])
             
-            self.add_text_label(ax, current_x+1, block_y+0.5, f'Transformer\nBlock {i+1}')
-            self.add_text_label(ax, current_x+1, block_y-0.2, 'Self-Attention')
-            self.add_text_label(ax, current_x+1, block_y-0.8, 'Feed Forward')
+            self.add_text_label(ax, current_x+1, block_y+0.7, f'Transformer\nBlock {i+1}')
+            
+            # Add architectural details
+            num_heads = architecture.get('num_heads', 4)
+            embed_dim = architecture.get('embed_dim', 64)
+            self.add_text_label(ax, current_x+1, block_y+0.1, f'{num_heads} heads')
+            self.add_text_label(ax, current_x+1, block_y-0.3, 'Self-Attention')
+            self.add_text_label(ax, current_x+1, block_y-0.7, f'FFN {embed_dim*4}→{embed_dim}')
             
             current_x += 3
             
@@ -322,6 +347,8 @@ def parse_architecture_from_config(config_name: str) -> Dict[str, Any]:
                 architecture['num_transformer_layers'] = getattr(net_config, 'depth', 3)
                 architecture['embed_dim'] = getattr(net_config, 'embed_dim', 64)
                 architecture['patch_size'] = getattr(net_config, 'patch_size', 4)
+                architecture['num_heads'] = getattr(net_config, 'num_heads', 4)
+                architecture['mlp_ratio'] = getattr(net_config, 'mlp_ratio', 4.0)
             else:
                 # CNN-specific parsing
                 conv_blocks = []
@@ -332,8 +359,22 @@ def parse_architecture_from_config(config_name: str) -> Dict[str, Any]:
                     conv_layers = model.net.conv_layers
                     for i, layer in enumerate(conv_layers):
                         if hasattr(layer, 'out_channels'):
+                            # Try to get detailed layer parameters
+                            kernel_size = getattr(layer, 'kernel_size', (3, 3))
+                            if isinstance(kernel_size, tuple):
+                                kernel_size = kernel_size[0]
+                            stride = getattr(layer, 'stride', (1, 1))
+                            if isinstance(stride, tuple):
+                                stride = stride[0]
+                            
+                            # Calculate layer parameters
+                            layer_params = sum(p.numel() for p in layer.parameters()) if hasattr(layer, 'parameters') else 0
+                            
                             conv_blocks.append({
                                 'out_channels': layer.out_channels,
+                                'kernel_size': kernel_size,
+                                'stride': stride,
+                                'params': layer_params,
                                 'pool': True  # Assume pooling for VGG-style
                             })
                 
@@ -341,13 +382,26 @@ def parse_architecture_from_config(config_name: str) -> Dict[str, Any]:
                 if hasattr(model.net, 'classifier') or hasattr(model.net, 'fc'):
                     classifier = getattr(model.net, 'classifier', getattr(model.net, 'fc', None))
                     if classifier:
-                        for layer in classifier:
-                            if hasattr(layer, 'out_features'):
-                                activation = 'ReLU' if hasattr(classifier, 'relu') else None
-                                fc_layers.append({
-                                    'out_features': layer.out_features,
-                                    'activation': activation
-                                })
+                        # Handle both single layer and sequential layers
+                        if hasattr(classifier, '__iter__') and not hasattr(classifier, 'out_features'):
+                            # It's a Sequential/ModuleList - iterate through layers
+                            for layer in classifier:
+                                if hasattr(layer, 'out_features'):
+                                    activation = 'ReLU' if hasattr(layer, 'relu') or 'ReLU' in str(layer) else None
+                                    layer_params = sum(p.numel() for p in layer.parameters()) if hasattr(layer, 'parameters') else 0
+                                    fc_layers.append({
+                                        'out_features': layer.out_features,
+                                        'params': layer_params,
+                                        'activation': activation
+                                    })
+                        elif hasattr(classifier, 'out_features'):
+                            # It's a single Linear layer
+                            layer_params = sum(p.numel() for p in classifier.parameters()) if hasattr(classifier, 'parameters') else 0
+                            fc_layers.append({
+                                'out_features': classifier.out_features,
+                                'params': layer_params,
+                                'activation': None
+                            })
                 
                 # Fallback to reasonable defaults if extraction fails
                 if not conv_blocks:
