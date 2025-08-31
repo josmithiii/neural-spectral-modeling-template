@@ -218,6 +218,13 @@ class AudioReconstructionEvaluator:
         # Get metadata for this sample
         sample_metadata = self.test_dataset._get_sample_metadata(sample_idx)
         
+        # Debug: Print metadata structure for first few samples
+        if sample_idx < 3:
+            print(f"🔍 Sample {sample_idx} metadata keys: {list(sample_metadata.keys())}")
+            for key, value in sample_metadata.items():
+                if isinstance(value, dict) and 'actual_value' in value:
+                    print(f"   {key}: actual_value = {value['actual_value']}")
+        
         # Extract actual parameter values
         true_params = {}
         for param_name in self.param_names:
@@ -246,11 +253,29 @@ class AudioReconstructionEvaluator:
             image_tensor, labels_dict = sample_data
         else:
             image_tensor, labels_dict = sample_data[0], sample_data[1]
+            
+        # Debug: Print image tensor info for first few samples (can be removed)
+        # if sample_idx < 2:
+        #     print(f"🔍 Raw dataset sample {sample_idx}:")
+        #     print(f"   image_tensor shape: {image_tensor.shape}")
+        #     print(f"   image_tensor range: [{image_tensor.min():.3f}, {image_tensor.max():.3f}]")
+        #     print(f"   image_tensor type: {type(image_tensor)}")
+        #     if hasattr(image_tensor, 'dtype'):
+        #         print(f"   image_tensor dtype: {image_tensor.dtype}")
         
         # Run inference
         with torch.no_grad():
             image_batch = image_tensor.unsqueeze(0).to(self.device)
             raw_predictions = self.model(image_batch)
+            
+            # Debug: Print raw predictions to see if they're changing (can be removed)
+            # if isinstance(raw_predictions, dict):
+            #     for head_name, logits in raw_predictions.items():
+            #         print(f"   🔍 Sample {sample_idx}, {head_name}: raw_logits shape={logits.shape}, "
+            #              f"first few values={logits.flatten()[:3].tolist()}")
+            # else:
+            #     print(f"   🔍 Sample {sample_idx}: raw_predictions shape={raw_predictions.shape}, "
+            #          f"first few values={raw_predictions.flatten()[:3].tolist()}")
             
             # Process predictions based on model type
             if isinstance(raw_predictions, dict):
@@ -436,7 +461,10 @@ class AudioReconstructionEvaluator:
         
         # Remove channel dimension for plotting if present
         if len(input_spec.shape) == 3:
-            input_spec = input_spec[:, :, 0]  # Use first channel
+            if input_spec.shape[0] == 1:  # (1, H, W) format - channels first
+                input_spec = input_spec[0, :, :]  # Remove channel dimension: (1, H, W) -> (H, W)
+            else:  # (H, W, 1) format - channels last  
+                input_spec = input_spec[:, :, 0]  # Remove channel dimension: (H, W, 1) -> (H, W)
         
         # Time axis
         t = np.arange(len(true_audio)) / self.sample_rate
@@ -477,6 +505,21 @@ class AudioReconstructionEvaluator:
         # 5. True audio spectrogram (re-synthesized)
         plt.subplot(3, 3, 5)
         true_spec, _, _ = self.spec_processor.audio_to_spectrogram({}, true_audio)
+        
+        # Debug: Print spectrogram comparison info (can be removed after verification)
+        # if results["sample_idx"] < 2:  # Only for first couple samples
+        #     print(f"\n🔍 SPECTROGRAM ANALYSIS for sample {results['sample_idx']}:")
+        #     print(f"   Input spec shape: {input_spec.shape}, range: [{input_spec.min():.3f}, {input_spec.max():.3f}]")
+        #     print(f"   True spec shape: {true_spec.shape}, range: [{true_spec.min():.3f}, {true_spec.max():.3f}]")
+        #     
+        #     # Check if they're even close
+        #     if input_spec.shape == true_spec.shape:
+        #         diff = np.abs(input_spec - true_spec)
+        #         print(f"   Pixel-wise difference: mean={diff.mean():.3f}, max={diff.max():.3f}")
+        #         print(f"   Correlation: {np.corrcoef(input_spec.flatten(), true_spec.flatten())[0,1]:.3f}")
+        #     else:
+        #         print(f"   ❌ Shape mismatch! Cannot compare directly.")
+        
         plt.imshow(true_spec, aspect='auto', origin='lower', cmap='viridis')
         plt.title("True Synthesis Spectrogram")
         plt.xlabel("Time")
@@ -747,6 +790,21 @@ class InteractiveAudioEvaluator:
         if self.current_results:
             print(f"   Sample {self.current_sample} - True audio range: [{self.current_results['true_audio'].min():.3f}, {self.current_results['true_audio'].max():.3f}]")
             print(f"   Sample {self.current_sample} - Pred audio range: [{self.current_results['pred_audio'].min():.3f}, {self.current_results['pred_audio'].max():.3f}]")
+            
+            # Print parameter values to check if they're actually changing
+            true_params = self.current_results['true_params']
+            pred_params = self.current_results['predicted_params']
+            
+            # Just show a few key parameters to see if they vary
+            key_params = ['note_number', 'filter_cutoff', 'filter_resonance']
+            for param in key_params:
+                if param in true_params and param in pred_params:
+                    print(f"   {param}: true={true_params[param]:.3f}, pred={pred_params[param]:.3f}")
+                    
+            # Also print ALL true params for a couple samples to see the full picture
+            if self.current_sample < 3:
+                print(f"   All true params for sample {self.current_sample}: {true_params}")
+                print(f"   All pred params for sample {self.current_sample}: {pred_params}")
         
         # Get data
         true_audio = self.current_results["true_audio"]
@@ -755,7 +813,10 @@ class InteractiveAudioEvaluator:
         
         # Remove channel dimension if present
         if len(input_spec.shape) == 3:
-            input_spec = input_spec[:, :, 0]
+            if input_spec.shape[0] == 1:  # (1, H, W) format - channels first
+                input_spec = input_spec[0, :, :]  # Remove channel dimension: (1, H, W) -> (H, W)
+            else:  # (H, W, 1) format - channels last  
+                input_spec = input_spec[:, :, 0]  # Remove channel dimension: (H, W, 1) -> (H, W)
         
         t = np.arange(len(true_audio)) / self.evaluator.sample_rate
         
@@ -1060,7 +1121,7 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
     # Setup the datamodule to load datasets (setup train for auto-configuration)
     datamodule.setup("fit")  # This sets up train dataset which is needed for auto-configuration
     
-    # Try to load model directly from checkpoint using Lightning's built-in method
+    # Try to load model directly from checkpoint using Lightning's built-in method first
     try:
         # Try to use Lightning's load_from_checkpoint with the exact class
         from src.models.multihead_module import MultiheadLitModule
@@ -1072,34 +1133,86 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
         log.info("Successfully loaded model from checkpoint")
     except Exception as e:
         log.warning(f"Failed to load from checkpoint directly: {e}")
-        log.info("Trying alternative loading method...")
+        log.info("Trying alternative loading method with original model config...")
         
-        # Create model from config with proper heads configuration
-        log.info("Creating model from config with heads configuration from saved metadata")
+        # Extract the original model configuration from the checkpoint hyperparameters
+        hyper_parameters = checkpoint.get('hyper_parameters', {})
+        log.info(f"Checkpoint hyperparameters keys: {list(hyper_parameters.keys())}")
+        
+        # If hyperparameters don't contain the full model config, try to reconstruct from state_dict structure
+        checkpoint_state_dict = checkpoint["state_dict"]
+        first_weight_key = list(checkpoint_state_dict.keys())[0]
+        log.info(f"First weight key: {first_weight_key}")
         
         # Get heads config from the properly configured datamodule
         if hasattr(datamodule, 'data_train') and datamodule.data_train is not None:
             heads_config = datamodule.data_train.get_heads_config()
             log.info(f"Retrieved heads config from datamodule: {list(heads_config.keys())}")
             
-            # Create model with proper network configuration
-            model_cfg = cfg.model.copy()
+            # Determine model architecture from checkpoint state dict structure
+            if 'net.embedding.pos_embedding' in checkpoint_state_dict:
+                log.info("Detected Vision Transformer architecture from checkpoint")
+                
+                # Use the exact configuration from the original training
+                # We know this from the saved config file
+                log.info("Using exact ViT config from original training")
+                
+                # Create ViT model configuration with exact original parameters
+                from src.models.components.vision_transformer import VisionTransformer
+                net = VisionTransformer(
+                    n_channels=1,
+                    image_size=48,
+                    patch_size=6,
+                    embed_dim=72,
+                    n_layers=3,
+                    n_attention_heads=4,
+                    forward_mul=2,
+                    heads_config=heads_config,  # Pass heads config directly
+                    dropout=0.3,
+                    use_torch_layers=False
+                )
+                
+                log.info(f"ViT config: image_size=48, patch_size=6, embed_dim=72, n_layers=3")
+            elif 'net.features.0.weight' in checkpoint_state_dict or 'net.conv1.weight' in checkpoint_state_dict:
+                log.info("Detected CNN architecture from checkpoint")
+                # Create a default CNN - this might need refinement based on actual saved model
+                from src.models.components.simple_dense_net import SimpleDenseNet
+                net = SimpleDenseNet(n_channels=1)
+                # Configure heads for CNN if it supports it
+                if hasattr(net, '_build_heads'):
+                    net._build_heads(heads_config)
+            else:
+                log.warning("Could not determine model architecture, falling back to config")
+                net_cfg = cfg.model.net
+                if hasattr(net_cfg, 'heads_config'):
+                    net_cfg.heads_config = heads_config
+                net = hydra.utils.instantiate(net_cfg)
             
-            # Configure the network with proper heads
-            net_cfg = model_cfg.net
-            if hasattr(net_cfg, 'heads_config'):
-                net_cfg.heads_config = heads_config
-                log.info(f"Set network heads_config to: {list(heads_config.keys())}")
+            # Create multihead module with inferred network
+            from src.models.multihead_module import MultiheadLitModule
             
-            model: LightningModule = hydra.utils.instantiate(model_cfg)
-            log.info(f"Model instantiated with heads: {list(model.net.heads_config.keys()) if hasattr(model.net, 'heads_config') else 'none'}")
+            # Create default criterion for each head to satisfy the model requirements
+            from torch.nn import CrossEntropyLoss
+            criteria = {head_name: CrossEntropyLoss() for head_name in heads_config.keys()}
+            
+            model = MultiheadLitModule(
+                net=net,
+                optimizer=hyper_parameters.get('optimizer'),
+                scheduler=None,  # Will be set later if needed
+                loss_weights=hyper_parameters.get('loss_weights', {}),
+                compile=hyper_parameters.get('compile', False),
+                criteria=criteria,  # Provide explicit criteria
+                auto_configure_from_dataset=False,  # Disable auto-config to preserve loaded model structure
+                output_mode=hyper_parameters.get('output_mode', 'classification')
+            )
+            
+            log.info(f"Model created with inferred architecture")
         else:
             log.warning("Could not get heads config from datamodule, using default model")
             model: LightningModule = hydra.utils.instantiate(cfg.model)
         
         # Try to load state dict with relaxed matching
         model_state_dict = model.state_dict()
-        checkpoint_state_dict = checkpoint["state_dict"]
         
         # Filter to only load weights that match in shape and name
         compatible_weights = {}
@@ -1107,7 +1220,7 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
             if key in model_state_dict and model_state_dict[key].shape == value.shape:
                 compatible_weights[key] = value
             else:
-                log.warning(f"Skipping incompatible weight: {key}")
+                log.warning(f"Skipping incompatible weight: {key} (checkpoint: {value.shape}, model: {model_state_dict.get(key, 'missing').shape if key in model_state_dict else 'missing'})")
         
         model.load_state_dict(compatible_weights, strict=False)
         log.info(f"Loaded {len(compatible_weights)} compatible weights from checkpoint")
