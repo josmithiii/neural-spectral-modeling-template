@@ -1,0 +1,35 @@
+# @package _global_
+
+# Moog VCF Envelope ViT experiment
+# python src/train.py experiment=moog_vit_envelope
+# Note: This uses 32x64 images which may require ViT architecture adjustments
+
+defaults:
+  - override /data: vimh
+  - override /model: vit_tiny  # Medium ViT for 10-parameter dataset
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["moog", "vcf", "envelope", "vit_tiny", "non_square"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 8
+  max_epochs: 20
+  
+model:
+  optimizer:
+    lr: 0.003
+    weight_decay: 0.005
+  net:
+    image_size: [32, 64]  # Non-square images - may need debugging
+    patch_size: 8  # Larger patches for rectangular images
+
+data:
+  data_dir: data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_10p
+  batch_size: 12  # Smaller batch for larger images and ViT
+
+logger:
+  tensorboard:
+    name: "moog_vit_envelope"

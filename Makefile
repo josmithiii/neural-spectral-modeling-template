@@ -93,6 +93,21 @@ emall-gen: sdmb sdme sdmr ## Generate all Moog datasets before training
 
 emall-train: emb eme emr ## Run all Moog dataset training experiments
 
+# MOOG VCF ViT EXPERIMENTS "emvit" - ViT training on Moog filter datasets (experimental)
+
+emvitb exp-moog-vit-basic: ## Train ViT on basic Moog VCF dataset (4 params) - square 32x32
+	time python src/train.py experiment=moog_vit_basic
+
+emvite exp-moog-vit-envelope: ## Train ViT on Moog envelope sweep dataset (10 params) - rectangular 32x64
+	time python src/train.py experiment=moog_vit_envelope
+
+emvitr exp-moog-vit-resonance: ## Train ViT on high-resonance Moog dataset (8 params) - square 48x48
+	time python src/train.py experiment=moog_vit_resonance
+
+emvitall: emall-gen emvitb emvite emvitr ## Generate datasets and train ViTs on all Moog VCF experiments
+
+evat emvitall-train: emvitb emvite emvitr ## Run all Moog ViT training experiments
+
 # AUDIO EVAL
 ae audio-eval:
 	python src/audio_reconstruction_eval.py ## Eval latest best model checkpoint using default dataset

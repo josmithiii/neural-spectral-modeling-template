@@ -1,0 +1,36 @@
+# @package _global_
+
+# Moog VCF Resonance ViT experiment  
+# python src/train.py experiment=moog_vit_resonance
+# Note: This uses 48x48 images which should work with square ViT patches
+
+defaults:
+  - override /data: vimh
+  - override /model: vit_tiny  # Medium ViT for 8-parameter dataset
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["moog", "vcf", "resonance", "vit_tiny"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 6
+  max_epochs: 18
+  
+model:
+  optimizer:
+    lr: 0.0025
+    weight_decay: 0.008
+  net:
+    image_size: 48  # Larger square images
+    patch_size: 6   # 6x6 patches -> 8x8 = 64 tokens
+    embed_dim: 72   # Slightly larger embedding for bigger images
+
+data:
+  data_dir: data/vimh-48x48x1_8000Hz_1p5s_384dss_simple_8p
+  batch_size: 10  # Smaller batch for larger images and ViT
+
+logger:
+  tensorboard:
+    name: "moog_vit_resonance"
