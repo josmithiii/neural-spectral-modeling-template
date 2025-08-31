@@ -79,13 +79,13 @@ evitall: evitms evitts evitml evittl ## Run all ViT trivial dataset experiments
 # MOOG VCF DATASET EXPERIMENTS "em" - CNN training on Moog filter datasets
 
 emb exp-moog-basic: ## Train CNN on basic Moog VCF dataset (4 params)
-	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_4p
+	time python src/train.py experiment=moog_cnn_basic
 
 eme exp-moog-envelope: ## Train CNN on Moog envelope sweep dataset (10 params)
-	time python src/train.py data.data_dir=data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_10p
+	time python src/train.py experiment=moog_cnn_envelope
 
 emr exp-moog-resonance: ## Train CNN on high-resonance Moog dataset (8 params)
-	time python src/train.py data.data_dir=data/vimh-48x48x1_8000Hz_1p5s_384dss_simple_8p
+	time python src/train.py experiment=moog_cnn_resonance
 
 emall: emall-gen emb eme emr ## Generate datasets and train CNNs on all Moog VCF experiments
 

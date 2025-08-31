@@ -1,0 +1,31 @@
+# @package _global_
+
+# Moog VCF Resonance CNN experiment  
+# python src/train.py experiment=moog_cnn_resonance
+
+defaults:
+  - override /data: vimh
+  - override /model: cnn_tiny  # Medium model for 8-parameter dataset
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["moog", "vcf", "resonance", "cnn_tiny"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 6
+  max_epochs: 22
+  
+model:
+  optimizer:
+    lr: 0.0025
+    weight_decay: 0.012
+
+data:
+  data_dir: data/vimh-48x48x1_8000Hz_1p5s_384dss_simple_8p
+  batch_size: 20  # Smaller batch for larger images (48x48)
+
+logger:
+  tensorboard:
+    name: "moog_cnn_resonance"

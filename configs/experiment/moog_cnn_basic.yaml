@@ -1,0 +1,31 @@
+# @package _global_
+
+# Moog VCF Basic CNN experiment
+# python src/train.py experiment=moog_cnn_basic
+
+defaults:
+  - override /data: vimh
+  - override /model: cnn_micro  # Small model for 4-parameter dataset
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["moog", "vcf", "basic", "cnn_micro"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 5
+  max_epochs: 20
+  
+model:
+  optimizer:
+    lr: 0.003
+    weight_decay: 0.01
+
+data:
+  data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_4p
+  batch_size: 32
+
+logger:
+  tensorboard:
+    name: "moog_cnn_basic"
