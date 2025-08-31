@@ -166,6 +166,9 @@ tdsa test-diagram-simple-all: ## Generate simple diagrams for all architectures
 	python viz/simple_model_diagram.py --config vit_micro
 	python viz/simple_model_diagram.py --config vit_tiny
 
+tdv test-diagram-vgg: ## Generate VGG-style architecture diagrams (EPS + PNG)
+	python viz/vgg_style_diagrams.py
+
 # UTILITY TARGETS
 
 f format: ## Run pre-commit hooks
