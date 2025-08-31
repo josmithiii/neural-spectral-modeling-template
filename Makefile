@@ -109,8 +109,8 @@ emvit emvit-train-all: emvitb emvite emvitr ## Run all Moog ViT training experim
 emvitgta emvit-gen-train-all: emall-gen emvit ## Generate datasets and train ViTs on all Moog VCF experiments
 
 # AUDIO EVAL
-ae audio-eval:
-	python src/audio_reconstruction_eval.py ## Eval latest best model checkpoint using default dataset
+ae audio-eval: ## Eval latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py 
+	python src/audio_reconstruction_eval.py
 
 # CLEANING MAKE TARGETS
 

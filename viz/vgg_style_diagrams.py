@@ -370,19 +370,34 @@ class VGGStyleDiagram:
                         self.create_3d_block(ax, current_x, lower_y - head_height/2, 1.2, head_height, 0.1, 
                                            self.colors['output'], alpha=0.4)
                         
-                        # Add classes info below the lower block
+                        # Add output type info below the lower block
+                        output_mode = architecture.get('output_mode', 'classification')
+                        if output_mode == 'regression':
+                            label = f"{num_classes} params (floats)"
+                        else:
+                            if num_classes == 1:
+                                label = "1 logit (binary)"
+                            else:
+                                label = f"{num_classes} logits (floats)"
+                        
                         self.add_text_label(ax, current_x + 0.6, lower_y - head_height/2 - 0.4, 
-                                           f"{num_classes} classes", fontsize=8)
+                                           label, fontsize=8)
                         
                         current_x += 1.2
                     else:
                         # Multiple heads - use original logic
                         self.create_multihead_outputs(ax, current_x, block_y, num_heads, head_names, arrow_gap)
                         
-                        # Add summary info
-                        total_classes = sum(heads_info.values())
-                        self.add_text_label(ax, current_x + 0.6, block_y-2, 
-                                           f"{num_heads} heads\n{total_classes} total classes", fontsize=8)
+                        # Add summary info with output type
+                        total_outputs = sum(heads_info.values())
+                        output_mode = architecture.get('output_mode', 'classification')
+                        
+                        if output_mode == 'regression':
+                            summary = f"{num_heads} heads\n{total_outputs} total params"
+                        else:
+                            summary = f"{num_heads} heads\n{total_outputs} total logits"
+                        
+                        self.add_text_label(ax, current_x + 0.6, block_y-2, summary, fontsize=8)
                         current_x += 1.2
         else:
             # Traditional single-head CNN
@@ -415,8 +430,23 @@ class VGGStyleDiagram:
                 
                 # Add output dimensions below the block for final layer
                 if is_output:
-                    self.add_text_label(ax, current_x+fc_width/2, block_y-fc_height/2-0.6, 
-                                       f"{fc_layer['out_features']} classes")
+                    output_mode = architecture.get('output_mode', 'classification')
+                    num_outputs = fc_layer['out_features']
+                    
+                    if output_mode == 'regression':
+                        param_names = architecture.get('parameter_names', [])
+                        if len(param_names) == num_outputs:
+                            label = f"{num_outputs} params (floats)"
+                        else:
+                            label = f"{num_outputs} values (floats)"
+                    else:
+                        # Classification mode
+                        if num_outputs == 1:
+                            label = "1 logit (binary)"
+                        else:
+                            label = f"{num_outputs} logits (floats)"
+                    
+                    self.add_text_label(ax, current_x+fc_width/2, block_y-fc_height/2-0.6, label)
                 
                 current_x += fc_width + arrow_gap
         
@@ -696,6 +726,10 @@ def parse_architecture_from_config(config_name: str) -> Dict[str, Any]:
                 else:
                     has_auxiliary = has_auxiliary_attr and aux_input_size > 0
                 
+                # Detect output mode
+                output_mode = getattr(model.net, 'output_mode', 'classification')
+                parameter_names = getattr(model.net, 'parameter_names', [])
+                
                 architecture['conv_blocks'] = conv_blocks
                 architecture['fc_layers'] = fc_layers
                 architecture['is_multihead'] = is_multihead
@@ -703,6 +737,8 @@ def parse_architecture_from_config(config_name: str) -> Dict[str, Any]:
                 architecture['has_auxiliary'] = has_auxiliary
                 architecture['auxiliary_input_size'] = aux_input_size
                 architecture['auxiliary_hidden_size'] = aux_hidden_size
+                architecture['output_mode'] = output_mode
+                architecture['parameter_names'] = parameter_names
             
             return architecture
             
