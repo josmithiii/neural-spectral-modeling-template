@@ -169,13 +169,36 @@ def generate_from_config(config_name: str, output_dir: str = "diagrams"):
             # Load the specific model config
             cfg = compose(config_name="train.yaml", overrides=[f"model={config_name}"])
 
+            # Extract dynamic input parameters from model config
+            net_config = cfg.model.net
+            
+            # Determine input channels (CNN uses input_channels, ViT uses n_channels)
+            if hasattr(net_config, 'input_channels'):
+                input_channels = net_config.input_channels
+            elif hasattr(net_config, 'n_channels'):
+                input_channels = net_config.n_channels
+            else:
+                input_channels = 1  # fallback
+            
+            # Determine input size (CNN uses input_size, ViT uses image_size)
+            if hasattr(net_config, 'input_size'):
+                input_size = net_config.input_size
+            elif hasattr(net_config, 'image_size'):
+                input_size = net_config.image_size
+            else:
+                input_size = 32  # fallback to VIMH default
+            
+            # Create dynamic input shape (batch_size=1, channels, height, width)
+            input_shape = (1, input_channels, input_size, input_size)
+            print(f"Using input shape: {input_shape}")
+
             # Instantiate the model
             model = hydra.utils.instantiate(cfg.model)
 
             # Generate both text and graphical diagrams
-            create_text_summary(model, model_name=f"Model: {config_name}")
+            create_text_summary(model, input_shape=input_shape, model_name=f"Model: {config_name}")
             create_ascii_diagram_cnn()
-            create_graphical_diagram(model, model_name=config_name, output_dir=output_dir)
+            create_graphical_diagram(model, input_shape=input_shape, model_name=config_name, output_dir=output_dir)
 
     except Exception as e:
         print(f"Error loading config {config_name}: {e}")
