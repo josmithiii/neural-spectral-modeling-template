@@ -1035,6 +1035,19 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
     vimh_data = checkpoint.get('VIMHDataModule', {})
     dataset_metadata = vimh_data.get('dataset_metadata', {})
     
+    # Configure datamodule to use the same dataset that was used for training
+    if dataset_metadata and 'dataset_name' in dataset_metadata:
+        trained_dataset_name = dataset_metadata['dataset_name']
+        log.info(f"Training used dataset: {trained_dataset_name}")
+        
+        # Try to use the same dataset directory for evaluation
+        potential_data_dir = f"data/{trained_dataset_name}"
+        if os.path.exists(potential_data_dir):
+            log.info(f"Using training dataset directory: {potential_data_dir}")
+            cfg.data.data_dir = potential_data_dir
+        else:
+            log.warning(f"Training dataset directory {potential_data_dir} not found, using config default")
+    
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
     
@@ -1044,8 +1057,8 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
         datamodule._saved_dataset_metadata = dataset_metadata
         log.info("Injected saved metadata into datamodule")
     
-    # Now setup the datamodule to load the dataset
-    datamodule.setup("test")
+    # Setup the datamodule to load datasets (setup train for auto-configuration)
+    datamodule.setup("fit")  # This sets up train dataset which is needed for auto-configuration
     
     # Try to load model directly from checkpoint using Lightning's built-in method
     try:
@@ -1061,9 +1074,28 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
         log.warning(f"Failed to load from checkpoint directly: {e}")
         log.info("Trying alternative loading method...")
         
-        # Create model from config (it will auto-configure from the prepared datamodule with saved metadata)
-        log.info("Creating model from config and loading compatible weights")
-        model: LightningModule = hydra.utils.instantiate(cfg.model)
+        # Create model from config with proper heads configuration
+        log.info("Creating model from config with heads configuration from saved metadata")
+        
+        # Get heads config from the properly configured datamodule
+        if hasattr(datamodule, 'data_train') and datamodule.data_train is not None:
+            heads_config = datamodule.data_train.get_heads_config()
+            log.info(f"Retrieved heads config from datamodule: {list(heads_config.keys())}")
+            
+            # Create model with proper network configuration
+            model_cfg = cfg.model.copy()
+            
+            # Configure the network with proper heads
+            net_cfg = model_cfg.net
+            if hasattr(net_cfg, 'heads_config'):
+                net_cfg.heads_config = heads_config
+                log.info(f"Set network heads_config to: {list(heads_config.keys())}")
+            
+            model: LightningModule = hydra.utils.instantiate(model_cfg)
+            log.info(f"Model instantiated with heads: {list(model.net.heads_config.keys()) if hasattr(model.net, 'heads_config') else 'none'}")
+        else:
+            log.warning("Could not get heads config from datamodule, using default model")
+            model: LightningModule = hydra.utils.instantiate(cfg.model)
         
         # Try to load state dict with relaxed matching
         model_state_dict = model.state_dict()
