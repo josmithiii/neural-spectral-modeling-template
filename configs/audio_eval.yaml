@@ -2,7 +2,7 @@
 
 defaults:
   - _self_
-  - data: vimh_16kdss  # choose datamodule with test data
+  - data: vimh         # choose datamodule with test data
   - model: cnn_64k     # choose model architecture  
   - logger: null       # disable logging for evaluation
   - trainer: default
