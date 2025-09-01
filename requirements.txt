@@ -26,3 +26,9 @@ torchview       # model visualization
 torchviz        # computational graph visualization
 matplotlib      # for displaying VIMH datasets
 # sh            # for running bash commands in some tests (linux/macos only)
+
+# For IPython display functionality
+ipython
+
+# For pygame audio functionality  
+pygame
