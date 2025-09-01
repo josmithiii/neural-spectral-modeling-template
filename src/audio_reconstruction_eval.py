@@ -764,10 +764,7 @@ class InteractiveAudioEvaluator:
         self.current_sample = max(0, self.current_sample - 1)
         print(f"Prev: {old_sample} -> {self.current_sample}")
         self.sample_slider.set_val(self.current_sample)
-        # Explicitly trigger display update and force canvas refresh
-        self.update_display()
-        self.fig.canvas.draw_idle()
-        self.fig.canvas.flush_events()
+        # Note: slider.set_val() automatically triggers update_display() via on_changed callback
     
     def next_sample(self, event):
         """Go to next sample."""
@@ -775,10 +772,8 @@ class InteractiveAudioEvaluator:
         self.current_sample = min(len(self.evaluator.test_dataset) - 1, self.current_sample + 1)
         print(f"Next: {old_sample} -> {self.current_sample}")
         self.sample_slider.set_val(self.current_sample)
-        # Explicitly trigger display update and force canvas refresh
-        self.update_display()
-        self.fig.canvas.draw_idle()
-        self.fig.canvas.flush_events()
+        # Note: slider.set_val() automatically triggers update_display() via on_changed callback
+        # So we don't need to call update_display() again here
     
     def update_display(self):
         """Update all plots for current sample."""
@@ -842,7 +837,8 @@ class InteractiveAudioEvaluator:
         self.axes[0, 1].grid(True, alpha=0.3)
         
         # Plot spectrograms
-        true_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram({}, true_audio)
+        true_params = self.current_results["true_params"]
+        true_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram(true_params, true_audio)
         pred_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram({}, pred_audio)
         
         self.axes[0, 2].imshow(true_spec, aspect='auto', origin='lower', cmap='viridis')
@@ -1244,7 +1240,8 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
             if key in model_state_dict and model_state_dict[key].shape == value.shape:
                 compatible_weights[key] = value
             else:
-                log.warning(f"Skipping incompatible weight: {key} (checkpoint: {value.shape}, model: {model_state_dict.get(key, 'missing').shape if key in model_state_dict else 'missing'})")
+                log.error(f"Incompatible weight: {key} (checkpoint: {value.shape}, model: {model_state_dict.get(key, 'missing').shape if key in model_state_dict else 'missing'})")
+                sys.exit(1)
         
         model.load_state_dict(compatible_weights, strict=False)
         log.info(f"Loaded {len(compatible_weights)} compatible weights from checkpoint")
