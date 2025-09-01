@@ -1193,14 +1193,50 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
                 )
                 
                 log.info(f"ViT config: image_size=48, patch_size=6, embed_dim=72, n_layers=3")
-            elif 'net.features.0.weight' in checkpoint_state_dict or 'net.conv1.weight' in checkpoint_state_dict:
+            elif 'net.conv_layers.0.weight' in checkpoint_state_dict or 'net.features.0.weight' in checkpoint_state_dict or 'net.conv1.weight' in checkpoint_state_dict:
                 log.info("Detected CNN architecture from checkpoint")
-                # Create a default CNN - this might need refinement based on actual saved model
-                from src.models.components.simple_dense_net import SimpleDenseNet
-                net = SimpleDenseNet(n_channels=1)
-                # Configure heads for CNN if it supports it
-                if hasattr(net, '_build_heads'):
-                    net._build_heads(heads_config)
+                
+                # Infer CNN architecture parameters from checkpoint weights
+                if 'net.conv_layers.0.weight' in checkpoint_state_dict:
+                    # This is SimpleCNN architecture 
+                    conv1_weight = checkpoint_state_dict['net.conv_layers.0.weight']
+                    conv1_channels = conv1_weight.shape[0]  # Number of output channels
+                    input_channels = conv1_weight.shape[1]   # Should be 1
+                    
+                    # Try to get conv2 channels if available
+                    conv2_channels = 16  # default fallback
+                    if 'net.conv_layers.4.weight' in checkpoint_state_dict:
+                        conv2_weight = checkpoint_state_dict['net.conv_layers.4.weight']
+                        conv2_channels = conv2_weight.shape[0]
+                    
+                    # Try to infer FC hidden size from the last CNN layer to FC layer connection
+                    fc_hidden = 32  # default fallback
+                    fc_keys = [k for k in checkpoint_state_dict.keys() if 'fc_layers' in k and 'weight' in k]
+                    if fc_keys:
+                        first_fc_key = sorted(fc_keys)[0]  # Get first FC layer
+                        first_fc_weight = checkpoint_state_dict[first_fc_key]
+                        fc_hidden = first_fc_weight.shape[0]
+                    
+                    log.info(f"Inferred CNN params: conv1_channels={conv1_channels}, conv2_channels={conv2_channels}, fc_hidden={fc_hidden}")
+                    
+                    # Create CNN with inferred parameters
+                    from src.models.components.simple_cnn import SimpleCNN
+                    net = SimpleCNN(
+                        input_channels=input_channels,
+                        conv1_channels=conv1_channels,
+                        conv2_channels=conv2_channels,
+                        fc_hidden=fc_hidden,
+                        heads_config=heads_config,
+                        dropout=0.2,
+                        input_size=32  # This should come from dataset metadata but defaulting to 32
+                    )
+                else:
+                    # Fallback to SimpleDenseNet for other CNN patterns
+                    from src.models.components.simple_dense_net import SimpleDenseNet
+                    net = SimpleDenseNet(n_channels=1)
+                    # Configure heads for CNN if it supports it
+                    if hasattr(net, '_build_heads'):
+                        net._build_heads(heads_config)
             else:
                 log.warning("Could not determine model architecture, falling back to config")
                 net_cfg = cfg.model.net
