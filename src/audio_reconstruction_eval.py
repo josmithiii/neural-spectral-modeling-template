@@ -1231,18 +1231,11 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
                         input_size=32  # This should come from dataset metadata but defaulting to 32
                     )
                 else:
-                    # Fallback to SimpleDenseNet for other CNN patterns
-                    from src.models.components.simple_dense_net import SimpleDenseNet
-                    net = SimpleDenseNet(n_channels=1)
-                    # Configure heads for CNN if it supports it
-                    if hasattr(net, '_build_heads'):
-                        net._build_heads(heads_config)
+                    log.error("Could not infer SimpleCNN architecture from checkpoint weights")
+                    sys.exit(1)
             else:
-                log.warning("Could not determine model architecture, falling back to config")
-                net_cfg = cfg.model.net
-                if hasattr(net_cfg, 'heads_config'):
-                    net_cfg.heads_config = heads_config
-                net = hydra.utils.instantiate(net_cfg)
+                log.error("Could not determine model architecture from checkpoint")
+                sys.exit(1)
             
             # Create multihead module with inferred network
             from src.models.multihead_module import MultiheadLitModule
