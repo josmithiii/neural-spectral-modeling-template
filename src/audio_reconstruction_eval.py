@@ -480,10 +480,9 @@ class AudioReconstructionEvaluator:
             else:  # (H, W, 1) format - channels last  
                 input_spec = input_spec[:, :, 0]  # Remove channel dimension: (H, W, 1) -> (H, W)
         
-        # Convert from normalized [0, 1] back to [0, 255] to match true spectrogram format
-        # Dataset spectrograms are normalized during loading, but we want to display them 
-        # in the same scale as the true spectrogram for proper comparison
-        input_spec = (input_spec * 255.0).astype(np.uint8)
+        # Keep input spectrogram in floating-point format to match true spectrogram
+        # Both should be displayed with the same scale for proper comparison
+        # No conversion needed - input_spec is already in proper float format
         
         # Time axis
         t = np.arange(len(true_audio)) / self.sample_rate
@@ -491,7 +490,7 @@ class AudioReconstructionEvaluator:
         # 1. Input spectrogram (from dataset)
         plt.subplot(3, 3, 1)
         plt.imshow(input_spec, aspect='auto', origin='lower', cmap='viridis')
-        plt.title(f"Dataset Spectrogram (Sample {results['sample_idx']})")
+        plt.title(f"Input Spectrogram (Sample {results['sample_idx']})")
         plt.xlabel("Time")
         plt.ylabel("Frequency")
         
@@ -826,8 +825,8 @@ class InteractiveAudioEvaluator:
             else:  # (H, W, 1) format - channels last  
                 input_spec = input_spec[:, :, 0]  # Remove channel dimension: (H, W, 1) -> (H, W)
         
-        # Convert from normalized [0, 1] back to [0, 255] to match true spectrogram format
-        input_spec = (input_spec * 255.0).astype(np.uint8)
+        # Keep input spectrogram in floating-point format to match true spectrogram
+        # No conversion needed - input_spec is already in proper float format
         
         t = np.arange(len(true_audio)) / self.evaluator.sample_rate
         
