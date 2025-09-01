@@ -76,7 +76,32 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         L.seed_everything(cfg.seed, workers=True)
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
+    
+    # For VIMH spectrogram datasets, use appropriate transforms instead of image-oriented ones
+    datamodule_kwargs = {}
+    if 'vimh' in cfg.data._target_.lower():
+        from torchvision.transforms import transforms
+        
+        # Create spectrogram-appropriate transforms
+        # No color jittering, rotation, or other image augmentations that don't make sense for spectrograms
+        spectrogram_train_transform = transforms.Compose([
+            # For now, just use identity transform - we can add spectrogram-specific augmentations later
+            # No normalization either to preserve the original spectrogram values for audio reconstruction
+        ])
+        
+        spectrogram_val_test_transform = transforms.Compose([
+            # Identity transform for validation and test - no modifications
+        ])
+        
+        datamodule_kwargs.update({
+            'train_transform': spectrogram_train_transform,
+            'val_transform': spectrogram_val_test_transform,
+            'test_transform': spectrogram_val_test_transform
+        })
+        
+        log.info("Using spectrogram-appropriate transforms (no image augmentations)")
+    
+    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data, **datamodule_kwargs)
 
     # For VIMH datasets, configure model with parameter names from metadata
     if 'vimh' in cfg.data._target_.lower() and hasattr(cfg.model, 'auto_configure_from_dataset') and cfg.model.auto_configure_from_dataset:

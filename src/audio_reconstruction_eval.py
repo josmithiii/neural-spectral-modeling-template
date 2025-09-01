@@ -1121,7 +1121,21 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
             log.warning(f"Training dataset directory {potential_data_dir} not found, using config default")
     
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
+    
+    # Create identity transforms to get unmodified images for audio reconstruction
+    from torchvision.transforms import transforms
+    identity_transform = transforms.Compose([
+        # No normalization or augmentation - just convert to tensor if needed
+        # The VIMH dataset already returns tensors, so this is effectively a no-op
+    ])
+    
+    # Instantiate datamodule with identity transforms for all splits
+    datamodule: LightningDataModule = hydra.utils.instantiate(
+        cfg.data,
+        train_transform=identity_transform,
+        val_transform=identity_transform, 
+        test_transform=identity_transform
+    )
     
     # If we have saved metadata, inject it into the datamodule
     if dataset_metadata and 'parameter_names' in dataset_metadata:
