@@ -4,7 +4,7 @@
 # python src/train.py experiment=moog_vit_basic
 
 defaults:
-  - override /data: vimh_256dss
+  - override /data: vimh
   - override /model: vit_micro  # Small ViT for 4-parameter dataset
   - override /callbacks: default
   - override /trainer: default

@@ -4,7 +4,7 @@
 # python src/train.py experiment=trivial_64k_large
 
 defaults:
-  - override /data: vimh_256dss     # overridden below for 16k samples: ../data/vimh_256dss.yaml
+  - override /data: vimh     # overridden below for 16k samples: ../data/vimh.yaml
   - override /model: cnn_64k        # Really 1.4M: ../model/cnn_64k.yaml
   - override /callbacks: default    # ../callbacks/default.yaml
   - override /trainer: default      # ../trainer/default.yaml

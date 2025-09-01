@@ -5,7 +5,7 @@
 # Note: This uses 32x64 images which may require ViT architecture adjustments
 
 defaults:
-  - override /data: vimh_256dss
+  - override /data: vimh
   - override /model: vit_tiny  # Medium ViT for 10-parameter dataset
   - override /callbacks: default
   - override /trainer: default

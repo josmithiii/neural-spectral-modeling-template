@@ -7,7 +7,7 @@
 # replacing the original MNIST from Lightning-Hydra-Template
 
 defaults:
-  - override /data: vimh_256dss     # 256 samples: ../data/vimh_256dss.yaml
+  - override /data: vimh     # 256 samples: ../data/vimh.yaml
   - override /model: cnn_64k        # Really 1.4M: ../model/cnn_64k.yaml
   - override /callbacks: default    # ../callbacks/default.yaml
   - override /trainer: default      # ../trainer/default.yaml

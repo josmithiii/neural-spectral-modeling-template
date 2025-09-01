@@ -4,7 +4,7 @@
 # Uses 16K sample dataset with auxiliary decay time features extracted from temporal envelope
 
 defaults:
-  - override /data: vimh_16kdss
+  - override /data: vimh
   - override /model: cnn_64k_auxiliary
   - override /callbacks: default
   - override /trainer: default
