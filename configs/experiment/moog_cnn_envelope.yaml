@@ -4,7 +4,7 @@
 # python src/train.py experiment=moog_cnn_envelope
 
 defaults:
-  - override /data: vimh
+  - override /data: vimh_256dss
   - override /model: cnn_tiny  # Medium model for 10-parameter dataset
   - override /callbacks: default
   - override /trainer: default
