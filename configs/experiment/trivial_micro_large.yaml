@@ -1,6 +1,6 @@
 # @package _global_
 
-# Micro CNN on large (16K samples) trivial dataset
+# Micro CNN on large (256K samples) trivial dataset
 # python src/train.py experiment=trivial_micro_large
 
 defaults:
@@ -29,3 +29,6 @@ data:
 logger:
   tensorboard:
     name: "trivial_micro_large"
+
+# Set the optimized metric for regression mode
+optimized_metric: "val/acc_best"

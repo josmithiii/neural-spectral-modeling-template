@@ -49,11 +49,23 @@ etms exp-trivial-micro-small: ## Micro CNN (~2K params) on small dataset (256 sa
 etmsr exp-trivial-micro-small-regression: ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss
 	time python src/train.py experiment=trivial_micro_small_regression
 
+etmsrdt exp-trivial-micro-small-regression-decay-time: ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss on log10_decay_time only
+	time python src/train.py experiment=trivial_micro_small_regression callbacks.model_checkpoint.monitor="val/log10_decay_time_mae" callbacks.early_stopping.monitor="val/log10_decay_time_mae" optimized_metric="val/log10_decay_time_mae"
+
 etts exp-trivial-tiny-small: ## Tiny CNN (~8K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_tiny_small
 
 etml exp-trivial-micro-large: ## Micro CNN (~2K params) on large dataset (16K samples)
 	time python src/train.py experiment=trivial_micro_large
+
+etmlr exp-trivial-micro-large-regression: ## Micro CNN (~2K params) on large dataset (16K samples) - regression loss
+	time python src/train.py experiment=trivial_micro_large_regression
+
+etmlrdt exp-trivial-micro-large-regression-decay-time: ## Micro CNN (~2K params) on large dataset (16K samples) - regression loss on log10_decay_time only
+	time python src/train.py experiment=trivial_micro_large_regression callbacks.model_checkpoint.monitor="val/log10_decay_time_mae" callbacks.early_stopping.monitor="val/log10_decay_time_mae" optimized_metric="val/log10_decay_time_mae"
+
+etmldt exp-trivial-micro-large-decay-time: ## Micro CNN (~2K params) on large dataset (16K samples) - ordinal loss on log10_decay_time only
+	time python src/train.py experiment=trivial_micro_large callbacks.model_checkpoint.monitor="val/log10_decay_time_acc" callbacks.early_stopping.monitor="val/log10_decay_time_acc" optimized_metric="val/log10_decay_time_acc"
 
 ettl exp-trivial-tiny-large: ## Tiny CNN (~8K params) on large dataset (16K samples)
 	time python src/train.py experiment=trivial_tiny_large
