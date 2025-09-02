@@ -153,6 +153,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
+    
+    # Log important model configuration details
+    if hasattr(model, 'output_mode'):
+        log.info(f"Model output mode: {model.output_mode}")
+    if hasattr(model, 'criteria') and model.criteria:
+        criteria_info = {name: type(criterion).__name__ for name, criterion in model.criteria.items()}
+        log.info(f"Model loss functions: {criteria_info}")
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))

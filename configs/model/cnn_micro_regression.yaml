@@ -1,0 +1,35 @@
+# Micro CNN with ~2K parameters for very trivial datasets (regression mode)
+_target_: src.models.multihead_module.MultiheadLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.005
+  weight_decay: 0.01
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 3
+
+# Pure regression mode with continuous outputs
+output_mode: regression
+
+loss_weights: {}
+
+net:
+  _target_: src.models.components.simple_cnn.SimpleCNN
+  input_channels: 1
+  conv1_channels: 8   # Very small
+  conv2_channels: 16  # Very small
+  fc_hidden: 32       # Very small
+  output_mode: regression  # Enable regression mode in network
+  parameter_names: [note_velocity, log10_decay_time]  # Will be auto-configured from dataset  
+  parameter_ranges: {}  # Will be auto-configured from dataset metadata
+  dropout: 0.2
+  input_size: 32
+
+compile: false
+auto_configure_from_dataset: true

@@ -205,7 +205,7 @@ class AudioReconstructionEvaluator:
                 num_classes = mapping.get("num_classes", 256)
                 class_idx = int(pred_tensor.item())
                 normalized_value = class_idx / (num_classes - 1)
-            
+                
             # Denormalize to actual parameter range
             actual_value = param_min + normalized_value * (param_max - param_min)
             denorm_params[param_name] = actual_value
@@ -254,6 +254,15 @@ class AudioReconstructionEvaluator:
         Returns:
             Tuple of (predicted_params, true_params, input_spectrogram)
         """
+        # Check for model performance issues on first few samples
+        if sample_idx < 3 and hasattr(self, '_check_model_predictions'):
+            self._check_model_predictions = False  # Only show once
+            print("🔍 Checking model prediction quality...")
+            
+        # Track predictions to detect if model always predicts the same values
+        if not hasattr(self, '_prediction_tracker'):
+            self._prediction_tracker = {}
+            self._samples_checked = 0
         # Get the test sample
         sample_data = self.test_dataset[sample_idx]
         if len(sample_data) == 2:
@@ -310,6 +319,21 @@ class AudioReconstructionEvaluator:
         
         # Denormalize predictions
         predicted_params = self.denormalize_parameters(processed_predictions)
+        
+        # Track predictions to detect issues
+        self._samples_checked += 1
+        for param_name, value in predicted_params.items():
+            if param_name not in self._prediction_tracker:
+                self._prediction_tracker[param_name] = []
+            self._prediction_tracker[param_name].append(value)
+            
+        # Check for prediction issues after a few samples
+        if self._samples_checked == 5:
+            for param_name, values in self._prediction_tracker.items():
+                if all(abs(v - values[0]) < 1e-6 for v in values):
+                    print(f"⚠️  WARNING: Model always predicts the same value for {param_name}: {values[0]:.4f}")
+                    print(f"   This suggests the model was not trained properly or weights are incorrect.")
+                    print(f"   Expected behavior: predictions should vary across different input samples.")
         
         # Get true parameters
         true_params = self.get_true_parameters(sample_idx)
