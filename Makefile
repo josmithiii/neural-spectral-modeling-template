@@ -43,8 +43,11 @@ ex exp-example: ## Train CNN on default dataset
 
 # TRIVIAL DATASET EXPERIMENTS "et" - Small models for testing on trivial synthetic data
 
-etms exp-trivial-micro-small: ## Micro CNN (~2K params) on small dataset (256 samples)
+etms exp-trivial-micro-small: ## Micro CNN (~2K params) on small dataset (256 samples) - ordinal classification loss
 	time python src/train.py experiment=trivial_micro_small
+
+etmsr exp-trivial-micro-small-regression: ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss
+	time python src/train.py experiment=trivial_micro_small_regression
 
 etts exp-trivial-tiny-small: ## Tiny CNN (~8K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_tiny_small

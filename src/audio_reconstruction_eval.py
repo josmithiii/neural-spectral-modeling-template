@@ -774,8 +774,28 @@ class InteractiveAudioEvaluator:
         self.btn_play_true.on_clicked(self.play_true_audio)
         self.btn_play_pred.on_clicked(self.play_pred_audio)
         
+        # Add keyboard navigation
+        self.fig.canvas.mpl_connect('key_press_event', self.on_key_press)
+        
         # Initial update
         self.update_display()
+        
+        # Print usage instructions
+        print("🎵 Interactive Audio Evaluator")
+        print("💡 Navigation:")
+        print("   • Left/Right arrow keys: Navigate between samples")
+        print("   • Click 'Prev'/'Next' buttons: Navigate between samples")
+        print("   • Use slider: Jump to specific sample")
+        print("   • Click 'Play True'/'Play Pred': Play audio for current sample")
+    
+    def on_key_press(self, event):
+        """Handle keyboard navigation events."""
+        if event.key == 'left':
+            # Left arrow key - go to previous sample
+            self.prev_sample(None)
+        elif event.key == 'right':
+            # Right arrow key - go to next sample
+            self.next_sample(None)
     
     def update_sample(self, val):
         """Update current sample from slider."""
