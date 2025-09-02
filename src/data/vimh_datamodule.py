@@ -1,4 +1,5 @@
 from typing import Any, Dict, Optional, Tuple, List
+import warnings
 import torch
 import json
 from pathlib import Path
@@ -452,7 +453,7 @@ class VIMHDataModule(LightningDataModule):
         for head_name, label_list in labels_dict.items():
             batched_labels[head_name] = torch.tensor(label_list, dtype=torch.long)
 
-        # Assertions: basic sanity on label diversity per head (helps catch decoding bugs)
+        # Assertions/Warns: sanity on label diversity per head (helps catch decoding bugs)
         # Only check when batch has at least 2 items and labels are scalar class indices.
         batch_size = len(images)
         if batch_size >= 2:
@@ -460,10 +461,14 @@ class VIMHDataModule(LightningDataModule):
                 try:
                     if labels.ndim == 1 and labels.dtype in (torch.int8, torch.int16, torch.int32, torch.int64):
                         if torch.all(labels == labels[0]):
-                            raise AssertionError(
+                            msg = (
                                 f"All targets in batch are identical for head '{head_name}' (value={labels[0].item()}). "
                                 f"This often indicates mis-decoding of labels (e.g., normalized floats cast to longs)."
                             )
+                            if getattr(self, "_current_stage", None) == "fit":
+                                raise AssertionError(msg)
+                            else:
+                                warnings.warn("[VIMHDataModule] " + msg)
                 except Exception as _:
                     # Do not break collation if a consumer passes non-scalar labels; just skip assertion.
                     pass
@@ -534,6 +539,9 @@ class VIMHDataModule(LightningDataModule):
 
         :param stage: The stage to setup. Either `"fit"`, `"validate"`, `"test"`, or `"predict"`. Defaults to ``None``.
         """
+        # Record current stage for downstream gating
+        self._current_stage = stage
+
         # Divide batch size by the number of devices.
         if self.trainer is not None:
             if self.hparams.batch_size % self.trainer.world_size != 0:

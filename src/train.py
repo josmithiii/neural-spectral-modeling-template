@@ -60,6 +60,53 @@ from src.utils import (
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
+def _preflight_check_label_diversity(datamodule: LightningDataModule, max_batches: int = 3) -> None:
+    """Validate that training labels vary across a few batches per head.
+
+    Raises a ValueError if any head shows a single unique class across the sampled batches.
+    """
+    try:
+        # Ensure setup ran so loaders are available
+        try:
+            datamodule.setup("fit")
+        except Exception:
+            # If the Trainer will call setup later, it's still OK — we just need loaders now
+            pass
+
+        loader = datamodule.train_dataloader()
+        it = iter(loader)
+        uniques: Dict[str, set] = {}
+        sampled = 0
+        while sampled < max_batches:
+            try:
+                batch = next(it)
+            except StopIteration:
+                break
+            sampled += 1
+            images, labels = batch[0], batch[1]
+            for head, tens in labels.items():
+                if head not in uniques:
+                    uniques[head] = set()
+                try:
+                    if tens.ndim == 1 and tens.dtype in (torch.int8, torch.int16, torch.int32, torch.int64):
+                        uniques[head].update(tens.tolist())
+                except Exception:
+                    # Non-scalar labels or different dtype – skip diversity check for this head
+                    pass
+
+        problems = [h for h, s in uniques.items() if len(s) <= 1]
+        if problems:
+            details = ", ".join(f"{h}: {sorted(list(uniques[h]))}" for h in problems)
+            raise ValueError(
+                f"Label preflight failed: non-diverse targets for heads [{', '.join(problems)}]. "
+                f"Observed unique labels across {sampled} batch(es): {details}. "
+                f"This often indicates label decoding issues."
+            )
+    except Exception as e:
+        # Re-raise with clearer context
+        raise
+
+
 @task_wrapper
 def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
@@ -184,6 +231,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log_hyperparameters(object_dict)
 
     if cfg.get("train"):
+        # Preflight: ensure label diversity across a few batches before fitting
+        try:
+            _preflight_check_label_diversity(datamodule, max_batches=3)
+            log.info("Label preflight passed (diverse targets across heads)")
+        except Exception as e:
+            log.error(f"Label preflight failed: {e}")
+            raise
+
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
 
