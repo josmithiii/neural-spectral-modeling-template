@@ -300,18 +300,18 @@ class MultiheadDatasetBase(Dataset, ABC):
             for _ in range(num_params):
                 param_id, param_value = struct.unpack("BB", data[offset:offset+2])
                 offset += 2
-                
-                # Convert quantized value back to normalized [0,1] range
-                normalized_value = param_value / 255.0  # QUANTIZATION_LEVELS = 255
-                
+                # Keep quantized class index (0..255) for classification targets.
+                # Normalized/actual values are derived where needed (e.g., metadata accessors).
+                quantized_value = int(param_value)
+
                 # Get parameter name from metadata if available
                 if (self.metadata_format and 'parameter_names' in self.metadata_format 
                     and param_id < len(self.metadata_format['parameter_names'])):
                     param_name = self.metadata_format['parameter_names'][param_id]
-                    label_dict[param_name] = normalized_value
+                    label_dict[param_name] = quantized_value
                 else:
                     # Fallback to generic parameter name
-                    label_dict[f'param_{param_id}'] = normalized_value
+                    label_dict[f'param_{param_id}'] = quantized_value
             
             # Parse image data
             image_size = height * width * channels

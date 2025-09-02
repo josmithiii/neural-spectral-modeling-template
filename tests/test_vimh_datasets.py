@@ -258,6 +258,72 @@ class TestVIMHDataset:
         assert 'min_actual' in param_stats['note_number']
         assert 'max_actual' in param_stats['note_number']
 
+    def test_binary_format_metadata_decoding(self, temp_dir):
+        """Ensure binary VIMH labels decode to correct normalized and actual values."""
+        import struct
+        import numpy as np
+
+        # Minimal binary dataset: 1 sample, small image
+        H, W, C = 8, 8, 1
+        param_names = ['note_velocity', 'log10_decay_time']
+        # Metadata with parameter mappings
+        metadata = {
+            'format': 'VIMH',
+            'version': '3.0',
+            'dataset_name': 'bin_test',
+            'height': H,
+            'width': W,
+            'channels': C,
+            'parameter_names': param_names,
+            'parameter_mappings': {
+                'note_velocity': {'min': 0.0, 'max': 127.0, 'scale': 'linear'},
+                'log10_decay_time': {'min': -2.0, 'max': 0.3, 'scale': 'linear'},
+            },
+        }
+
+        # Construct one binary sample
+        buf = bytearray()
+        buf += struct.pack('<HHH', H, W, C)               # dims
+        buf += struct.pack('<ff', -80.0, 0.0)             # spec_min/max (dB)
+        buf += struct.pack('B', len(param_names))         # N heads
+        # Quantized values
+        q_vel = 64
+        q_decay = 255
+        buf += struct.pack('BB', 0, q_vel)                # id 0 -> note_velocity
+        buf += struct.pack('BB', 1, q_decay)              # id 1 -> log10_decay_time
+        # Image data
+        buf += (np.zeros(H * W * C, dtype=np.uint8)).tobytes()
+
+        # Write files
+        train_path = temp_dir / 'train'
+        with open(train_path, 'wb') as f:
+            f.write(buf)
+        with open(temp_dir / 'vimh_dataset_info.json', 'w') as f:
+            import json
+            json.dump(metadata, f)
+
+        # Load dataset and decode metadata for sample 0
+        from src.data.vimh_dataset import VIMHDataset
+        ds = VIMHDataset(str(temp_dir), train=True)
+        meta = ds._get_sample_metadata(0)
+
+        # Validate decoded fields
+        vel = meta['note_velocity_info']
+        decay = meta['log10_decay_time_info']
+
+        assert vel['quantized_value'] == q_vel
+        assert decay['quantized_value'] == q_decay
+
+        # Normalized should be quantized/255
+        assert abs(vel['normalized_value'] - (q_vel / 255.0)) < 1e-6
+        assert abs(decay['normalized_value'] - (q_decay / 255.0)) < 1e-6
+
+        # Actual should map via min + norm * (max-min)
+        vel_min, vel_max = 0.0, 127.0
+        decay_min, decay_max = -2.0, 0.3
+        assert abs(vel['actual_value'] - (vel_min + (q_vel/255.0)*(vel_max - vel_min))) < 1e-6
+        assert abs(decay['actual_value'] - (decay_min + (q_decay/255.0)*(decay_max - decay_min))) < 1e-6
+
     def test_missing_metadata_file(self, temp_dir, mock_vimh_data):
         """Test handling of missing metadata file."""
         train_file = temp_dir / 'train_batch'

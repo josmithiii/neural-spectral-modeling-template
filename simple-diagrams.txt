@@ -1,0 +1,953 @@
+python viz/simple_model_diagram.py --config cnn_64k
+
+Generating diagrams from config: cnn_64k
+================================================================================
+Model: cnn_64k Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): SimpleCNN(
+    (conv_layers): Sequential(
+      (0): Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU()
+      (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (4): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (5): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (6): ReLU()
+      (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (8): AdaptiveAvgPool2d(output_size=(4, 4))
+    )
+    (shared_features): Sequential(
+      (0): Flatten(start_dim=1, end_dim=-1)
+      (1): Linear(in_features=2048, out_features=512, bias=True)
+      (2): ReLU()
+      (3): Dropout(p=0.5, inplace=False)
+    )
+    (classifier): Linear(in_features=512, out_features=10, bias=True)
+  )
+)
+
+Parameter Count:
+Total parameters: 1,129,098
+Trainable parameters: 1,129,098
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================
+python viz/simple_model_diagram.py --config cnn_64k_ordinal
+
+Generating diagrams from config: cnn_64k_ordinal
+================================================================================
+Model: cnn_64k_ordinal Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): SimpleCNN(
+    (conv_layers): Sequential(
+      (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU()
+      (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (4): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (5): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (6): ReLU()
+      (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (8): AdaptiveAvgPool2d(output_size=(4, 4))
+    )
+    (shared_features): Sequential(
+      (0): Flatten(start_dim=1, end_dim=-1)
+      (1): Linear(in_features=2048, out_features=512, bias=True)
+      (2): ReLU()
+      (3): Dropout(p=0.5, inplace=False)
+    )
+    (classifier): Linear(in_features=512, out_features=10, bias=True)
+  )
+)
+
+Parameter Count:
+Total parameters: 1,130,250
+Trainable parameters: 1,130,250
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Error loading config cnn_64k_ordinal: Given groups=1, weight of size [64, 3, 3, 3], expected input[1, 1, 28, 28] to have 3 channels, but got 1 channels instead
+Falling back to hardcoded SimpleCNN...
+================================================================================
+SimpleCNN (fallback for cnn_64k_ordinal) Architecture Summary
+================================================================================
+
+Model Structure:
+SimpleCNN(
+  (conv_layers): Sequential(
+    (0): Conv2d(1, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (1): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU()
+    (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (4): Conv2d(3, 6, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (5): BatchNorm2d(6, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (6): ReLU()
+    (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (8): AdaptiveAvgPool2d(output_size=(7, 7))
+  )
+  (shared_features): Sequential(
+    (0): Flatten(start_dim=1, end_dim=-1)
+    (1): Linear(in_features=294, out_features=25, bias=True)
+    (2): ReLU()
+    (3): Dropout(p=0.25, inplace=False)
+  )
+  (classifier): Linear(in_features=25, out_features=10, bias=True)
+)
+
+Parameter Count:
+Total parameters: 7,851
+Trainable parameters: 7,851
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+After conv layers: torch.Size([1, 6, 7, 7])
+After shared features: torch.Size([1, 25])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================
+python viz/simple_model_diagram.py --config cnn_64k_regression
+
+Generating diagrams from config: cnn_64k_regression
+================================================================================
+Model: cnn_64k_regression Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): SimpleCNN(
+    (conv_layers): Sequential(
+      (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU()
+      (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (4): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (5): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (6): ReLU()
+      (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (8): AdaptiveAvgPool2d(output_size=(4, 4))
+    )
+    (shared_features): Sequential(
+      (0): Flatten(start_dim=1, end_dim=-1)
+      (1): Linear(in_features=2048, out_features=512, bias=True)
+      (2): ReLU()
+      (3): Dropout(p=0.5, inplace=False)
+    )
+    (classifier): Sequential(
+      (0): Linear(in_features=512, out_features=1, bias=True)
+      (1): Sigmoid()
+    )
+  )
+)
+
+Parameter Count:
+Total parameters: 1,125,633
+Trainable parameters: 1,125,633
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Error loading config cnn_64k_regression: Given groups=1, weight of size [64, 3, 3, 3], expected input[1, 1, 28, 28] to have 3 channels, but got 1 channels instead
+Falling back to hardcoded SimpleCNN...
+================================================================================
+SimpleCNN (fallback for cnn_64k_regression) Architecture Summary
+================================================================================
+
+Model Structure:
+SimpleCNN(
+  (conv_layers): Sequential(
+    (0): Conv2d(1, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (1): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU()
+    (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (4): Conv2d(3, 6, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (5): BatchNorm2d(6, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (6): ReLU()
+    (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (8): AdaptiveAvgPool2d(output_size=(7, 7))
+  )
+  (shared_features): Sequential(
+    (0): Flatten(start_dim=1, end_dim=-1)
+    (1): Linear(in_features=294, out_features=25, bias=True)
+    (2): ReLU()
+    (3): Dropout(p=0.25, inplace=False)
+  )
+  (classifier): Linear(in_features=25, out_features=10, bias=True)
+)
+
+Parameter Count:
+Total parameters: 7,851
+Trainable parameters: 7,851
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+After conv layers: torch.Size([1, 6, 7, 7])
+After shared features: torch.Size([1, 25])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================
+python viz/simple_model_diagram.py --config cnn_64k_auxiliary
+
+Generating diagrams from config: cnn_64k_auxiliary
+================================================================================
+Model: cnn_64k_auxiliary Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): SimpleCNN(
+    (conv_layers): Sequential(
+      (0): Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU()
+      (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (4): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (5): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (6): ReLU()
+      (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (8): AdaptiveAvgPool2d(output_size=(4, 4))
+    )
+    (shared_features): Sequential(
+      (0): Flatten(start_dim=1, end_dim=-1)
+      (1): Linear(in_features=2048, out_features=512, bias=True)
+      (2): ReLU()
+      (3): Dropout(p=0.5, inplace=False)
+    )
+    (classifier): Linear(in_features=512, out_features=10, bias=True)
+  )
+)
+
+Parameter Count:
+Total parameters: 1,129,098
+Trainable parameters: 1,129,098
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================
+python viz/simple_model_diagram.py --config cnn_micro
+
+Generating diagrams from config: cnn_micro
+================================================================================
+Model: cnn_micro Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): SimpleCNN(
+    (conv_layers): Sequential(
+      (0): Conv2d(1, 8, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (1): BatchNorm2d(8, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU()
+      (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (4): Conv2d(8, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (5): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (6): ReLU()
+      (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (8): AdaptiveAvgPool2d(output_size=(4, 4))
+    )
+    (shared_features): Sequential(
+      (0): Flatten(start_dim=1, end_dim=-1)
+      (1): Linear(in_features=256, out_features=32, bias=True)
+      (2): ReLU()
+      (3): Dropout(p=0.2, inplace=False)
+    )
+    (classifier): Linear(in_features=32, out_features=10, bias=True)
+  )
+)
+
+Parameter Count:
+Total parameters: 9,850
+Trainable parameters: 9,850
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================
+python viz/simple_model_diagram.py --config cnn_tiny
+
+Generating diagrams from config: cnn_tiny
+================================================================================
+Model: cnn_tiny Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): SimpleCNN(
+    (conv_layers): Sequential(
+      (0): Conv2d(1, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (1): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU()
+      (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (4): Conv2d(16, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (5): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (6): ReLU()
+      (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (8): AdaptiveAvgPool2d(output_size=(4, 4))
+    )
+    (shared_features): Sequential(
+      (0): Flatten(start_dim=1, end_dim=-1)
+      (1): Linear(in_features=512, out_features=64, bias=True)
+      (2): ReLU()
+      (3): Dropout(p=0.3, inplace=False)
+    )
+    (classifier): Linear(in_features=64, out_features=10, bias=True)
+  )
+)
+
+Parameter Count:
+Total parameters: 38,378
+Trainable parameters: 38,378
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================
+python viz/simple_model_diagram.py --config cnn_stk
+
+Generating diagrams from config: cnn_stk
+================================================================================
+Model: cnn_stk Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): SimpleCNN(
+    (conv_layers): Sequential(
+      (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU()
+      (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (4): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      (5): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (6): ReLU()
+      (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (8): AdaptiveAvgPool2d(output_size=(4, 4))
+    )
+    (shared_features): Sequential(
+      (0): Flatten(start_dim=1, end_dim=-1)
+      (1): Linear(in_features=2048, out_features=512, bias=True)
+      (2): ReLU()
+      (3): Dropout(p=0.5, inplace=False)
+    )
+    (classifier): Linear(in_features=512, out_features=256, bias=True)
+  )
+)
+
+Parameter Count:
+Total parameters: 1,256,448
+Trainable parameters: 1,256,448
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Error loading config cnn_stk: Given groups=1, weight of size [64, 3, 3, 3], expected input[1, 1, 28, 28] to have 3 channels, but got 1 channels instead
+Falling back to hardcoded SimpleCNN...
+================================================================================
+SimpleCNN (fallback for cnn_stk) Architecture Summary
+================================================================================
+
+Model Structure:
+SimpleCNN(
+  (conv_layers): Sequential(
+    (0): Conv2d(1, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (1): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU()
+    (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (4): Conv2d(3, 6, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (5): BatchNorm2d(6, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (6): ReLU()
+    (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (8): AdaptiveAvgPool2d(output_size=(7, 7))
+  )
+  (shared_features): Sequential(
+    (0): Flatten(start_dim=1, end_dim=-1)
+    (1): Linear(in_features=294, out_features=25, bias=True)
+    (2): ReLU()
+    (3): Dropout(p=0.25, inplace=False)
+  )
+  (classifier): Linear(in_features=25, out_features=10, bias=True)
+)
+
+Parameter Count:
+Total parameters: 7,851
+Trainable parameters: 7,851
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+After conv layers: torch.Size([1, 6, 7, 7])
+After shared features: torch.Size([1, 25])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================
+python viz/simple_model_diagram.py --config vit_micro
+
+Generating diagrams from config: vit_micro
+================================================================================
+Model: vit_micro Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): VisionTransformer(
+    (embedding): EmbedLayer(
+      (conv1): Conv2d(1, 32, kernel_size=(8, 8), stride=(8, 8))
+      (dropout): Dropout(p=0.2, inplace=False)
+    )
+    (encoder): ModuleList(
+      (0-1): 2 x Encoder(
+        (norm1): LayerNorm((32,), eps=1e-05, elementwise_affine=True)
+        (attention): SelfAttention(
+          (queries): Linear(in_features=32, out_features=32, bias=True)
+          (keys): Linear(in_features=32, out_features=32, bias=True)
+          (values): Linear(in_features=32, out_features=32, bias=True)
+          (out_projection): Linear(in_features=32, out_features=32, bias=True)
+        )
+        (dropout1): Dropout(p=0.2, inplace=False)
+        (norm2): LayerNorm((32,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=32, out_features=64, bias=True)
+        (activation): GELU(approximate='none')
+        (fc2): Linear(in_features=64, out_features=32, bias=True)
+        (dropout2): Dropout(p=0.2, inplace=False)
+      )
+    )
+    (norm): LayerNorm((32,), eps=1e-05, elementwise_affine=True)
+    (classifier): Classifier(
+      (fc1): Linear(in_features=32, out_features=32, bias=True)
+      (activation): Tanh()
+      (fc2): Linear(in_features=32, out_features=10, bias=True)
+    )
+  )
+)
+
+Parameter Count:
+Total parameters: 21,162
+Trainable parameters: 21,162
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Error loading config vit_micro: The size of tensor a (9) must match the size of tensor b (16) at non-singleton dimension 1
+Falling back to hardcoded SimpleCNN...
+================================================================================
+SimpleCNN (fallback for vit_micro) Architecture Summary
+================================================================================
+
+Model Structure:
+SimpleCNN(
+  (conv_layers): Sequential(
+    (0): Conv2d(1, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (1): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU()
+    (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (4): Conv2d(3, 6, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (5): BatchNorm2d(6, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (6): ReLU()
+    (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (8): AdaptiveAvgPool2d(output_size=(7, 7))
+  )
+  (shared_features): Sequential(
+    (0): Flatten(start_dim=1, end_dim=-1)
+    (1): Linear(in_features=294, out_features=25, bias=True)
+    (2): ReLU()
+    (3): Dropout(p=0.25, inplace=False)
+  )
+  (classifier): Linear(in_features=25, out_features=10, bias=True)
+)
+
+Parameter Count:
+Total parameters: 7,851
+Trainable parameters: 7,851
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+After conv layers: torch.Size([1, 6, 7, 7])
+After shared features: torch.Size([1, 25])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================
+python viz/simple_model_diagram.py --config vit_tiny
+
+Generating diagrams from config: vit_tiny
+================================================================================
+Model: vit_tiny Architecture Summary
+================================================================================
+
+Model Structure:
+MultiheadLitModule(
+  (net): VisionTransformer(
+    (embedding): EmbedLayer(
+      (conv1): Conv2d(1, 64, kernel_size=(4, 4), stride=(4, 4))
+      (dropout): Dropout(p=0.3, inplace=False)
+    )
+    (encoder): ModuleList(
+      (0-2): 3 x Encoder(
+        (norm1): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+        (attention): SelfAttention(
+          (queries): Linear(in_features=64, out_features=64, bias=True)
+          (keys): Linear(in_features=64, out_features=64, bias=True)
+          (values): Linear(in_features=64, out_features=64, bias=True)
+          (out_projection): Linear(in_features=64, out_features=64, bias=True)
+        )
+        (dropout1): Dropout(p=0.3, inplace=False)
+        (norm2): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=64, out_features=128, bias=True)
+        (activation): GELU(approximate='none')
+        (fc2): Linear(in_features=128, out_features=64, bias=True)
+        (dropout2): Dropout(p=0.3, inplace=False)
+      )
+    )
+    (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+    (classifier): Classifier(
+      (fc1): Linear(in_features=64, out_features=64, bias=True)
+      (activation): Tanh()
+      (fc2): Linear(in_features=64, out_features=10, bias=True)
+    )
+  )
+)
+
+Parameter Count:
+Total parameters: 110,602
+Trainable parameters: 110,602
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+Error loading config vit_tiny: The size of tensor a (49) must match the size of tensor b (64) at non-singleton dimension 1
+Falling back to hardcoded SimpleCNN...
+================================================================================
+SimpleCNN (fallback for vit_tiny) Architecture Summary
+================================================================================
+
+Model Structure:
+SimpleCNN(
+  (conv_layers): Sequential(
+    (0): Conv2d(1, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (1): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU()
+    (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (4): Conv2d(3, 6, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (5): BatchNorm2d(6, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (6): ReLU()
+    (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (8): AdaptiveAvgPool2d(output_size=(7, 7))
+  )
+  (shared_features): Sequential(
+    (0): Flatten(start_dim=1, end_dim=-1)
+    (1): Linear(in_features=294, out_features=25, bias=True)
+    (2): ReLU()
+    (3): Dropout(p=0.25, inplace=False)
+  )
+  (classifier): Linear(in_features=25, out_features=10, bias=True)
+)
+
+Parameter Count:
+Total parameters: 7,851
+Trainable parameters: 7,851
+
+Forward Pass Shape Analysis:
+Input shape: (1, 1, 28, 28)
+Input: torch.Size([1, 1, 28, 28])
+After conv layers: torch.Size([1, 6, 7, 7])
+After shared features: torch.Size([1, 25])
+Final output: torch.Size([1, 10])
+
+================================================================================
+ASCII Architecture Diagram
+================================================================================
+
+    Input (1x28x28)
+           │
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(1→3)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (3x14x14)
+           ▼
+    ┌─────────────────┐
+    │   Conv2d(3→6)   │  3x3 kernel, padding=1
+    │   BatchNorm2d   │
+    │   ReLU          │
+    │   MaxPool2d     │  2x2, stride=2
+    └─────────────────┘
+           │ (6x7x7)
+           ▼
+    ┌─────────────────┐
+    │ AdaptiveAvgPool │  → (6x7x7)
+    │    Flatten      │  → (294,)
+    │  Linear(294→25) │
+    │      ReLU       │
+    │   Dropout(0.25) │
+    └─────────────────┘
+           │ (25,)
+           ▼
+    ┌─────────────────┐
+    │  Linear(25→10)  │  Final classifier
+    └─────────────────┘
+           │
+           ▼
+        Output (10,)
+    
+
+================================================================================
+Model diagram generation complete!
+================================================================================

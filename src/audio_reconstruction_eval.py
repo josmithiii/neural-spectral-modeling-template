@@ -564,19 +564,29 @@ class AudioReconstructionEvaluator:
         plt.xlabel("Time")
         plt.ylabel("Frequency")
         
-        # 7. Parameter comparison
+        # 7. Parameter comparison (normalized 0-1)
         plt.subplot(3, 3, 7)
         param_names = list(results["param_errors"].keys())
-        true_vals = [results["param_errors"][p]["true"] for p in param_names]
-        pred_vals = [results["param_errors"][p]["predicted"] for p in param_names]
-        
+        # Normalize using dataset parameter mappings
+        norm_true_vals = []
+        norm_pred_vals = []
+        for p in param_names:
+            mapping = self.param_mappings.get(p, {"min": 0.0, "max": 1.0})
+            pmin = mapping.get("min", 0.0)
+            pmax = mapping.get("max", 1.0)
+            prange = max(1e-12, pmax - pmin)
+            tval = results["param_errors"][p]["true"]
+            pval = results["param_errors"][p]["predicted"]
+            norm_true_vals.append(np.clip((tval - pmin) / prange, 0.0, 1.0))
+            norm_pred_vals.append(np.clip((pval - pmin) / prange, 0.0, 1.0))
+
         x = np.arange(len(param_names))
         width = 0.35
-        plt.bar(x - width/2, true_vals, width, label='True', alpha=0.7)
-        plt.bar(x + width/2, pred_vals, width, label='Predicted', alpha=0.7)
+        plt.bar(x - width/2, norm_true_vals, width, label='True', alpha=0.7)
+        plt.bar(x + width/2, norm_pred_vals, width, label='Predicted', alpha=0.7)
         plt.xlabel('Parameters')
-        plt.ylabel('Values')
-        plt.title('Parameter Comparison')
+        plt.ylabel('Normalized Value [0,1]')
+        plt.title('Parameter Comparison (Normalized)')
         plt.xticks(x, param_names, rotation=45)
         plt.legend()
         

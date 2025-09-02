@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
+import numpy as np
 import torch
 from .multihead_dataset_base import MultiheadDatasetBase
 from ..utils.auxiliary_features import extract_auxiliary_features, compute_temporal_envelope_from_spectrogram
@@ -202,13 +203,26 @@ class VIMHDataset(MultiheadDatasetBase):
                 if param_name in param_mappings:
                     mapping_info = param_mappings[param_name]
 
+                    # Handle both sources consistently:
+                    # - Pickle path stores 0–255 quantized integers
+                    # - Binary path stores 0–1 normalized floats
+                    # Convert to a normalized value in [0,1] and also report a quantized value.
+                    if isinstance(param_value, (int, np.integer)) and 0 <= int(param_value) <= 255:
+                        quantized_value = int(param_value)
+                        normalized_value = quantized_value / 255.0
+                    else:
+                        # Treat as normalized already (float tensor/np scalar). Clamp for safety.
+                        normalized_value = float(np.clip(param_value, 0.0, 1.0))
+                        quantized_value = int(round(normalized_value * 255))
+
                     # Dequantize parameter value back to actual range
                     param_min = mapping_info.get('min', 0)
                     param_max = mapping_info.get('max', 255)
-                    actual_value = param_min + (param_value / 255.0) * (param_max - param_min)
+                    actual_value = param_min + normalized_value * (param_max - param_min)
 
                     metadata[f'{param_name}_info'] = {
-                        'quantized_value': param_value,
+                        'quantized_value': quantized_value,
+                        'normalized_value': normalized_value,
                         'actual_value': actual_value,
                         'description': mapping_info.get('description', ''),
                         'range': [param_min, param_max],
