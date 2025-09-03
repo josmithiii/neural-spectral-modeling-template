@@ -79,24 +79,23 @@ def get_heads_config_from_metadata(data_dir: str) -> Dict[str, int]:
     if 'parameter_names' in metadata:
         param_names = metadata['parameter_names']
 
-        # Check if parameter_mappings exist for more precise configuration
-        if 'parameter_mappings' in metadata:
-            param_mappings = metadata['parameter_mappings']
-            for param_name in param_names:
-                if param_name in param_mappings:
-                    # For continuous parameters, use 256 classes (0-255 quantization)
-                    heads_config[param_name] = 256
-        else:
-            # Default configuration when no parameter_mappings are available
-            # Use the label_encoding range for quantization levels
-            if 'label_encoding' in metadata and 'param_val_range' in metadata['label_encoding']:
-                param_val_range = metadata['label_encoding']['param_val_range']
-                num_classes = param_val_range[1] - param_val_range[0] + 1
-            else:
-                # Default to 256 classes for 8-bit quantization
-                num_classes = 256
+        if 'parameter_mappings' not in metadata:
+            raise ValueError("VIMH metadata missing 'parameter_mappings'")
 
-            for param_name in param_names:
-                heads_config[param_name] = num_classes
+        param_mappings = metadata['parameter_mappings']
+        for param_name in param_names:
+            if param_name not in param_mappings:
+                raise ValueError(f"Parameter '{param_name}' not found in parameter_mappings")
+            info = param_mappings[param_name]
+            if not all(k in info for k in ('min', 'max', 'step')):
+                raise ValueError(f"Parameter '{param_name}' missing min/max/step in metadata")
+            step = float(info['step'])
+            if step <= 0:
+                raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
+            num = (float(info['max']) - float(info['min'])) / step
+            steps = int(round(num))
+            if abs(num - steps) > 1e-6:
+                raise ValueError(f"Parameter '{param_name}' has non-integer steps: (max-min)/step={num}")
+            heads_config[param_name] = steps + 1
 
     return heads_config

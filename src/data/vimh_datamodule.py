@@ -331,7 +331,7 @@ class VIMHDataModule(LightningDataModule):
                 with open(metadata_file, 'r') as f:
                     metadata = json.load(f)
 
-                # Calculate heads config from parameter mappings
+                # Calculate heads config from parameter mappings using min/max/step
                 heads_config = {}
                 if 'parameter_names' in metadata and 'parameter_mappings' in metadata:
                     param_names = metadata['parameter_names']
@@ -339,17 +339,24 @@ class VIMHDataModule(LightningDataModule):
 
                     for param_name in param_names:
                         if param_name in param_mappings:
-                            # For continuous parameters, use 256 classes (0-255 quantization)
-                            heads_config[param_name] = 256
+                            info = param_mappings[param_name]
+                            if all(k in info for k in ('min', 'max', 'step')) and float(info['step']) > 0:
+                                pmin, pmax, step = float(info['min']), float(info['max']), float(info['step'])
+                                num = (pmax - pmin) / step
+                                steps = int(round(num))
+                                if abs(num - steps) > 1e-6:
+                                    raise ValueError(f"Parameter '{param_name}' has non-integer steps: (max-min)/step={num}")
+                                heads_config[param_name] = steps + 1
+                            else:
+                                raise ValueError(f"Parameter '{param_name}' missing min/max/step or invalid step in metadata")
 
                 return heads_config
 
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
             pass
 
-        # Fallback: load temporary dataset
-        temp_dataset = VIMHDataset(data_dir, train=True)
-        return temp_dataset.get_heads_config()
+        # No fallback — metadata must be present and valid for heads_config
+        raise FileNotFoundError(f"vimh_dataset_info.json missing or invalid in {data_dir}")
 
     def _load_parameter_ranges(self, data_dir: str) -> Dict[str, float]:
         """Load parameter ranges for perceptual loss calculation.

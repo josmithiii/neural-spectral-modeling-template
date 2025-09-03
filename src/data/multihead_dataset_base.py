@@ -348,13 +348,22 @@ class MultiheadDatasetBase(Dataset, ABC):
         if self.samples:
             self.image_shape = self.samples[0][0].shape
             
-            # Build heads config from parameter names and ranges
+            # Build heads config from parameter names using min/max/step if available
             self.heads_config = {}
             if self.metadata_format and 'parameter_names' in self.metadata_format:
-                for param_name in self.metadata_format['parameter_names']:
-                    # For binary format, we store normalized values [0,1]
-                    # The actual parameter ranges are in the metadata_format
-                    self.heads_config[param_name] = {'classes': 256}  # 0-255 quantization levels
+                param_names = self.metadata_format['parameter_names']
+                param_mappings = self.metadata_format.get('parameter_mappings', {})
+                for param_name in param_names:
+                    info = param_mappings.get(param_name)
+                    if info and all(k in info for k in ('min', 'max', 'step')) and float(info['step']) > 0:
+                        pmin, pmax, step = float(info['min']), float(info['max']), float(info['step'])
+                        num = (pmax - pmin) / step
+                        steps = int(round(num))
+                        if abs(num - steps) > 1e-6:
+                            raise ValueError(f"Parameter '{param_name}' has non-integer steps: (max-min)/step={num}")
+                        self.heads_config[param_name] = steps + 1
+                    else:
+                        raise ValueError(f"Parameter '{param_name}' missing min/max/step in metadata")
 
     def _validate_format(self) -> bool:
         """Validate the loaded dataset format.

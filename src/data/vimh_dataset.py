@@ -121,13 +121,22 @@ class VIMHDataset(MultiheadDatasetBase):
             # Only include varying parameters in heads_config
             varying_params = self.metadata_format.get('parameter_names', [])
 
-            # Update heads_config with metadata ranges for varying parameters only
+            # Derive number of classes from min/max/step for each varying parameter
             for param_name in varying_params:
                 if param_name in param_mappings:
                     param_info = param_mappings[param_name]
-                    if 'min' in param_info and 'max' in param_info:
-                        # For continuous parameters, use 256 classes (0-255 quantization)
-                        self.heads_config[param_name] = 256
+                    if 'min' not in param_info or 'max' not in param_info or 'step' not in param_info:
+                        raise ValueError(f"Parameter '{param_name}' is missing min/max/step in metadata")
+                    pmin = float(param_info['min'])
+                    pmax = float(param_info['max'])
+                    step = float(param_info['step'])
+                    if step <= 0:
+                        raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
+                    num = (pmax - pmin) / step
+                    num_steps = int(round(num))
+                    if abs(num - num_steps) > 1e-6:
+                        raise ValueError(f"Parameter '{param_name}' range does not divide by step: (max-min)/step={num}")
+                    self.heads_config[param_name] = num_steps + 1
 
     def _validate_dataset(self) -> None:
         """Validate dataset integrity and format compliance."""
