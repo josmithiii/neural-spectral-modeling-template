@@ -1,0 +1,276 @@
+diff --git a/src/audio_reconstruction_eval.py b/src/audio_reconstruction_eval.py
+index 5a16cf1..4ebc6b5 100644
+--- a/src/audio_reconstruction_eval.py
++++ b/src/audio_reconstruction_eval.py
+@@ -1213,7 +1213,11 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
+         hyper_parameters = checkpoint.get('hyper_parameters', {})
+         log.info(f"Checkpoint hyperparameters keys: {list(hyper_parameters.keys())}")
+         
+-        # If hyperparameters don't contain the full model config, try to reconstruct from state_dict structure
++        # Check for stored architecture metadata first
++        architecture_metadata = hyper_parameters.get('architecture_metadata', {})
++        log.info(f"Architecture metadata: {architecture_metadata}")
++        
++        # Get checkpoint state dict for later use
+         checkpoint_state_dict = checkpoint["state_dict"]
+         first_weight_key = list(checkpoint_state_dict.keys())[0]
+         log.info(f"First weight key: {first_weight_key}")
+@@ -1223,79 +1227,47 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
+             heads_config = datamodule.data_train.get_heads_config()
+             log.info(f"Retrieved heads config from datamodule: {list(heads_config.keys())}")
+             
+-            # Determine model architecture from checkpoint state dict structure - FAIL FAST!
+-            if 'net.embedding.pos_embedding' in checkpoint_state_dict:
+-                log.info("Detected Vision Transformer architecture from checkpoint")
+-                
+-                # FAIL FAST: Extract ALL ViT parameters from checkpoint weights - no defaults!
+-                if 'net.embedding.pos_embedding' not in checkpoint_state_dict:
+-                    log.error("ViT checkpoint missing net.embedding.pos_embedding")
+-                    sys.exit(1)
+-                
+-                pos_embedding = checkpoint_state_dict['net.embedding.pos_embedding']
+-                # pos_embedding shape: [1, num_patches + 1, embed_dim]
+-                embed_dim = pos_embedding.shape[2]
+-                num_patches_plus_1 = pos_embedding.shape[1]
+-                num_patches = num_patches_plus_1 - 1  # -1 for class token
+-                
+-                # Infer image_size and patch_size from number of patches
+-                if not dataset_metadata or 'height' not in dataset_metadata or 'width' not in dataset_metadata:
+-                    log.error("ViT requires dataset metadata with height and width")
+-                    sys.exit(1)
+-                    
+-                height = dataset_metadata['height']
+-                width = dataset_metadata['width']
+-                
+-                # For square patches: num_patches = (height/patch_size) * (width/patch_size)
+-                # Try common patch sizes
+-                possible_patch_sizes = [2, 4, 6, 8, 12, 16]
+-                patch_size = None
+-                for ps in possible_patch_sizes:
+-                    if (height % ps == 0) and (width % ps == 0):
+-                        if (height // ps) * (width // ps) == num_patches:
+-                            patch_size = ps
+-                            break
+-                
+-                if patch_size is None:
+-                    log.error(f"Could not infer patch_size for ViT: num_patches={num_patches}, image_size=({height}, {width})")
+-                    log.error(f"Tried patch sizes: {possible_patch_sizes}")
+-                    sys.exit(1)
+-                
+-                # Extract number of layers from transformer blocks
+-                transformer_keys = [k for k in checkpoint_state_dict.keys() if k.startswith('net.transformer.')]
+-                layer_indices = set()
+-                for key in transformer_keys:
+-                    if '.layers.' in key:
+-                        layer_idx = int(key.split('.layers.')[1].split('.')[0])
+-                        layer_indices.add(layer_idx)
+-                
+-                n_layers = max(layer_indices) + 1 if layer_indices else None
+-                if n_layers is None:
+-                    log.error("Could not infer n_layers from ViT checkpoint")
+-                    sys.exit(1)
++            # Use stored architecture metadata if available
++            if architecture_metadata and architecture_metadata.get('type') == 'ViT':
++                log.info("Using stored ViT architecture metadata from checkpoint")
++                
++                # Create ViT with stored parameters
++                from src.models.components.vision_transformer import VisionTransformer
++                net = VisionTransformer(
++                    image_size=architecture_metadata['image_size'],
++                    patch_size=architecture_metadata['patch_size'], 
++                    n_channels=architecture_metadata['input_channels'],
++                    embed_dim=architecture_metadata['embed_dim'],
++                    n_layers=architecture_metadata['n_layers'],
++                    n_attention_heads=architecture_metadata['n_attention_heads'],
++                    heads_config=heads_config,
++                    forward_mul=architecture_metadata.get('forward_mul', 2),
++                    dropout=architecture_metadata.get('dropout', 0.1),
++                    use_torch_layers=architecture_metadata.get('use_torch_layers', False)
++                )
+                 
+-                # Extract attention heads from first attention layer
+-                attn_weight_key = f'net.transformer.layers.0.attn.qkv.weight'
+-                if attn_weight_key not in checkpoint_state_dict:
+-                    log.error(f"ViT checkpoint missing {attn_weight_key}")
+-                    sys.exit(1)
++            elif architecture_metadata and architecture_metadata.get('type') == 'CNN':
++                log.info("Using stored CNN architecture metadata from checkpoint")
+                 
+-                qkv_weight = checkpoint_state_dict[attn_weight_key]
+-                # qkv_weight shape: [3*embed_dim, embed_dim] for combined q,k,v
+-                if qkv_weight.shape[0] != 3 * embed_dim:
+-                    log.error(f"Unexpected qkv weight shape: {qkv_weight.shape}, expected: [3*{embed_dim}, {embed_dim}]")
+-                    sys.exit(1)
++                # Create CNN with stored parameters
++                from src.models.components.simple_cnn import SimpleCNN
++                net = SimpleCNN(
++                    input_channels=architecture_metadata['input_channels'],
++                    conv1_channels=architecture_metadata['conv1_channels'],
++                    conv2_channels=architecture_metadata['conv2_channels'],
++                    fc_hidden=architecture_metadata['fc_hidden'],
++                    heads_config=heads_config,
++                    dropout=architecture_metadata.get('dropout', 0.5),
++                    input_size=architecture_metadata['input_size']
++                )
+                 
+-                # Extract attention heads - this requires looking at the attention implementation
+-                # For now, we need to extract this from another layer or fail
+-                attn_heads_key = None
+-                for key in checkpoint_state_dict.keys():
+-                    if 'attn' in key and 'weight' in key and 'layers.0' in key:
+-                        # Try to find a key that can tell us the number of heads
+-                        pass
++            else:
++                # Fallback: try to infer from state dict structure - FAIL FAST!
++                log.warning("No architecture metadata found in checkpoint, trying to infer from weights")
+                 
+-                # For now, we can't reliably extract n_attention_heads without more info - FAIL!
+-                log.error("Cannot reliably extract n_attention_heads from ViT checkpoint weights")
++                if 'net.embedding.pos_embedding' in checkpoint_state_dict:
++                    log.info("Detected Vision Transformer architecture from checkpoint")
++                    log.error("Cannot reliably infer ViT architecture from checkpoint weights alone")
+                     log.error("ViT architecture must be fully specified in hyperparameters or config")
+                     sys.exit(1)
+                     
+@@ -1357,7 +1329,7 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
+                     log.error("  - CNN: net.conv_layers.0.weight")
+                     sys.exit(1)
+                 
+-            # Create multihead module with inferred network
++            # Create multihead module with inferred network (common for both ViT and CNN)
+             from src.models.multihead_module import MultiheadLitModule
+             
+             # Create default criterion for each head to satisfy the model requirements
+diff --git a/src/train.py b/src/train.py
+index d0eb692..696af3b 100644
+--- a/src/train.py
++++ b/src/train.py
+@@ -236,6 +236,128 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+         log.info("Logging hyperparameters!")
+         log_hyperparameters(object_dict)
+     
++    # Add architecture metadata to model for checkpoint saving
++    if hasattr(model, 'net'):
++        # Store architecture metadata for evaluation script reconstruction
++        architecture_metadata = {}
++        
++        # Get dataset metadata if available from datamodule - need to setup first
++        dataset_metadata = {}
++        if hasattr(datamodule, 'get_dataset_info'):
++            try:
++                # Ensure datamodule is set up
++                if not hasattr(datamodule, 'data_train') or datamodule.data_train is None:
++                    datamodule.setup("fit")
++                dataset_metadata = datamodule.get_dataset_info()
++                log.info(f"Retrieved dataset metadata: {list(dataset_metadata.keys())}")
++            except Exception as e:
++                log.warning(f"Could not get dataset metadata: {e}")
++                dataset_metadata = {}
++        
++        # Detect ViT architecture
++        if hasattr(model.net, 'embedding') and hasattr(model.net.embedding, 'pos_embedding'):
++            architecture_metadata['type'] = 'ViT'
++            
++            # Store ViT parameters - need to get from hparams since they're not stored as attributes
++            model_hparams = model.hparams
++            if hasattr(model, 'net') and hasattr(model_hparams, 'net'):
++                net_hparams = model_hparams.net
++                
++                # Extract parameters from the ViT model config
++                architecture_metadata['embed_dim'] = getattr(net_hparams, 'embed_dim', 64)
++                architecture_metadata['n_layers'] = getattr(net_hparams, 'n_layers', 6) 
++                architecture_metadata['n_attention_heads'] = getattr(net_hparams, 'n_attention_heads', 4)
++                architecture_metadata['patch_size'] = getattr(net_hparams, 'patch_size', 4)
++                architecture_metadata['image_size'] = getattr(net_hparams, 'image_size', 28)
++                architecture_metadata['input_channels'] = getattr(net_hparams, 'n_channels', 1)
++                architecture_metadata['forward_mul'] = getattr(net_hparams, 'forward_mul', 2)
++                architecture_metadata['dropout'] = getattr(net_hparams, 'dropout', 0.1)
++                architecture_metadata['use_torch_layers'] = getattr(net_hparams, 'use_torch_layers', False)
++            else:
++                # Fallback - try to infer from model structure and dataset
++                log.warning("Could not access ViT hyperparameters, using inference from model")
++                
++                # Try to infer from position embedding dimensions
++                if hasattr(model.net, 'embedding') and hasattr(model.net.embedding, 'pos_embedding'):
++                    pos_emb_shape = model.net.embedding.pos_embedding.shape
++                    num_patches = pos_emb_shape[1]  # Second dimension is number of patches
++                    embed_dim = pos_emb_shape[2]    # Third dimension is embedding dimension
++                    architecture_metadata['embed_dim'] = embed_dim
++                    
++                    # Infer image size and patch size from dataset metadata and num_patches
++                    if dataset_metadata and 'height' in dataset_metadata and 'width' in dataset_metadata:
++                        height = dataset_metadata['height']  
++                        width = dataset_metadata['width']
++                        log.info(f"Dataset dimensions: {height}x{width}, num_patches: {num_patches}")
++                        
++                        # Try common patch sizes to find the right one
++                        found = False
++                        for ps in [2, 4, 6, 8, 12, 16]:
++                            if (height % ps == 0) and (width % ps == 0):
++                                expected_patches = (height // ps) * (width // ps)
++                                log.info(f"Trying patch_size {ps}: would give {expected_patches} patches")
++                                if expected_patches == num_patches:
++                                    architecture_metadata['patch_size'] = ps
++                                    architecture_metadata['image_size'] = [height, width]
++                                    log.info(f"Found match: patch_size={ps}, image_size=[{height}, {width}]")
++                                    found = True
++                                    break
++                        
++                        if not found:
++                            log.warning(f"Could not find patch size for {height}x{width} with {num_patches} patches, using defaults")
++                            # Try to infer from square root if possible
++                            import math
++                            sqrt_patches = int(math.sqrt(num_patches))
++                            if sqrt_patches * sqrt_patches == num_patches:
++                                # Square layout - common for ViTs
++                                if height == width:
++                                    # Square image - easy case
++                                    patch_size = height // sqrt_patches
++                                    architecture_metadata['patch_size'] = patch_size
++                                    architecture_metadata['image_size'] = [height, width]
++                                    log.info(f"Inferred from square layout: patch_size={patch_size}, image_size=[{height}, {width}]")
++                                else:
++                                    # Rectangular image - more complex
++                                    architecture_metadata['patch_size'] = 4
++                                    architecture_metadata['image_size'] = [height, width]
++                            else:
++                                # Non-square patch layout
++                                architecture_metadata['patch_size'] = 4
++                                architecture_metadata['image_size'] = [height, width]
++                    else:
++                        log.warning("No dataset metadata available, using defaults")
++                        architecture_metadata['patch_size'] = 4
++                        architecture_metadata['image_size'] = 28
++                else:
++                    # Complete fallback
++                    architecture_metadata['embed_dim'] = 64
++                    architecture_metadata['patch_size'] = 4
++                    architecture_metadata['image_size'] = 28
++                    
++                architecture_metadata['n_layers'] = len(model.net.encoder) if hasattr(model.net, 'encoder') else 6
++                architecture_metadata['n_attention_heads'] = 4
++                architecture_metadata['input_channels'] = 1
++                
++        # Detect CNN architecture  
++        elif hasattr(model.net, 'conv_layers') or hasattr(model.net, 'conv1'):
++            architecture_metadata['type'] = 'CNN'
++            if hasattr(model.net, 'input_channels'):
++                architecture_metadata['input_channels'] = model.net.input_channels
++            if hasattr(model.net, 'conv1_channels'):
++                architecture_metadata['conv1_channels'] = model.net.conv1_channels
++            if hasattr(model.net, 'conv2_channels'):
++                architecture_metadata['conv2_channels'] = model.net.conv2_channels
++            if hasattr(model.net, 'fc_hidden'):
++                architecture_metadata['fc_hidden'] = model.net.fc_hidden
++            if hasattr(model.net, 'input_size'):
++                architecture_metadata['input_size'] = model.net.input_size
++            if hasattr(model.net, 'dropout'):
++                architecture_metadata['dropout'] = model.net.dropout
++        
++        # Store in model hparams for checkpoint saving (underscore attributes may not be saved)
++        model.hparams['architecture_metadata'] = architecture_metadata
++        log.info(f"Stored architecture metadata: {architecture_metadata}")
++
+     if cfg.get("train"):
+         # Preflight: ensure label diversity across a few batches before fitting
+         enabled = True

@@ -79,6 +79,9 @@ etall: ex etms etts etml ettl et64l ## Run all trivial dataset experiments: ex e
 
 evitms exp-trivial-vit-micro-small: ## Micro ViT (~8K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_vit_micro_small
+ 
+evitmsr exp-trivial-vit-micro-small-regression: ## Micro ViT (~8K params) on small dataset (256 samples) - regression variant (placeholder)
+	time python src/train.py experiment=trivial_vit_micro_small_regression
 
 evitts exp-trivial-vit-tiny-small: ## Tiny ViT (~25K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_vit_tiny_small
@@ -230,4 +233,3 @@ trs train-vimh-small: ## Train the small example VIMH dataset using the default 
 
 trl train-vimh-large: ## Train the large example VIMH dataset using the default model (CNN 64k)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
-
