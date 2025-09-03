@@ -946,42 +946,35 @@ class InteractiveAudioEvaluator:
             # Try multiple playback options
             success = False
             
-            # Option 1: Jupyter/IPython display
-            if IPYTHON_AVAILABLE:
+            # Option 1: Use sounddevice for direct playback (best for Mac command line)
+            try:
+                import sounddevice as sd
+                sd.play(audio, sample_rate)
+                sd.wait()  # Wait until playback is finished
+                success = True
+                print(f"   ✓ Played via sounddevice at {sample_rate} Hz")
+            except ImportError:
+                print("   sounddevice not available")
+            except Exception as e:
+                print(f"   sounddevice playback failed: {e}")
+            
+            # Option 2: Jupyter/IPython display (only if sounddevice failed)
+            if not success and IPYTHON_AVAILABLE:
                 try:
                     from IPython.display import display
-                    display(ipd.Audio(audio, rate=sample_rate))
-                    success = True
+                    # Only use IPython if we're actually in a Jupyter environment
+                    try:
+                        get_ipython()  # This will raise NameError if not in IPython
+                        display(ipd.Audio(audio, rate=sample_rate))
+                        success = True
+                        print(f"   ✓ Displayed via Jupyter")
+                    except NameError:
+                        # Not in IPython/Jupyter, skip this method
+                        pass
                 except Exception as e:
                     print(f"   Jupyter playback failed: {e}")
             
-            # Option 2: Use system audio (macOS, Linux, Windows)
-            if not success:
-                try:
-                    # Try to use sounddevice for playback
-                    try:
-                        import sounddevice as sd
-                        sd.play(audio, sample_rate)
-                        success = True
-                        print(f"   Playing via sounddevice at {sample_rate} Hz")
-                    except ImportError:
-                        print("   sounddevice not available")
-                        
-                    # Fallback: Try pygame
-                    if not success:
-                        try:
-                            import pygame
-                            pygame.mixer.init(frequency=sample_rate)
-                            # Convert to pygame format and play
-                            # This is more complex, so skip for now
-                            print("   pygame audio playback not implemented")
-                        except ImportError:
-                            print("   pygame not available")
-                            
-                except Exception as e:
-                    print(f"   System audio playback failed: {e}")
-            
-            # Option 3: Save to temporary file and try to open with system
+            # Option 3: Save to temporary file and use system player
             if not success:
                 try:
                     import tempfile
@@ -1006,7 +999,7 @@ class InteractiveAudioEvaluator:
                             subprocess.run(["start", tmp_path], shell=True, check=True)
                         
                         success = True
-                        print(f"   Playing via system audio player")
+                        print(f"   ✓ Played via system audio player")
                         
                     except Exception as e:
                         print(f"   System player failed: {e}")
@@ -1046,31 +1039,35 @@ class InteractiveAudioEvaluator:
             # Try multiple playback options
             success = False
             
-            # Option 1: Jupyter/IPython display
-            if IPYTHON_AVAILABLE:
+            # Option 1: Use sounddevice for direct playback (best for Mac command line)
+            try:
+                import sounddevice as sd
+                sd.play(audio, sample_rate)
+                sd.wait()  # Wait until playback is finished
+                success = True
+                print(f"   ✓ Played via sounddevice at {sample_rate} Hz")
+            except ImportError:
+                print("   sounddevice not available")
+            except Exception as e:
+                print(f"   sounddevice playback failed: {e}")
+            
+            # Option 2: Jupyter/IPython display (only if sounddevice failed)
+            if not success and IPYTHON_AVAILABLE:
                 try:
                     from IPython.display import display
-                    display(ipd.Audio(audio, rate=sample_rate))
-                    success = True
+                    # Only use IPython if we're actually in a Jupyter environment
+                    try:
+                        get_ipython()  # This will raise NameError if not in IPython
+                        display(ipd.Audio(audio, rate=sample_rate))
+                        success = True
+                        print(f"   ✓ Displayed via Jupyter")
+                    except NameError:
+                        # Not in IPython/Jupyter, skip this method
+                        pass
                 except Exception as e:
                     print(f"   Jupyter playback failed: {e}")
             
-            # Option 2: Use system audio (macOS, Linux, Windows)
-            if not success:
-                try:
-                    # Try to use sounddevice for playback
-                    try:
-                        import sounddevice as sd
-                        sd.play(audio, sample_rate)
-                        success = True
-                        print(f"   Playing via sounddevice at {sample_rate} Hz")
-                    except ImportError:
-                        print("   sounddevice not available")
-                        
-                except Exception as e:
-                    print(f"   System audio playback failed: {e}")
-            
-            # Option 3: Save to temporary file and try to open with system
+            # Option 3: Save to temporary file and use system player
             if not success:
                 try:
                     import tempfile
@@ -1095,7 +1092,7 @@ class InteractiveAudioEvaluator:
                             subprocess.run(["start", tmp_path], shell=True, check=True)
                         
                         success = True
-                        print(f"   Playing via system audio player")
+                        print(f"   ✓ Played via system audio player")
                         
                     except Exception as e:
                         print(f"   System player failed: {e}")
