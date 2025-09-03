@@ -86,6 +86,56 @@ class VIMHDataset(MultiheadDatasetBase):
         # Validate dataset integrity
         self._validate_dataset()
 
+        # Enrich metadata with num_classes entries derived from min/max/step
+        try:
+            self._ensure_num_classes_in_metadata(write_back=True)
+        except Exception as e:
+            print(f"Warning: failed to enrich num_classes in metadata: {e}")
+
+    def _ensure_num_classes_in_metadata(self, write_back: bool = True) -> None:
+        """Ensure each parameter mapping has a correct 'num_classes' field.
+
+        Computes 1 + round((max - min)/step) when step > 0. If an existing
+        'num_classes' differs from the computed value beyond a small tolerance,
+        update it and optionally write the updated value back to the dataset's
+        `vimh_dataset_info.json`.
+        """
+        if 'parameter_mappings' not in self.metadata_format:
+            return
+
+        changed = False
+        for name, info in self.metadata_format['parameter_mappings'].items():
+            if not all(k in info for k in ('min', 'max', 'step')):
+                continue
+            step = float(info['step'])
+            if step <= 0:
+                continue
+            pmin, pmax = float(info['min']), float(info['max'])
+            num = (pmax - pmin) / step
+            steps = int(round(num))
+            if abs(num - steps) > 1e-3:
+                print(f"Warning: parameter '{name}' (max-min)/step = {num} not integer; rounding to {steps}")
+            computed = steps + 1
+            if 'num_classes' not in info or int(info['num_classes']) != computed:
+                prev = info.get('num_classes', None)
+                self.metadata_format['parameter_mappings'][name]['num_classes'] = computed
+                changed = True
+                print(f"Info: set num_classes for '{name}': {prev} -> {computed}")
+
+        if changed and write_back and hasattr(self, 'metadata_file') and self.metadata_file.exists():
+            try:
+                with open(self.metadata_file, 'r') as f:
+                    meta = json.load(f)
+                if 'parameter_mappings' in meta:
+                    for name, info in self.metadata_format['parameter_mappings'].items():
+                        if name in meta['parameter_mappings']:
+                            meta['parameter_mappings'][name]['num_classes'] = info.get('num_classes')
+                with open(self.metadata_file, 'w') as f:
+                    json.dump(meta, f, indent=2)
+                print(f"Updated num_classes in metadata file: {self.metadata_file}")
+            except Exception as e:
+                print(f"Warning: could not write updated metadata to {self.metadata_file}: {e}")
+
     def _load_metadata_config(self) -> Dict[str, Any]:
         """Load dataset metadata configuration from JSON file.
 

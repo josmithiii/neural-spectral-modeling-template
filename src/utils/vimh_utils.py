@@ -96,6 +96,10 @@ def get_heads_config_from_metadata(data_dir: str) -> Dict[str, int]:
             steps = int(round(num))
             if abs(num - steps) > 1e-3:
                 print(f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}")
-            heads_config[param_name] = steps + 1
+            computed = steps + 1
+            # If metadata supplies num_classes, verify consistency
+            if 'num_classes' in info and int(info['num_classes']) != computed:
+                print(f"Warning: parameter '{param_name}' num_classes={info['num_classes']} differs from computed {computed}; using computed")
+            heads_config[param_name] = computed
 
     return heads_config
