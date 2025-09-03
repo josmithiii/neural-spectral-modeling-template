@@ -50,3 +50,8 @@ seed: null
 
 # metric to optimize during hyperparameter search
 optimized_metric: "val/acc_best"
+
+# Preflight validation settings
+preflight:
+  enabled: true                 # Disable to skip preflight checks
+  label_diversity_batches: 3    # Number of train batches to sample for label diversity

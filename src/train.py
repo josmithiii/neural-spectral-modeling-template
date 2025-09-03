@@ -238,12 +238,24 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     if cfg.get("train"):
         # Preflight: ensure label diversity across a few batches before fitting
+        enabled = True
+        batches = 3
         try:
-            _preflight_check_label_diversity(datamodule, max_batches=3)
-            log.info("Label preflight passed (diverse targets across heads)")
-        except Exception as e:
-            log.error(f"Label preflight failed: {e}")
-            raise
+            if hasattr(cfg, 'preflight'):
+                enabled = getattr(cfg.preflight, 'enabled', True)
+                batches = getattr(cfg.preflight, 'label_diversity_batches', 3)
+        except Exception:
+            pass
+
+        if enabled:
+            try:
+                _preflight_check_label_diversity(datamodule, max_batches=int(batches))
+                log.info("Label preflight passed (diverse targets across heads)")
+            except Exception as e:
+                log.error(f"Label preflight failed: {e}")
+                raise
+        else:
+            log.info("Preflight checks disabled via config")
 
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
