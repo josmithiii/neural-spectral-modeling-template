@@ -152,6 +152,18 @@ make lc     # list all model, data, experiment configs
 
 ```
 
+### ✅ Preflight Label Validation
+
+- Purpose: catches degenerate targets before training (e.g., all zeros from mis-decoding).
+- Config (in `configs/train.yaml`):
+  - `preflight.enabled`: `true` by default.
+  - `preflight.label_diversity_batches`: number of train batches to sample (default `3`).
+- Behavior: logs unique-label previews per head across sampled batches and fails fast if any head has ≤1 unique label.
+- Override examples:
+  - `python src/train.py preflight.enabled=false`
+  - `python src/train.py preflight.label_diversity_batches=5`
+- Note: the dataloader also checks per-batch label diversity; it asserts during training and only warns during validation/test.
+
 ### 📊 Dataset Format
 
 VIMH datasets use a structured format with:
