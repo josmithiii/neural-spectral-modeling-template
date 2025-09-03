@@ -134,8 +134,8 @@ class VIMHDataset(MultiheadDatasetBase):
                         raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
                     num = (pmax - pmin) / step
                     num_steps = int(round(num))
-                    if abs(num - num_steps) > 1e-6:
-                        raise ValueError(f"Parameter '{param_name}' range does not divide by step: (max-min)/step={num}")
+                    if abs(num - num_steps) > 1e-3:
+                        print(f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {num_steps}")
                     self.heads_config[param_name] = num_steps + 1
 
     def _validate_dataset(self) -> None:

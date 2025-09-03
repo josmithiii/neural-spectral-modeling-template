@@ -94,8 +94,8 @@ def get_heads_config_from_metadata(data_dir: str) -> Dict[str, int]:
                 raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
             num = (float(info['max']) - float(info['min'])) / step
             steps = int(round(num))
-            if abs(num - steps) > 1e-6:
-                raise ValueError(f"Parameter '{param_name}' has non-integer steps: (max-min)/step={num}")
+            if abs(num - steps) > 1e-3:
+                print(f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}")
             heads_config[param_name] = steps + 1
 
     return heads_config

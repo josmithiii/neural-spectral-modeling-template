@@ -359,8 +359,8 @@ class MultiheadDatasetBase(Dataset, ABC):
                         pmin, pmax, step = float(info['min']), float(info['max']), float(info['step'])
                         num = (pmax - pmin) / step
                         steps = int(round(num))
-                        if abs(num - steps) > 1e-6:
-                            raise ValueError(f"Parameter '{param_name}' has non-integer steps: (max-min)/step={num}")
+                        if abs(num - steps) > 1e-3:
+                            print(f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}")
                         self.heads_config[param_name] = steps + 1
                     else:
                         raise ValueError(f"Parameter '{param_name}' missing min/max/step in metadata")

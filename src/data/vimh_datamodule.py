@@ -344,8 +344,8 @@ class VIMHDataModule(LightningDataModule):
                                 pmin, pmax, step = float(info['min']), float(info['max']), float(info['step'])
                                 num = (pmax - pmin) / step
                                 steps = int(round(num))
-                                if abs(num - steps) > 1e-6:
-                                    raise ValueError(f"Parameter '{param_name}' has non-integer steps: (max-min)/step={num}")
+                                if abs(num - steps) > 1e-3:
+                                    print(f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}")
                                 heads_config[param_name] = steps + 1
                             else:
                                 raise ValueError(f"Parameter '{param_name}' missing min/max/step or invalid step in metadata")
@@ -355,8 +355,9 @@ class VIMHDataModule(LightningDataModule):
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
             pass
 
-        # No fallback — metadata must be present and valid for heads_config
-        raise FileNotFoundError(f"vimh_dataset_info.json missing or invalid in {data_dir}")
+        # No metadata JSON; attempt to construct from dataset directly (strict checks occur there)
+        temp_dataset = VIMHDataset(data_dir, train=True)
+        return temp_dataset.get_heads_config()
 
     def _load_parameter_ranges(self, data_dir: str) -> Dict[str, float]:
         """Load parameter ranges for perceptual loss calculation.

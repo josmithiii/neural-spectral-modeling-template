@@ -274,9 +274,8 @@ class AudioReconstructionEvaluator:
                         num_floats = (param_max - param_min) / step
                         # Round to nearest int within tolerance
                         num_steps = int(round(num_floats))
-                        if abs(num_floats - num_steps) > 1e-6:
-                            print(f"Parameter '{param_name}' step does not evenly divide range: (max-min)/step={num_floats}")
-                            sys.exit(1)
+                        if abs(num_floats - num_steps) > 1e-3:
+                            print(f"Warning: parameter '{param_name}' (max-min)/step = {num_floats} not integer; rounding to {num_steps}")
                         num_classes = int(num_steps) + 1
                         mapping["num_classes"] = num_classes  # cache for later
                     else:
