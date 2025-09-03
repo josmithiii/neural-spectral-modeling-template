@@ -1,5 +1,5 @@
 h help:  ## Show help
-	@grep -E '^[.a-zA-Z0-9_ -]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[.a-zA-Z0-9_ -]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' | less -R
 
 # SYNTHETIC DATASET MAKE TARGETS "sd"
 
@@ -98,6 +98,9 @@ emb exp-moog-basic: ## Train CNN on basic Moog VCF dataset (4 params)
 
 eme exp-moog-envelope: ## Train CNN on Moog envelope sweep dataset (10 params)
 	time python src/train.py experiment=moog_cnn_envelope
+
+emer exp-moog-envelope-regression: ## Train CNN on Moog envelope sweep dataset (10 params) using regression loss
+	time python src/train.py experiment=moog_cnn_envelope_regression
 
 emr exp-moog-resonance: ## Train CNN on high-resonance Moog dataset (8 params)
 	time python src/train.py experiment=moog_cnn_resonance

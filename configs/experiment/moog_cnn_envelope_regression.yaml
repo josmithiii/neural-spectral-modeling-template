@@ -1,0 +1,31 @@
+# @package _global_
+
+# Moog VCF Envelope CNN experiment using regression loss - adapted from ./moog_cnn_envelope.yaml
+# python src/train.py experiment=moog_cnn_envelope_regression
+
+defaults:
+  - override /data: vimh
+  - override /model: cnn_tiny_regression  # Medium model for 10-parameter dataset, regression loss: ../model/cnn_tiny_regression.yaml
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["moog", "vcf", "envelope", "cnn_tiny", "regression"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 8
+  max_epochs: 25
+  
+model:
+  optimizer:
+    lr: 0.002
+    weight_decay: 0.015
+
+data:
+  data_dir: data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_10p
+  batch_size: 24  # Smaller batch for wider images
+
+logger:
+  tensorboard:
+    name: "moog_cnn_envelope_regression"

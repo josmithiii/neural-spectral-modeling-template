@@ -1,17 +1,18 @@
+# Small CNN with ~8K parameters for trivial datasets
 _target_: src.models.multihead_module.MultiheadLitModule
 
 optimizer:
   _target_: torch.optim.Adam
   _partial_: true
-  lr: 0.001
-  weight_decay: 0.0001
+  lr: 0.003
+  weight_decay: 0.001
 
 scheduler:
   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
   _partial_: true
   mode: min
   factor: 0.1
-  patience: 10
+  patience: 5
 
 # Pure regression mode with sigmoid-activated outputs
 output_mode: regression
@@ -21,15 +22,14 @@ loss_weights: {}  # Will be auto-configured from dataset metadata
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
-  input_channels: 1  # will autoconfigure
-  conv1_channels: 64
-  conv2_channels: 128
-  fc_hidden: 512
-  output_mode: regression  # Enable regression mode
-  parameter_names: [synth_param1]  # Default placeholder - will be auto-configured from dataset metadata
-  # parameter_ranges will be auto-configured from dataset metadata
-  dropout: 0.5
-  input_size: 32  # VIMH image size (32x32 for spectrograms)
+  input_channels: 1
+  conv1_channels: 16
+  conv2_channels: 32
+  fc_hidden: 64
+  heads_config: 
+    synth_param1: 10
+  dropout: 0.3
+  input_size: 32
 
 compile: false
 

@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: cnn_tiny  # Medium model for 10-parameter dataset
+  - override /model: cnn_tiny  # Medium model for 10-parameter dataset - ../model/cnn_tiny.yaml
   - override /callbacks: default
   - override /trainer: default
 
