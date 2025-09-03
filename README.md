@@ -85,7 +85,8 @@ make ddl    # large dataset
 make ex     # CNN on default dataset
 
 # Trivial dataset experiments (small models for testing)
-make etms   # Micro CNN (~2K params) on small dataset
+make etms   # Micro CNN (~2K params) on small dataset, ordinal classification output
+make etmsr  # Micro CNN (~2K params) on small dataset, regression output (1 float/head)
 make etts   # Tiny CNN (~8K params) on small dataset
 make etml   # Micro CNN on large dataset
 make ettl   # Tiny CNN on large dataset
@@ -98,7 +99,8 @@ make evitall # Run all ViT trivial experiments
 
 # Moog VCF experiments (CNN)
 make emb    # Basic Moog VCF (4 params)
-make eme    # Moog envelope sweep (10 params)
+make eme    # Moog envelope sweep (10 params), ordinal classification output
+make emer   # Moog envelope sweep (10 params), regression output
 make emr    # High-resonance Moog (8 params)
 make emall  # Generate datasets + train all Moog CNNs
 
