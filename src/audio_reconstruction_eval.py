@@ -582,8 +582,26 @@ class AudioReconstructionEvaluator:
 
         x = np.arange(len(param_names))
         width = 0.35
-        plt.bar(x - width/2, norm_true_vals, width, label='True', alpha=0.7)
-        plt.bar(x + width/2, norm_pred_vals, width, label='Predicted', alpha=0.7)
+        bars_true = plt.bar(x - width/2, norm_true_vals, width, label='True', alpha=0.7)
+        bars_pred = plt.bar(x + width/2, norm_pred_vals, width, label='Predicted', alpha=0.7)
+        # Add natural-value labels on top of bars
+        def _fmt(v: float) -> str:
+            av = abs(v)
+            if av >= 1000 or (av > 0 and av < 1e-3):
+                return f"{v:.2e}"
+            if av >= 100:
+                return f"{v:.0f}"
+            if av >= 10:
+                return f"{v:.1f}"
+            return f"{v:.3f}"
+        true_vals_nat = [results["param_errors"][p]["true"] for p in param_names]
+        pred_vals_nat = [results["param_errors"][p]["predicted"] for p in param_names]
+        for i, (bt, bp) in enumerate(zip(bars_true, bars_pred)):
+            plt.text(bt.get_x() + bt.get_width()/2, bt.get_height() + 0.02,
+                     _fmt(true_vals_nat[i]), ha='center', va='bottom', fontsize=8, color='tab:blue')
+            plt.text(bp.get_x() + bp.get_width()/2, bp.get_height() + 0.02,
+                     _fmt(pred_vals_nat[i]), ha='center', va='bottom', fontsize=8, color='tab:orange')
+        plt.ylim(0, 1.1)
         plt.xlabel('Parameters')
         plt.ylabel('Normalized Value [0,1]')
         plt.title('Parameter Comparison (Normalized)')
@@ -901,19 +919,52 @@ class InteractiveAudioEvaluator:
         self.axes[1, 0].imshow(pred_spec, aspect='auto', origin='lower', cmap='viridis')
         self.axes[1, 0].set_title("Predicted Audio Spectrogram")
         
-        # Plot parameters
+        # Plot parameters (normalized to 0-1) with natural-value labels
         param_names = list(self.current_results["param_errors"].keys())
         if param_names:
+            # Natural values
             true_vals = [self.current_results["param_errors"][p]["true"] for p in param_names]
             pred_vals = [self.current_results["param_errors"][p]["predicted"] for p in param_names]
-            
+
+            # Normalize using dataset parameter ranges
+            norm_true = []
+            norm_pred = []
+            for p, tval, pval in zip(param_names, true_vals, pred_vals):
+                mapping = self.evaluator.param_mappings.get(p, {"min": 0.0, "max": 1.0})
+                pmin = mapping.get("min", 0.0)
+                pmax = mapping.get("max", 1.0)
+                prange = max(1e-12, pmax - pmin)
+                norm_true.append(np.clip((tval - pmin) / prange, 0.0, 1.0))
+                norm_pred.append(np.clip((pval - pmin) / prange, 0.0, 1.0))
+
+            # Helper to format natural values compactly for labels
+            def _fmt(v: float) -> str:
+                av = abs(v)
+                if av >= 1000 or (av > 0 and av < 1e-3):
+                    return f"{v:.2e}"
+                if av >= 100:
+                    return f"{v:.0f}"
+                if av >= 10:
+                    return f"{v:.1f}"
+                return f"{v:.3f}"
+
             x = np.arange(len(param_names))
             width = 0.35
-            self.axes[1, 1].bar(x - width/2, true_vals, width, label='True', alpha=0.7)
-            self.axes[1, 1].bar(x + width/2, pred_vals, width, label='Predicted', alpha=0.7)
+            bars_true = self.axes[1, 1].bar(x - width/2, norm_true, width, label='True', alpha=0.7)
+            bars_pred = self.axes[1, 1].bar(x + width/2, norm_pred, width, label='Predicted', alpha=0.7)
+
+            # Add labels with natural values on top of each bar
+            for i, (bt, bp) in enumerate(zip(bars_true, bars_pred)):
+                self.axes[1, 1].text(bt.get_x() + bt.get_width()/2, bt.get_height() + 0.02,
+                                      _fmt(true_vals[i]), ha='center', va='bottom', fontsize=8, color='tab:blue')
+                self.axes[1, 1].text(bp.get_x() + bp.get_width()/2, bp.get_height() + 0.02,
+                                      _fmt(pred_vals[i]), ha='center', va='bottom', fontsize=8, color='tab:orange')
+
+            self.axes[1, 1].set_ylim(0, 1.1)
+            self.axes[1, 1].set_ylabel('Normalized Value [0,1]')
             self.axes[1, 1].set_xticks(x)
             self.axes[1, 1].set_xticklabels(param_names, rotation=45)
-            self.axes[1, 1].set_title('Parameters')
+            self.axes[1, 1].set_title('Parameters (Normalized)')
             self.axes[1, 1].legend()
         
         # Plot metrics
