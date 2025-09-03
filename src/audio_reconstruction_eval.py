@@ -1213,7 +1213,11 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
         hyper_parameters = checkpoint.get('hyper_parameters', {})
         log.info(f"Checkpoint hyperparameters keys: {list(hyper_parameters.keys())}")
         
-        # If hyperparameters don't contain the full model config, try to reconstruct from state_dict structure
+        # Check for stored architecture metadata first
+        architecture_metadata = hyper_parameters.get('architecture_metadata', {})
+        log.info(f"Architecture metadata: {architecture_metadata}")
+        
+        # Get checkpoint state dict for later use
         checkpoint_state_dict = checkpoint["state_dict"]
         first_weight_key = list(checkpoint_state_dict.keys())[0]
         log.info(f"First weight key: {first_weight_key}")
@@ -1223,141 +1227,109 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
             heads_config = datamodule.data_train.get_heads_config()
             log.info(f"Retrieved heads config from datamodule: {list(heads_config.keys())}")
             
-            # Determine model architecture from checkpoint state dict structure - FAIL FAST!
-            if 'net.embedding.pos_embedding' in checkpoint_state_dict:
-                log.info("Detected Vision Transformer architecture from checkpoint")
+            # Use stored architecture metadata if available
+            if architecture_metadata and architecture_metadata.get('type') == 'ViT':
+                log.info("Using stored ViT architecture metadata from checkpoint")
                 
-                # FAIL FAST: Extract ALL ViT parameters from checkpoint weights - no defaults!
-                if 'net.embedding.pos_embedding' not in checkpoint_state_dict:
-                    log.error("ViT checkpoint missing net.embedding.pos_embedding")
-                    sys.exit(1)
+                # Create ViT with stored parameters
+                from src.models.components.vision_transformer import VisionTransformer
+                net = VisionTransformer(
+                    image_size=architecture_metadata['image_size'],
+                    patch_size=architecture_metadata['patch_size'], 
+                    n_channels=architecture_metadata['input_channels'],
+                    embed_dim=architecture_metadata['embed_dim'],
+                    n_layers=architecture_metadata['n_layers'],
+                    n_attention_heads=architecture_metadata['n_attention_heads'],
+                    heads_config=heads_config,
+                    forward_mul=architecture_metadata.get('forward_mul', 2),
+                    dropout=architecture_metadata.get('dropout', 0.1),
+                    use_torch_layers=architecture_metadata.get('use_torch_layers', False)
+                )
                 
-                pos_embedding = checkpoint_state_dict['net.embedding.pos_embedding']
-                # pos_embedding shape: [1, num_patches + 1, embed_dim]
-                embed_dim = pos_embedding.shape[2]
-                num_patches_plus_1 = pos_embedding.shape[1]
-                num_patches = num_patches_plus_1 - 1  # -1 for class token
+            elif architecture_metadata and architecture_metadata.get('type') == 'CNN':
+                log.info("Using stored CNN architecture metadata from checkpoint")
                 
-                # Infer image_size and patch_size from number of patches
-                if not dataset_metadata or 'height' not in dataset_metadata or 'width' not in dataset_metadata:
-                    log.error("ViT requires dataset metadata with height and width")
-                    sys.exit(1)
-                    
-                height = dataset_metadata['height']
-                width = dataset_metadata['width']
-                
-                # For square patches: num_patches = (height/patch_size) * (width/patch_size)
-                # Try common patch sizes
-                possible_patch_sizes = [2, 4, 6, 8, 12, 16]
-                patch_size = None
-                for ps in possible_patch_sizes:
-                    if (height % ps == 0) and (width % ps == 0):
-                        if (height // ps) * (width // ps) == num_patches:
-                            patch_size = ps
-                            break
-                
-                if patch_size is None:
-                    log.error(f"Could not infer patch_size for ViT: num_patches={num_patches}, image_size=({height}, {width})")
-                    log.error(f"Tried patch sizes: {possible_patch_sizes}")
-                    sys.exit(1)
-                
-                # Extract number of layers from transformer blocks
-                transformer_keys = [k for k in checkpoint_state_dict.keys() if k.startswith('net.transformer.')]
-                layer_indices = set()
-                for key in transformer_keys:
-                    if '.layers.' in key:
-                        layer_idx = int(key.split('.layers.')[1].split('.')[0])
-                        layer_indices.add(layer_idx)
-                
-                n_layers = max(layer_indices) + 1 if layer_indices else None
-                if n_layers is None:
-                    log.error("Could not infer n_layers from ViT checkpoint")
-                    sys.exit(1)
-                
-                # Extract attention heads from first attention layer
-                attn_weight_key = f'net.transformer.layers.0.attn.qkv.weight'
-                if attn_weight_key not in checkpoint_state_dict:
-                    log.error(f"ViT checkpoint missing {attn_weight_key}")
-                    sys.exit(1)
-                
-                qkv_weight = checkpoint_state_dict[attn_weight_key]
-                # qkv_weight shape: [3*embed_dim, embed_dim] for combined q,k,v
-                if qkv_weight.shape[0] != 3 * embed_dim:
-                    log.error(f"Unexpected qkv weight shape: {qkv_weight.shape}, expected: [3*{embed_dim}, {embed_dim}]")
-                    sys.exit(1)
-                
-                # Extract attention heads - this requires looking at the attention implementation
-                # For now, we need to extract this from another layer or fail
-                attn_heads_key = None
-                for key in checkpoint_state_dict.keys():
-                    if 'attn' in key and 'weight' in key and 'layers.0' in key:
-                        # Try to find a key that can tell us the number of heads
-                        pass
-                        
-                # For now, we can't reliably extract n_attention_heads without more info - FAIL!
-                log.error("Cannot reliably extract n_attention_heads from ViT checkpoint weights")
-                log.error("ViT architecture must be fully specified in hyperparameters or config")
-                sys.exit(1)
-                
-            elif 'net.conv_layers.0.weight' in checkpoint_state_dict or 'net.features.0.weight' in checkpoint_state_dict or 'net.conv1.weight' in checkpoint_state_dict:
-                log.info("Detected CNN architecture from checkpoint")
-                
-                # FAIL FAST: Infer CNN architecture parameters from checkpoint weights - no defaults!
-                if 'net.conv_layers.0.weight' not in checkpoint_state_dict:
-                    log.error("SimpleCNN checkpoint missing net.conv_layers.0.weight")
-                    sys.exit(1)
-                
-                conv1_weight = checkpoint_state_dict['net.conv_layers.0.weight']
-                conv1_channels = conv1_weight.shape[0]  # Number of output channels
-                input_channels = conv1_weight.shape[1]   # Should be 1
-                
-                # Get conv2 channels - REQUIRED, no fallback
-                if 'net.conv_layers.4.weight' not in checkpoint_state_dict:
-                    log.error("SimpleCNN checkpoint missing net.conv_layers.4.weight")
-                    sys.exit(1)
-                    
-                conv2_weight = checkpoint_state_dict['net.conv_layers.4.weight']
-                conv2_channels = conv2_weight.shape[0]
-                
-                # Get FC hidden size from shared_features layer - REQUIRED, no fallback
-                if 'net.shared_features.1.weight' in checkpoint_state_dict:
-                    shared_fc_weight = checkpoint_state_dict['net.shared_features.1.weight']
-                    fc_hidden = shared_fc_weight.shape[0]
-                elif 'net.shared_features.0.weight' in checkpoint_state_dict:
-                    shared_fc_weight = checkpoint_state_dict['net.shared_features.0.weight']
-                    fc_hidden = shared_fc_weight.shape[0]
-                else:
-                    log.error("SimpleCNN checkpoint missing both net.shared_features.0.weight and net.shared_features.1.weight")
-                    sys.exit(1)
-                
-                # Extract input size from dataset metadata - REQUIRED
-                if not dataset_metadata or 'height' not in dataset_metadata or 'width' not in dataset_metadata:
-                    log.error("CNN requires dataset metadata with height and width")
-                    sys.exit(1)
-                    
-                input_size = max(dataset_metadata['height'], dataset_metadata['width'])
-                
-                log.info(f"Inferred CNN params: conv1_channels={conv1_channels}, conv2_channels={conv2_channels}, fc_hidden={fc_hidden}, input_size={input_size}")
-                
-                # Create CNN with inferred parameters
+                # Create CNN with stored parameters (provide defaults for missing params)
                 from src.models.components.simple_cnn import SimpleCNN
                 net = SimpleCNN(
-                    input_channels=input_channels,
-                    conv1_channels=conv1_channels,
-                    conv2_channels=conv2_channels,
-                    fc_hidden=fc_hidden,
+                    input_channels=architecture_metadata.get('input_channels', 1),
+                    conv1_channels=architecture_metadata.get('conv1_channels', 16),
+                    conv2_channels=architecture_metadata.get('conv2_channels', 32),
+                    fc_hidden=architecture_metadata.get('fc_hidden', 64),
                     heads_config=heads_config,
-                    dropout=0.5,  # This should also be extracted from checkpoint, but SimpleCNN doesn't save it
-                    input_size=input_size
+                    dropout=architecture_metadata.get('dropout', 0.5),
+                    input_size=architecture_metadata.get('input_size', 32)
                 )
+                
             else:
-                log.error("Could not determine model architecture from checkpoint - no recognizable architecture found")
-                log.error("Expected either:")
-                log.error("  - ViT: net.embedding.pos_embedding")  
-                log.error("  - CNN: net.conv_layers.0.weight")
-                sys.exit(1)
-            
-            # Create multihead module with inferred network
+                # Fallback: try to infer from state dict structure - FAIL FAST!
+                log.warning("No architecture metadata found in checkpoint, trying to infer from weights")
+                
+                if 'net.embedding.pos_embedding' in checkpoint_state_dict:
+                    log.info("Detected Vision Transformer architecture from checkpoint")
+                    log.error("Cannot reliably infer ViT architecture from checkpoint weights alone")
+                    log.error("ViT architecture must be fully specified in hyperparameters or config")
+                    sys.exit(1)
+                    
+                elif 'net.conv_layers.0.weight' in checkpoint_state_dict or 'net.features.0.weight' in checkpoint_state_dict or 'net.conv1.weight' in checkpoint_state_dict:
+                    log.info("Detected CNN architecture from checkpoint")
+                
+                    # FAIL FAST: Infer CNN architecture parameters from checkpoint weights - no defaults!
+                    if 'net.conv_layers.0.weight' not in checkpoint_state_dict:
+                        log.error("SimpleCNN checkpoint missing net.conv_layers.0.weight")
+                        sys.exit(1)
+                    
+                    conv1_weight = checkpoint_state_dict['net.conv_layers.0.weight']
+                    conv1_channels = conv1_weight.shape[0]  # Number of output channels
+                    input_channels = conv1_weight.shape[1]   # Should be 1
+                    
+                    # Get conv2 channels - REQUIRED, no fallback
+                    if 'net.conv_layers.4.weight' not in checkpoint_state_dict:
+                        log.error("SimpleCNN checkpoint missing net.conv_layers.4.weight")
+                        sys.exit(1)
+                        
+                    conv2_weight = checkpoint_state_dict['net.conv_layers.4.weight']
+                    conv2_channels = conv2_weight.shape[0]
+                    
+                    # Get FC hidden size from shared_features layer - REQUIRED, no fallback
+                    if 'net.shared_features.1.weight' in checkpoint_state_dict:
+                        shared_fc_weight = checkpoint_state_dict['net.shared_features.1.weight']
+                        fc_hidden = shared_fc_weight.shape[0]
+                    elif 'net.shared_features.0.weight' in checkpoint_state_dict:
+                        shared_fc_weight = checkpoint_state_dict['net.shared_features.0.weight']
+                        fc_hidden = shared_fc_weight.shape[0]
+                    else:
+                        log.error("SimpleCNN checkpoint missing both net.shared_features.0.weight and net.shared_features.1.weight")
+                        sys.exit(1)
+                    
+                    # Extract input size from dataset metadata - REQUIRED
+                    if not dataset_metadata or 'height' not in dataset_metadata or 'width' not in dataset_metadata:
+                        log.error("CNN requires dataset metadata with height and width")
+                        sys.exit(1)
+                        
+                    input_size = max(dataset_metadata['height'], dataset_metadata['width'])
+                    
+                    log.info(f"Inferred CNN params: conv1_channels={conv1_channels}, conv2_channels={conv2_channels}, fc_hidden={fc_hidden}, input_size={input_size}")
+                    
+                    # Create CNN with inferred parameters
+                    from src.models.components.simple_cnn import SimpleCNN
+                    net = SimpleCNN(
+                        input_channels=input_channels,
+                        conv1_channels=conv1_channels,
+                        conv2_channels=conv2_channels,
+                        fc_hidden=fc_hidden,
+                        heads_config=heads_config,
+                        dropout=0.5,  # This should also be extracted from checkpoint, but SimpleCNN doesn't save it
+                        input_size=input_size
+                    )
+                else:
+                    log.error("Could not determine model architecture from checkpoint - no recognizable architecture found")
+                    log.error("Expected either:")
+                    log.error("  - ViT: net.embedding.pos_embedding")  
+                    log.error("  - CNN: net.conv_layers.0.weight")
+                    sys.exit(1)
+                
+            # Create multihead module with inferred network (common for both ViT and CNN)
             from src.models.multihead_module import MultiheadLitModule
             
             # Create default criterion for each head to satisfy the model requirements
