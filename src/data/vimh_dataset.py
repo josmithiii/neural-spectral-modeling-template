@@ -251,13 +251,42 @@ class VIMHDataset(MultiheadDatasetBase):
         # Store the original image for auxiliary feature extraction (before transforms)
         original_image = image.clone()
 
-        # Apply soft targets if enabled
+        # First, convert stored 0-255 quantized labels to class indices using min/max/step
+        if 'parameter_mappings' not in self.metadata_format:
+            raise ValueError("VIMH dataset missing parameter_mappings in metadata")
+
+        class_labels: Dict[str, int] = {}
+        for param_name, qv in labels.items():
+            if param_name not in self.heads_config:
+                raise ValueError(f"Head for parameter '{param_name}' not present in heads_config")
+            mapping = self.metadata_format['parameter_mappings'].get(param_name)
+            if mapping is None or not all(k in mapping for k in ('min','max','step')):
+                raise ValueError(f"Parameter '{param_name}' missing min/max/step in metadata")
+            pmin = float(mapping['min'])
+            pmax = float(mapping['max'])
+            step = float(mapping['step'])
+            if step <= 0:
+                raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
+
+            # Convert quantized 0..255 to actual, then to class index
+            if isinstance(qv, torch.Tensor):
+                qv = int(qv.item())
+            normalized = float(qv) / 255.0
+            actual = pmin + normalized * (pmax - pmin)
+            idx = int(round((actual - pmin) / step))
+            num_classes = int(self.heads_config[param_name])
+            idx = max(0, min(num_classes - 1, idx))
+            class_labels[param_name] = idx
+
+        # Apply soft targets if enabled; otherwise return hard class indices
         if self.target_width > 0.0:
             soft_labels = {}
-            for param_name, quantized_value in labels.items():
-                num_classes = self.heads_config.get(param_name, 256)  # Default to 256 classes
-                soft_labels[param_name] = self._create_soft_targets(quantized_value, num_classes, self.target_width)
+            for param_name, class_index in class_labels.items():
+                num_classes = int(self.heads_config[param_name])
+                soft_labels[param_name] = self._create_soft_targets(class_index, num_classes, self.target_width)
             labels = soft_labels
+        else:
+            labels = class_labels
 
         # Apply transforms if specified
         if self.transform is not None:
