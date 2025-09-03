@@ -265,10 +265,23 @@ class AudioReconstructionEvaluator:
                 normalized_value = float(pred_tensor.item())
             else:
                 # Classification - convert class index to normalized value
-                if "num_classes" not in mapping:
-                    print(f"Parameter mapping for '{param_name}' missing 'num_classes'; aborting.")
-                    sys.exit(1)
-                num_classes = mapping["num_classes"]
+                if "num_classes" in mapping:
+                    num_classes = mapping["num_classes"]
+                else:
+                    # Allow deriving num_classes from min/max/step if present
+                    if "step" in mapping and mapping["step"] not in (None, 0):
+                        step = float(mapping["step"])
+                        num_floats = (param_max - param_min) / step
+                        # Round to nearest int within tolerance
+                        num_steps = int(round(num_floats))
+                        if abs(num_floats - num_steps) > 1e-6:
+                            print(f"Parameter '{param_name}' step does not evenly divide range: (max-min)/step={num_floats}")
+                            sys.exit(1)
+                        num_classes = int(num_steps) + 1
+                        mapping["num_classes"] = num_classes  # cache for later
+                    else:
+                        print(f"Parameter mapping for '{param_name}' missing 'num_classes' and 'step'; aborting.")
+                        sys.exit(1)
                 class_idx = int(pred_tensor.item())
                 normalized_value = class_idx / (num_classes - 1)
                 
