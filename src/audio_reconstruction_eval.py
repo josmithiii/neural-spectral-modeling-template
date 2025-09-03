@@ -155,9 +155,12 @@ class AudioReconstructionEvaluator:
         # log.info(f"  STFT config: {stft_config}")
         # log.info(f"  MEL config: {mel_config}")
         
-        # Parameter mappings for denormalization
-        self.param_mappings = self.dataset_info.get("parameter_mappings", {})
-        self.param_names = self.dataset_info.get("parameter_names", [])
+        # Parameter mappings for denormalization (no fallbacks)
+        self.param_mappings = self.dataset_info.get("parameter_mappings")
+        self.param_names = self.dataset_info.get("parameter_names")
+        if not self.param_mappings or not self.param_names:
+            print("Dataset is missing parameter_mappings or parameter_names; aborting.")
+            sys.exit(1)
         
         log.info(f"Initialized evaluator with {len(self.test_dataset)} test samples")
         log.info(f"Sample rate: {self.sample_rate} Hz, Duration: {self.duration}s")
@@ -188,21 +191,26 @@ class AudioReconstructionEvaluator:
         
         for param_name, pred_tensor in predicted_params.items():
             if param_name not in self.param_mappings:
-                log.warning(f"Parameter {param_name} not found in mappings, using raw value")
-                denorm_params[param_name] = float(pred_tensor.item())
-                continue
-                
+                print(f"Parameter '{param_name}' missing from parameter_mappings; aborting.")
+                sys.exit(1)
+            
             mapping = self.param_mappings[param_name]
-            param_min = mapping.get("min", 0.0)
-            param_max = mapping.get("max", 1.0)
+            if "min" not in mapping or "max" not in mapping:
+                print(f"Parameter mapping for '{param_name}' missing 'min'/'max'; aborting.")
+                sys.exit(1)
+            param_min = mapping["min"]
+            param_max = mapping["max"]
             
             # Handle different prediction formats
-            if self.model.output_mode == "regression":
+            if getattr(self.model, 'output_mode', 'classification') == "regression":
                 # Direct regression output (should be in [0,1])
                 normalized_value = float(pred_tensor.item())
             else:
                 # Classification - convert class index to normalized value
-                num_classes = mapping.get("num_classes", 256)
+                if "num_classes" not in mapping:
+                    print(f"Parameter mapping for '{param_name}' missing 'num_classes'; aborting.")
+                    sys.exit(1)
+                num_classes = mapping["num_classes"]
                 class_idx = int(pred_tensor.item())
                 normalized_value = class_idx / (num_classes - 1)
                 
@@ -294,28 +302,22 @@ class AudioReconstructionEvaluator:
             #          f"first few values={raw_predictions.flatten()[:3].tolist()}")
             
             # Process predictions based on model type
-            if isinstance(raw_predictions, dict):
-                # Multihead model
-                processed_predictions = {}
-                for head_name, logits in raw_predictions.items():
-                    if hasattr(self.model, '_compute_predictions'):
-                        head_criterion = self.model.criteria.get(head_name)
-                        if head_criterion:
-                            processed_predictions[head_name] = self.model._compute_predictions(
-                                logits, head_criterion, head_name
-                            ).squeeze(0)
-                        else:
-                            processed_predictions[head_name] = torch.argmax(logits, dim=-1).squeeze(0)
-                    else:
-                        processed_predictions[head_name] = torch.argmax(logits, dim=-1).squeeze(0)
-            else:
-                # Single head model - assume it's for the first parameter
-                if self.param_names:
-                    processed_predictions = {
-                        self.param_names[0]: torch.argmax(raw_predictions, dim=-1).squeeze(0)
-                    }
-                else:
-                    processed_predictions = {"param_0": torch.argmax(raw_predictions, dim=-1).squeeze(0)}
+            if not isinstance(raw_predictions, dict):
+                print("Model is expected to be multihead and return a dict of logits; aborting.")
+                sys.exit(1)
+
+            # Enforce that model heads match dataset parameter names
+            model_heads = list(raw_predictions.keys())
+            missing = [p for p in self.param_names if p not in model_heads]
+            extra = [h for h in model_heads if h not in self.param_names]
+            if missing or extra:
+                print(f"Head/parameter name mismatch. Missing: {missing}, Extra: {extra}")
+                sys.exit(1)
+
+            processed_predictions = {
+                head_name: torch.argmax(logits, dim=-1).squeeze(0)
+                for head_name, logits in raw_predictions.items()
+            }
         
         # Denormalize predictions
         predicted_params = self.denormalize_parameters(processed_predictions)
@@ -1239,20 +1241,14 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
             log.warning(f"Training dataset directory {potential_data_dir} not found, using config default")
     
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    
-    # Create identity transforms to get unmodified images for audio reconstruction
+    # Explicitly use identity transforms for spectrograms (no fallbacks)
     from torchvision.transforms import transforms
-    identity_transform = transforms.Compose([
-        # No normalization or augmentation - just convert to tensor if needed
-        # The VIMH dataset already returns tensors, so this is effectively a no-op
-    ])
-    
-    # Instantiate datamodule with identity transforms for all splits
+    identity_transform = transforms.Compose([])
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.data,
         train_transform=identity_transform,
-        val_transform=identity_transform, 
-        test_transform=identity_transform
+        val_transform=identity_transform,
+        test_transform=identity_transform,
     )
     
     # If we have saved metadata, inject it into the datamodule
