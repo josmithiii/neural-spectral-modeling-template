@@ -176,6 +176,64 @@ class AudioReconstructionEvaluator:
             log.info(f"Model output mode: {self.model.output_mode}")
         if hasattr(self.model, 'net') and hasattr(self.model.net, 'heads_config'):
             log.info(f"Model heads config: {self.model.net.heads_config}")
+
+    def check_prediction_diversity(self, n_samples: int = 20) -> Dict[str, Any]:
+        """Run a quick pass over the first N test samples and summarize
+        prediction diversity for each head/parameter.
+
+        Returns a dict with per-parameter stats and prints a concise report.
+        Does not exit; this is a diagnostic for model quality, not config.
+        """
+        n = min(n_samples, len(self.test_dataset))
+        if n == 0:
+            print("No test samples available for diversity check.")
+            return {}
+
+        # Storage per parameter
+        values: Dict[str, List[float]] = {name: [] for name in self.param_names}
+
+        with torch.no_grad():
+            for i in range(n):
+                sample = self.test_dataset[i]
+                image_tensor = sample[0] if isinstance(sample, (list, tuple)) else sample
+                image_batch = image_tensor.unsqueeze(0).to(self.device)
+                preds = self.model(image_batch)
+
+                if not isinstance(preds, dict):
+                    print("Diversity check expects multihead dict outputs; aborting.")
+                    sys.exit(1)
+
+                # Enforce head-name alignment
+                for head in preds.keys():
+                    if head not in self.param_names:
+                        print(f"Unexpected model head '{head}' during diversity check; aborting.")
+                        sys.exit(1)
+
+                for head_name, logits in preds.items():
+                    if getattr(self.model, 'output_mode', 'classification') == 'regression':
+                        v = float(logits.squeeze().item())
+                    else:
+                        v = int(torch.argmax(logits, dim=-1).item())
+                    values[head_name].append(v)
+
+        # Compute simple stats
+        report: Dict[str, Any] = {}
+        print("\nPrediction diversity over", n, "sample(s):")
+        for name in self.param_names:
+            vals = values.get(name, [])
+            if getattr(self.model, 'output_mode', 'classification') == 'regression':
+                std = float(np.std(vals)) if vals else 0.0
+                report[name] = {"std": std, "min": float(min(vals)) if vals else None, "max": float(max(vals)) if vals else None}
+                status = "⚠️ low variance" if std < 1e-3 else "ok"
+                print(f"  - {name}: std={std:.6f} [{status}] range=({report[name]['min']}, {report[name]['max']})")
+            else:
+                uniques = sorted(list(set(vals))) if vals else []
+                report[name] = {"unique": len(uniques), "values": uniques[:15]}
+                status = "⚠️ degenerate" if len(uniques) <= 1 else "ok"
+                preview = ", ".join(map(str, report[name]["values"])) + (" …" if len(uniques) > 15 else "")
+                print(f"  - {name}: {len(uniques)} unique [{status}] → [{preview}]")
+
+        return report
     
     def denormalize_parameters(self, predicted_params: Dict[str, torch.Tensor]) -> Dict[str, float]:
         """
@@ -830,6 +888,14 @@ class InteractiveAudioEvaluator:
         
         # Initial update
         self.update_display()
+
+        # Quick diagnostic: check prediction diversity across several samples
+        try:
+            self.evaluator.check_prediction_diversity(n_samples=32)
+        except SystemExit:
+            raise
+        except Exception as e:
+            print(f"Prediction diversity check failed: {e}")
         
         # Print usage instructions
         print("🎵 Interactive Audio Evaluator")
