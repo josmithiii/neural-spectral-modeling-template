@@ -94,6 +94,12 @@ def _preflight_check_label_diversity(datamodule: LightningDataModule, max_batche
                     # Non-scalar labels or different dtype – skip diversity check for this head
                     pass
 
+        # Log a brief summary of unique labels observed per head
+        for head in sorted(uniques.keys()):
+            vals = sorted(list(uniques[head]))
+            preview = ", ".join(map(str, vals[:10])) + (" …" if len(vals) > 10 else "")
+            log.info(f"Preflight head '{head}': {len(vals)} unique label(s) across {sampled} batch(es): [{preview}]")
+
         problems = [h for h, s in uniques.items() if len(s) <= 1]
         if problems:
             details = ", ".join(f"{h}: {sorted(list(uniques[h]))}" for h in problems)
