@@ -113,9 +113,9 @@ class VIMHViewer:
                 min_val = param_info.get("min", 0)
                 max_val = param_info.get("max", 255)
                 
-                # Convert normalized value back to actual range
-                # quantized_value is already normalized (0-1) in binary format
-                actual_value = min_val + quantized_value * (max_val - min_val)
+                # Convert quantized value (0-255) to normalized (0-1) then to actual range
+                normalized_value = quantized_value / 255.0
+                actual_value = min_val + normalized_value * (max_val - min_val)
                 params[param_name] = actual_value
             else:
                 # If parameter not in mappings, store as-is
