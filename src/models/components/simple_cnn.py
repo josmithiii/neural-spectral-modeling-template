@@ -46,12 +46,16 @@ class SimpleCNN(nn.Module):
         self.auxiliary_input_size = auxiliary_input_size
         self.auxiliary_hidden_size = auxiliary_hidden_size
         self.fc_hidden = fc_hidden
-
+        
         # Handle configuration based on output mode
         if output_mode == "regression":
             # For regression, we need parameter names
             if not parameter_names:
-                raise ValueError("parameter_names must be provided for regression mode")
+                if heads_config:
+                    parameter_names = list(heads_config.keys())
+                    self.parameter_names = parameter_names
+                else:
+                    raise ValueError("parameter_names must be provided for regression mode")
             # Create heads_config for regression (each parameter gets 1 output)
             heads_config = {name: 1 for name in parameter_names}
         else:

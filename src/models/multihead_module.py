@@ -203,32 +203,45 @@ class MultiheadLitModule(LightningModule):
         if hasattr(self.net, 'heads_config'):
             self.net.heads_config = heads_config
             
+            # Update parameter_names if the network has this attribute (needed for regression mode)
+            if hasattr(self.net, 'parameter_names'):
+                self.net.parameter_names = list(heads_config.keys())
+            
             # If the network has a _build_heads method, use it to rebuild heads
-            # Only call if the network explicitly needs dynamic head rebuilding (like VisionTransformer)
+            # Call for networks that need dynamic head rebuilding (VisionTransformer, SimpleCNN in regression mode)
             if hasattr(self.net, '_build_heads') and callable(getattr(self.net, '_build_heads')):
-                # Check if it's a VisionTransformer or similar that needs dynamic rebuilding
-                if type(self.net).__name__ == 'VisionTransformer':
+                network_name = type(self.net).__name__
+                if (network_name == 'VisionTransformer' or 
+                    (network_name == 'SimpleCNN' and getattr(self.net, 'output_mode', None) == 'regression')):
                     self.net._build_heads(heads_config)
+                    # Update the network's multihead flag after rebuilding
+                    if hasattr(self.net, 'is_multihead'):
+                        self.net.is_multihead = len(heads_config) > 1
         else:
             # If network doesn't have heads_config, log a warning
             print(f"Warning: Network {type(self.net).__name__} doesn't have heads_config attribute")
 
         # Update criteria if using auto-configuration
         if self.auto_configure_from_dataset:
-            # Check if we have hardcoded 'digit' head that needs replacement
-            has_hardcoded_digit = self.criteria and 'digit' in self.criteria and 'digit' not in heads_config
+            # Check if we have hardcoded placeholder heads that need replacement
+            placeholder_heads = ['digit', 'synth_param1']
+            has_hardcoded_placeholder = False
+            for placeholder in placeholder_heads:
+                if self.criteria and placeholder in self.criteria and placeholder not in heads_config:
+                    has_hardcoded_placeholder = True
+                    break
             
-            if self.criteria and not has_hardcoded_digit:
-                # If criteria were pre-configured (and not hardcoded digit), preserve them and update with parameter ranges
+            if self.criteria and not has_hardcoded_placeholder:
+                # If criteria were pre-configured (and not hardcoded placeholder), preserve them and update with parameter ranges
                 self._update_criteria_with_parameter_ranges(dataset)
             else:
-                # No pre-configured criteria or hardcoded digit - replace with dataset heads
+                # No pre-configured criteria or hardcoded placeholder - replace with dataset heads
                 self.criteria = {}
                 for head_name in heads_config.keys():
                     self.criteria[head_name] = torch.nn.CrossEntropyLoss()
 
-            # Update loss weights - reset them if we replaced criteria due to hardcoded digit
-            if not self.loss_weights or has_hardcoded_digit:
+            # Update loss weights - reset them if we replaced criteria due to hardcoded placeholder
+            if not self.loss_weights or has_hardcoded_placeholder:
                 self.loss_weights = {name: 1.0 for name in self.criteria.keys()}
 
         # Update multihead flag
@@ -371,13 +384,31 @@ class MultiheadLitModule(LightningModule):
         logits = self.forward(x, auxiliary)
 
         if self.is_multihead:
-            # Multihead case: y is dict, logits is dict
-            losses = {}
-            for head_name in self.criteria.keys():
-                if head_name in y and head_name in logits:
-                    losses[head_name] = self.criteria[head_name](logits[head_name], y[head_name])
-                else:
-                    print(f"Warning: Head {head_name} not found in targets or logits")
+            # Multihead case: y is dict, logits should be dict
+            if isinstance(logits, dict):
+                # True multihead: logits is dict
+                losses = {}
+                for head_name in self.criteria.keys():
+                    if head_name in y and head_name in logits:
+                        losses[head_name] = self.criteria[head_name](logits[head_name], y[head_name])
+                    else:
+                        print(f"Warning: Head {head_name} not found in targets or logits")
+            else:
+                # Regression mode with single tensor output: split logits by parameter
+                # logits shape: [batch_size, num_parameters]
+                losses = {}
+                logits_dict = {}
+                param_names = list(self.criteria.keys())
+                
+                for i, head_name in enumerate(param_names):
+                    if i < logits.shape[1] and head_name in y:
+                        logits_dict[head_name] = logits[:, i:i+1]  # Keep shape [batch_size, 1]
+                        losses[head_name] = self.criteria[head_name](logits_dict[head_name].squeeze(-1), y[head_name].float())
+                    else:
+                        print(f"Warning: Head {head_name} not found in targets or logits")
+                
+                # Update logits to dict format for consistency
+                logits = logits_dict
 
             total_loss = sum(self.loss_weights[name] * loss for name, loss in losses.items())
 
