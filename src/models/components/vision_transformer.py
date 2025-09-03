@@ -203,17 +203,30 @@ class VisionTransformer(nn.Module):
         heads_config: Optional[Dict[str, int]] = None,
         dropout: float = 0.1,
         use_torch_layers: bool = False,
+        output_mode: str = "classification",
+        parameter_names: Optional[list] = None,
     ):
         super().__init__()
         
+        self.output_mode = output_mode
+        self.parameter_names = parameter_names or []
         self.use_torch_layers = use_torch_layers
         
         # Handle multihead configuration
-        if heads_config is None:
-            if output_size is not None:
-                heads_config = {'digit': output_size}
-            else:
-                heads_config = {'digit': 10}  # Default
+        if output_mode == "regression":
+            # For regression, parameter names determine heads; build 1-dim outputs
+            if heads_config is not None and not self.parameter_names:
+                self.parameter_names = list(heads_config.keys())
+            if not self.parameter_names:
+                # Fallback single head if nothing provided
+                self.parameter_names = ['param_0']
+            heads_config = {name: 1 for name in self.parameter_names}
+        else:
+            if heads_config is None:
+                if output_size is not None:
+                    heads_config = {'digit': output_size}
+                else:
+                    heads_config = {'digit': 10}  # Default
                 
         self.heads_config = heads_config
         self.is_multihead = len(heads_config) > 1
@@ -243,6 +256,55 @@ class VisionTransformer(nn.Module):
             
         # Multiple heads or single head for backward compatibility
         if self.is_multihead:
+            if self.output_mode == "regression":
+                # Regression heads: 1-dim output with sigmoid
+                self.heads = nn.ModuleDict({
+                    head_name: nn.Sequential(
+                        nn.Linear(embed_dim, embed_dim),
+                        nn.Tanh(),
+                        nn.Linear(embed_dim, 1),
+                        nn.Sigmoid(),
+                    )
+                    for head_name in heads_config.keys()
+                })
+            else:
+                self.heads = nn.ModuleDict({
+                    head_name: nn.Sequential(
+                        nn.Linear(embed_dim, embed_dim),
+                        nn.Tanh(),
+                        nn.Linear(embed_dim, num_classes)
+                    )
+                    for head_name, num_classes in heads_config.items()
+                })
+        else:
+            # Single head (backward compatibility)
+            head_name, num_classes = next(iter(heads_config.items()))
+            if self.output_mode == "regression":
+                self.classifier = nn.Sequential(
+                    nn.Linear(embed_dim, embed_dim),
+                    nn.Tanh(),
+                    nn.Linear(embed_dim, 1),
+                    nn.Sigmoid(),
+                )
+            else:
+                self.classifier = Classifier(embed_dim, num_classes)
+
+        self.apply(self._init_weights)
+
+    def _build_heads(self, heads_config: Dict[str, int]) -> None:
+        """Rebuild heads for auto-configuration (supports regression/classification)."""
+        embed_dim = self.embedding.pos_embedding.shape[-1]
+        if self.output_mode == "regression":
+            self.heads = nn.ModuleDict({
+                head_name: nn.Sequential(
+                    nn.Linear(embed_dim, embed_dim),
+                    nn.Tanh(),
+                    nn.Linear(embed_dim, 1),
+                    nn.Sigmoid(),
+                )
+                for head_name in heads_config.keys()
+            })
+        else:
             self.heads = nn.ModuleDict({
                 head_name: nn.Sequential(
                     nn.Linear(embed_dim, embed_dim),
@@ -251,32 +313,11 @@ class VisionTransformer(nn.Module):
                 )
                 for head_name, num_classes in heads_config.items()
             })
-        else:
-            # Single head (backward compatibility)
-            head_name, num_classes = next(iter(heads_config.items()))
-            self.classifier = Classifier(embed_dim, num_classes)
 
-        self.apply(self._init_weights)
-
-    def _build_heads(self, heads_config: Dict[str, int]) -> None:
-        """Rebuild heads for auto-configuration."""
-        # Create new multihead configuration
-        self.heads = nn.ModuleDict({
-            head_name: nn.Sequential(
-                nn.Linear(self.embedding.pos_embedding.shape[-1], self.embedding.pos_embedding.shape[-1]),  # embed_dim
-                nn.Tanh(),
-                nn.Linear(self.embedding.pos_embedding.shape[-1], num_classes)
-            )
-            for head_name, num_classes in heads_config.items()
-        })
-        
         self.heads_config = heads_config
         self.is_multihead = len(heads_config) > 1
-        
-        # Remove single classifier if it exists
         if hasattr(self, 'classifier'):
             del self.classifier
-
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
@@ -319,13 +360,9 @@ class VisionTransformer(nn.Module):
         cls_embedding = x[:, 0, :]  # B, S, E --> B, E
         
         if self.is_multihead:
-            return {
-                head_name: head(cls_embedding)
-                for head_name, head in self.heads.items()
-            }
+            return {head_name: head(cls_embedding) for head_name, head in self.heads.items()}
         else:
-            # Single head output (backward compatibility)
-            return self.classifier(x)
+            return self.classifier(cls_embedding)
 
 
 if __name__ == "__main__":

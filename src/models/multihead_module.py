@@ -160,7 +160,10 @@ class MultiheadLitModule(LightningModule):
         if not self.criteria:
             self.criteria = {}
             for head_name in head_configs.keys():
-                self.criteria[head_name] = torch.nn.CrossEntropyLoss()
+                if self.output_mode == "regression":
+                    self.criteria[head_name] = NormalizedRegressionLoss()
+                else:
+                    self.criteria[head_name] = torch.nn.CrossEntropyLoss()
 
         # Initialize loss weights if not already set
         if not self.loss_weights:
@@ -238,7 +241,10 @@ class MultiheadLitModule(LightningModule):
                 # No pre-configured criteria or hardcoded placeholder - replace with dataset heads
                 self.criteria = {}
                 for head_name in heads_config.keys():
-                    self.criteria[head_name] = torch.nn.CrossEntropyLoss()
+                    if self.output_mode == "regression":
+                        self.criteria[head_name] = NormalizedRegressionLoss()
+                    else:
+                        self.criteria[head_name] = torch.nn.CrossEntropyLoss()
 
             # Update loss weights - reset them if we replaced criteria due to hardcoded placeholder
             if not self.loss_weights or has_hardcoded_placeholder:

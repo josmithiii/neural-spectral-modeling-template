@@ -1,0 +1,38 @@
+# Micro ViT with regression heads (normalized [0,1] outputs)
+_target_: src.models.multihead_module.MultiheadLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.005
+  weight_decay: 0.01
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 3
+
+# Enable regression in the Lightning module
+output_mode: regression
+
+loss_weights: {}
+
+net:
+  _target_: src.models.components.vision_transformer.VisionTransformer
+  n_channels: 1
+  image_size: 32
+  patch_size: 8
+  embed_dim: 32
+  n_layers: 2
+  n_attention_heads: 4
+  forward_mul: 2
+  dropout: 0.2
+  use_torch_layers: false
+  output_mode: regression
+  parameter_names: [synth_param1]  # Placeholder; will be auto-configured from dataset metadata
+
+compile: false
+auto_configure_from_dataset: true
+

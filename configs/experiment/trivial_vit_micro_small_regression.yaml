@@ -7,7 +7,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: vit_micro   # Classification ViT; regression ViT TBD
+  - override /model: vit_micro_regression
   - override /callbacks: default
   - override /trainer: default
 
@@ -31,4 +31,3 @@ data:
 logger:
   tensorboard:
     name: "trivial_vit_micro_small_regression"
-
