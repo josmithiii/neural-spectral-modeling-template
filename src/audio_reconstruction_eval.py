@@ -775,22 +775,43 @@ class InteractiveAudioEvaluator:
     
     def create_widget(self):
         """Create the interactive matplotlib widget."""
-        self.fig, self.axes = plt.subplots(2, 3, figsize=(18, 10))
-        plt.subplots_adjust(bottom=0.25)  # Increased bottom margin further
-        
-        # Add slider for sample selection
-        ax_slider = plt.axes([0.1, 0.12, 0.5, 0.03])  # Moved up to 0.12
+        # Create figure and explicit layout: 2x3 plot grid on top, control strip below
+        self.fig = plt.figure(figsize=(18, 10))
+        outer_gs = self.fig.add_gridspec(nrows=3, ncols=3,
+                                         height_ratios=[1.0, 1.0, 0.18],
+                                         hspace=0.35, wspace=0.3)
+
+        # Axes matrix for the six plots
+        import numpy as _np
+        self.axes = _np.empty((2, 3), dtype=object)
+        for r in range(2):
+            for c in range(3):
+                self.axes[r, c] = self.fig.add_subplot(outer_gs[r, c])
+
+        # Controls row spanning all columns
+        controls_gs = outer_gs[2, :].subgridspec(1, 5, width_ratios=[6, 1, 1, 1, 1])
+
+        # Slider occupies most of the bottom strip
+        ax_slider = self.fig.add_subplot(controls_gs[0, 0])
+        # Buttons arranged to the right
+        ax_prev = self.fig.add_subplot(controls_gs[0, 1])
+        ax_next = self.fig.add_subplot(controls_gs[0, 2])
+        ax_play_true = self.fig.add_subplot(controls_gs[0, 3])
+        ax_play_pred = self.fig.add_subplot(controls_gs[0, 4])
+
+        # Reduce visual clutter in control axes
+        for ax in [ax_slider, ax_prev, ax_next, ax_play_true, ax_play_pred]:
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+
+        # Create interactive widgets
         self.sample_slider = Slider(
             ax_slider, 'Sample', 0, len(self.evaluator.test_dataset) - 1,
             valinit=0, valfmt='%d'
         )
         self.sample_slider.on_changed(self.update_sample)
-        
-        # Add buttons (moved up to 0.12)
-        ax_prev = plt.axes([0.65, 0.12, 0.05, 0.03])
-        ax_next = plt.axes([0.71, 0.12, 0.05, 0.03])
-        ax_play_true = plt.axes([0.77, 0.12, 0.08, 0.03])
-        ax_play_pred = plt.axes([0.86, 0.12, 0.08, 0.03])
         
         self.btn_prev = Button(ax_prev, 'Prev')
         self.btn_next = Button(ax_next, 'Next')
