@@ -34,7 +34,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.data.vimh_datamodule import VIMHDataModule
-from src.models.multihead_module import MultiheadLitModule
+from src.models.vimh_lit_module import VIMHLitModule
 from src.models.components.simple_cnn import SimpleCNN
 
 console = Console()
@@ -177,7 +177,7 @@ def inspect_dataset(datamodule: VIMHDataModule) -> Dict[str, Any]:
         return inspection_results
 
 def create_model_from_dataset(datamodule: VIMHDataModule,
-                            model_type: str = "simple_cnn") -> MultiheadLitModule:
+                            model_type: str = "simple_cnn") -> VIMHLitModule:
     """Create and configure model from dataset properties.
 
     Args:
@@ -196,7 +196,7 @@ def create_model_from_dataset(datamodule: VIMHDataModule,
         raise ValueError(f"Unknown model type: {model_type}")
 
     # Create Lightning module with auto-configuration
-    model = MultiheadLitModule(
+    model = VIMHLitModule(
         net=net,
         optimizer=torch.optim.Adam,
         scheduler=lambda optimizer: torch.optim.lr_scheduler.StepLR(
@@ -207,7 +207,7 @@ def create_model_from_dataset(datamodule: VIMHDataModule,
 
     return model
 
-def train_model(model: MultiheadLitModule,
+def train_model(model: VIMHLitModule,
                 datamodule: VIMHDataModule,
                 max_epochs: int = 50,
                 demo_mode: bool = False) -> Trainer:
@@ -263,7 +263,7 @@ def train_model(model: MultiheadLitModule,
 
     return trainer
 
-def analyze_performance(model: MultiheadLitModule,
+def analyze_performance(model: VIMHLitModule,
                        datamodule: VIMHDataModule,
                        trainer: Trainer) -> Dict[str, Any]:
     """Analyze model performance across different heads.
@@ -302,7 +302,7 @@ def analyze_performance(model: MultiheadLitModule,
 
     return performance_analysis
 
-def generate_confusion_matrices(model: MultiheadLitModule,
+def generate_confusion_matrices(model: VIMHLitModule,
                               datamodule: VIMHDataModule,
                               save_path: Optional[str] = None) -> None:
     """Generate confusion matrices for each head.
@@ -484,7 +484,7 @@ def main():
 
     if args.analyze_only:
         # Load existing model for analysis
-        model = MultiheadLitModule.load_from_checkpoint(args.checkpoint)
+        model = VIMHLitModule.load_from_checkpoint(args.checkpoint)
         trainer = Trainer(accelerator="cpu", devices=1)
         performance_analysis = analyze_performance(model, datamodule, trainer)
     else:

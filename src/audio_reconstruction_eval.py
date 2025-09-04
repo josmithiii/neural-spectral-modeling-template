@@ -1622,8 +1622,8 @@ def _load_model_from_checkpoint(ckpt_path: str, datamodule: LightningDataModule,
 
     # Try Lightning's built-in checkpoint loading first
     try:
-        from src.models.multihead_module import MultiheadLitModule
-        model: LightningModule = MultiheadLitModule.load_from_checkpoint(
+        from src.models.vimh_lit_module import VIMHLitModule
+        model: LightningModule = VIMHLitModule.load_from_checkpoint(
             ckpt_path,
             map_location=device,
             strict=False
@@ -1669,12 +1669,12 @@ def _reconstruct_model_manually(ckpt_path: str, datamodule: LightningDataModule,
         hyper_parameters = checkpoint.get('hyper_parameters', {})
 
         # Create the complete model
-        from src.models.multihead_module import MultiheadLitModule
+        from src.models.vimh_lit_module import VIMHLitModule
         from torch.nn import CrossEntropyLoss
 
         criteria = {head_name: CrossEntropyLoss() for head_name in heads_config.keys()}
 
-        model = MultiheadLitModule(
+        model = VIMHLitModule(
             net=net,
             optimizer=hyper_parameters.get('optimizer'),
             scheduler=None,

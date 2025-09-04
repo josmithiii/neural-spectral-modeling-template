@@ -1142,8 +1142,8 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
     # Try to load model directly from checkpoint using Lightning's built-in method first
     try:
         # Try to use Lightning's load_from_checkpoint with the exact class
-        from src.models.multihead_module import MultiheadLitModule
-        model: LightningModule = MultiheadLitModule.load_from_checkpoint(
+        from src.models.vimh_lit_module import VIMHLitModule
+        model: LightningModule = VIMHLitModule.load_from_checkpoint(
             ckpt_path, 
             map_location=device,
             strict=False  # Allow loading with missing/extra keys
@@ -1236,13 +1236,13 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
                 sys.exit(1)
             
             # Create multihead module with inferred network
-            from src.models.multihead_module import MultiheadLitModule
+            from src.models.vimh_lit_module import VIMHLitModule
             
             # Create default criterion for each head to satisfy the model requirements
             from torch.nn import CrossEntropyLoss
             criteria = {head_name: CrossEntropyLoss() for head_name in heads_config.keys()}
             
-            model = MultiheadLitModule(
+            model = VIMHLitModule(
                 net=net,
                 optimizer=hyper_parameters.get('optimizer'),
                 scheduler=None,  # Will be set later if needed

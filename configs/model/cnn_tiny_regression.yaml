@@ -1,5 +1,5 @@
 # Small CNN with ~8K parameters for trivial datasets
-_target_: src.models.multihead_module.MultiheadLitModule
+_target_: src.models.vimh_lit_module.VIMHLitModule
 
 optimizer:
   _target_: torch.optim.Adam

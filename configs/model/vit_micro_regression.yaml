@@ -1,5 +1,5 @@
 # Micro ViT with regression heads (normalized [0,1] outputs)
-_target_: src.models.multihead_module.MultiheadLitModule
+_target_: src.models.vimh_lit_module.VIMHLitModule
 
 optimizer:
   _target_: torch.optim.Adam

@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.data.vimh_datamodule import VIMHDataModule
-from src.models.multihead_module import MultiheadLitModule
+from src.models.vimh_lit_module import VIMHLitModule
 from src.models.components.simple_cnn import SimpleCNN
 
 def test_viewer_core_functionality():
@@ -69,7 +69,7 @@ def test_viewer_core_functionality():
         dummy_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(dummy_optimizer)
         
         # Load model
-        model = MultiheadLitModule.load_from_checkpoint(
+        model = VIMHLitModule.load_from_checkpoint(
             checkpoint_path,
             net=net,
             optimizer=dummy_optimizer,

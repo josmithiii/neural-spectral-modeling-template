@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from src.models.components.simple_cnn import SimpleCNN
 from src.models.losses import NormalizedRegressionLoss
-from src.models.multihead_module import MultiheadLitModule
+from src.models.vimh_lit_module import VIMHLitModule
 
 
 class TestRegressionNetworkArchitecture:
@@ -196,10 +196,10 @@ class TestNormalizedRegressionLoss:
 
 
 class TestMultiheadRegressionModule:
-    """Test the MultiheadLitModule with regression mode."""
+    """Test the VIMHLitModule with regression mode."""
 
     def test_multihead_regression_initialization(self):
-        """Test that MultiheadLitModule initializes correctly in regression mode."""
+        """Test that VIMHLitModule initializes correctly in regression mode."""
         net = SimpleCNN(
             input_channels=3,
             output_mode="regression",
@@ -222,7 +222,7 @@ class TestMultiheadRegressionModule:
             )
         }
 
-        module = MultiheadLitModule(
+        module = VIMHLitModule(
             net=net,
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
@@ -236,7 +236,7 @@ class TestMultiheadRegressionModule:
         assert len(module.criteria) == 2
 
     def test_multihead_regression_forward_pass(self):
-        """Test that MultiheadLitModule forward pass works in regression mode."""
+        """Test that VIMHLitModule forward pass works in regression mode."""
         net = SimpleCNN(
             input_channels=3,
             output_mode="regression",
@@ -259,7 +259,7 @@ class TestMultiheadRegressionModule:
             )
         }
 
-        module = MultiheadLitModule(
+        module = VIMHLitModule(
             net=net,
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
@@ -317,7 +317,7 @@ class TestMultiheadRegressionModule:
             )
         }
 
-        module = MultiheadLitModule(
+        module = VIMHLitModule(
             net=net,
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
@@ -351,7 +351,7 @@ class TestMultiheadRegressionModule:
             input_size=32
         )
 
-        module = MultiheadLitModule(
+        module = VIMHLitModule(
             net=net,
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
@@ -398,7 +398,7 @@ class TestRegressionModeIntegration:
         }
 
         # Create module
-        module = MultiheadLitModule(
+        module = VIMHLitModule(
             net=net,
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,

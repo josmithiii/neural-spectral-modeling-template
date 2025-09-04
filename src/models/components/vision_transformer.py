@@ -159,7 +159,9 @@ class Classifier(nn.Module):
         self.fc2 = nn.Linear(embed_dim, n_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x[:, 0, :]              # B, S, E --> B, E          Get CLS token
+        # CLS token is already extracted by ViT, so x is already (B, E)
+        if x.dim() == 3:
+            x = x[:, 0, :]          # B, S, E --> B, E          Get CLS token if needed
         x = self.fc1(x)             # B, E    --> B, E
         x = self.activation(x)      # B, E    --> B, E    
         x = self.fc2(x)             # B, E    --> B, CL

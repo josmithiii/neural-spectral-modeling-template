@@ -30,7 +30,7 @@ sys.path.insert(0, str(project_root))
 # Import using full module paths
 from src.data.vimh_datamodule import VIMHDataModule  
 from src.data.vimh_dataset import VIMHDataset
-from src.models.multihead_module import MultiheadLitModule
+from src.models.vimh_lit_module import VIMHLitModule
 
 
 class VIMHResultsViewer:
@@ -249,7 +249,7 @@ class VIMHResultsViewer:
             dummy_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(dummy_optimizer)
             
             # Load the complete model with our network (strict=False to handle head mismatches)
-            self.model = MultiheadLitModule.load_from_checkpoint(
+            self.model = VIMHLitModule.load_from_checkpoint(
                 self.checkpoint_path,
                 net=net,
                 optimizer=dummy_optimizer,

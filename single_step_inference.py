@@ -13,7 +13,7 @@ import rootutils
 # Setup project root
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from src.models.multihead_module import MultiheadLitModule
+from src.models.vimh_lit_module import VIMHLitModule
 from src.models.mnist_module import MNISTLitModule
 from src.data.cifar10_datamodule import CIFAR10DataModule
 from src.data.mnist_datamodule import MNISTDataModule
@@ -34,8 +34,8 @@ def load_model_from_checkpoint(checkpoint_path: str, model_class=None):
     # Try to auto-detect model type from checkpoint
     if model_class is None:
         # You can add logic here to detect model type from checkpoint metadata
-        # For now, assume MultiheadLitModule as default
-        model_class = MultiheadLitModule
+        # For now, assume VIMHLitModule as default
+        model_class = VIMHLitModule
 
     # Load model from checkpoint
     model = model_class.load_from_checkpoint(checkpoint_path)
@@ -143,11 +143,11 @@ def demo_single_sample_inference():
     single_sample = torch.randn(1, 1, 28, 28)  # Batch size = 1
 
     from src.models.components.simple_cnn import SimpleCNN
-    from src.models.multihead_module import MultiheadLitModule
+    from src.models.vimh_lit_module import VIMHLitModule
 
     # Create multihead model
     net = SimpleCNN(heads_config={'digit': 10, 'thickness': 5})
-    model = MultiheadLitModule(
+    model = VIMHLitModule(
         net=net,
         optimizer=torch.optim.Adam,
         scheduler=torch.optim.lr_scheduler.StepLR,

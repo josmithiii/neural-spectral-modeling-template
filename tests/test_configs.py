@@ -65,13 +65,13 @@ def test_regression_model_config() -> None:
 def test_regression_experiment_config() -> None:
     """Test that the regression experiment configuration is valid."""
     with hydra.initialize(version_base=None, config_path="../configs"):
-        cfg = hydra.compose(config_name="train", overrides=["experiment=cnn_16kdss_regression"])
+        cfg = hydra.compose(config_name="train", overrides=["experiment=trivial_micro_small_regression"])
 
         assert cfg.model.output_mode == "regression"
         assert cfg.optimized_metric == "val/mae_best"
         assert "regression" in cfg.tags
-        assert "sigmoid" in cfg.tags
-        assert "continuous" in cfg.tags
+        assert "trivial" in cfg.tags
+        assert "micro" in cfg.tags
 
         # Test that auto_configure_from_dataset is enabled
         assert cfg.model.auto_configure_from_dataset == True

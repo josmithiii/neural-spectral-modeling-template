@@ -1,3 +1,3 @@
-from .multihead_module import MultiheadLitModule
+from .vimh_lit_module import VIMHLitModule
 
-__all__ = ["MultiheadLitModule"]
+__all__ = ["VIMHLitModule"]

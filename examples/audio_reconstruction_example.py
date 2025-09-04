@@ -23,7 +23,7 @@ sys.path.insert(0, str(project_root))
 
 from src.audio_reconstruction_eval import AudioReconstructionEvaluator
 from src.data.vimh_datamodule import VIMHDataModule  
-from src.models.multihead_module import MultiheadLitModule
+from src.models.vimh_lit_module import VIMHLitModule
 import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -76,7 +76,7 @@ def basic_evaluation_example():
     print("Please modify the model loading section to match your trained model")
     return
     
-    model = MultiheadLitModule(
+    model = VIMHLitModule(
         net=net,
         optimizer=None,  # Not needed for inference
         scheduler=None,  # Not needed for inference

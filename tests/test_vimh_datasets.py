@@ -541,12 +541,12 @@ class TestVIMHDataModule:
         )
 
         # Test 32x32 image adjustment
-        dm._adjust_transforms_for_image_size(32, 32)
+        dm._adjust_transforms_for_image_size(32, 32, 3)
         assert dm.train_transform is not None
         assert dm.val_transform is not None
 
         # Test 28x28 image adjustment
-        dm._adjust_transforms_for_image_size(28, 28)
+        dm._adjust_transforms_for_image_size(28, 28, 1)
         assert dm.train_transform is not None
         assert dm.val_transform is not None
 
