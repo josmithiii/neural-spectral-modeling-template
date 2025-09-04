@@ -312,6 +312,11 @@ def configure_vimh_model(model, datamodule, cfg) -> None:
             if hasattr(model, 'output_mode') and model.output_mode == 'regression':
                 # For regression mode, use parameter_names
                 model.net.parameter_names = parameter_names
+
+                # Auto-configure regression loss functions with parameter ranges
+                if hasattr(model, 'criteria'):
+                    _configure_regression_criteria(model, cfg.data.data_dir, parameter_names)
+
             else:
                 # For classification/ordinal mode, use heads_config
                 heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
@@ -339,3 +344,50 @@ def configure_vimh_model(model, datamodule, cfg) -> None:
                 log.info(f"Auto-configured auxiliary_input_size: {old_size} -> {auxiliary_input_size} (based on {cfg.data.auxiliary_features})")
     except Exception as e:
         log.warning(f"Failed to auto-configure model from dataset metadata: {e}")
+
+
+def _configure_regression_criteria(model, data_dir: str, parameter_names: list) -> None:
+    """Configure regression criteria with proper parameter ranges."""
+    try:
+        from src.models.losses import NormalizedRegressionLoss
+        from src.utils.vimh_utils import load_vimh_metadata
+
+        # Get parameter ranges from metadata
+        from src.utils.vimh_utils import get_parameter_ranges_from_metadata
+        param_ranges = get_parameter_ranges_from_metadata(data_dir)
+
+        # Configure criteria for each parameter
+        if not hasattr(model, 'criteria') or not model.criteria:
+            model.criteria = {}
+
+        for param_name in parameter_names:
+            if param_name in param_ranges:
+                param_range = param_ranges[param_name]
+                model.criteria[param_name] = NormalizedRegressionLoss(param_range=param_range)
+                log.info(f"Configured {param_name} regression loss with range: {param_range}")
+            else:
+                # Fallback if range not available - get from full metadata
+                metadata = load_vimh_metadata(data_dir)
+                if 'parameter_mappings' in metadata and param_name in metadata['parameter_mappings']:
+                    param_info = metadata['parameter_mappings'][param_name]
+                    if 'min' in param_info and 'max' in param_info:
+                        param_range = (param_info['min'], param_info['max'])
+                        model.criteria[param_name] = NormalizedRegressionLoss(param_range=param_range)
+                        log.info(f"Configured {param_name} regression loss with range: {param_range}")
+                    else:
+                        log.warning(f"No min/max range found for {param_name}, using default (0,1)")
+                        model.criteria[param_name] = NormalizedRegressionLoss(param_range=(0.0, 1.0))
+                else:
+                    # Fallback if no mapping available
+                    log.warning(f"No parameter mapping found for {param_name}, using default (0,1)")
+                    model.criteria[param_name] = NormalizedRegressionLoss(param_range=(0.0, 1.0))
+
+        # Update multihead flag
+        if hasattr(model, 'is_multihead'):
+            model.is_multihead = len(model.criteria) > 1
+
+    except Exception as e:
+        log.error(f"Failed to configure regression criteria: {e}")
+        raise
+
+

@@ -242,7 +242,9 @@ class MultiheadLitModule(LightningModule):
                 self.criteria = {}
                 for head_name in heads_config.keys():
                     if self.output_mode == "regression":
-                        self.criteria[head_name] = NormalizedRegressionLoss()
+                        # For regression mode, we need parameter ranges
+                        param_range = self._get_param_range_for_head(dataset, head_name)
+                        self.criteria[head_name] = NormalizedRegressionLoss(param_range=param_range)
                     else:
                         self.criteria[head_name] = torch.nn.CrossEntropyLoss()
 
@@ -296,6 +298,51 @@ class MultiheadLitModule(LightningModule):
                     print(f"Updated {head_name} regression loss with parameter bounds: {param_bound}")
                 else:
                     print(f"Warning: No parameter bounds found for {head_name}, using default: ({criterion.param_min}, {criterion.param_max})")
+
+    def _get_param_range_for_head(self, dataset: MultiheadDatasetBase, head_name: str) -> Tuple[float, float]:
+        """Get parameter range for a specific head from dataset metadata.
+
+        :param dataset: The dataset containing parameter range information
+        :param head_name: Name of the parameter head
+        :return: Tuple of (min, max) parameter range
+        """
+        # Try to get parameter ranges from datamodule first
+        param_ranges = {}
+        try:
+            if hasattr(self.trainer, 'datamodule'):
+                if hasattr(self.trainer.datamodule, 'param_ranges'):
+                    param_ranges = self.trainer.datamodule.param_ranges
+        except RuntimeError:
+            # No trainer attached, try dataset directly
+            pass
+
+        # If not found in datamodule, try dataset directly
+        if not param_ranges and hasattr(dataset, 'param_ranges'):
+            param_ranges = dataset.param_ranges
+
+        # Look for the specific parameter range
+        if head_name in param_ranges:
+            param_range = param_ranges[head_name]
+            if isinstance(param_range, (tuple, list)) and len(param_range) == 2:
+                return tuple(param_range)
+            elif isinstance(param_range, (int, float)):
+                # If it's a single value, assume it's the range (max-min)
+                print(f"Warning: {head_name} param_range is single value {param_range}, using (0, {param_range})")
+                return (0.0, float(param_range))
+            else:
+                print(f"Warning: Unexpected param_range format for {head_name}: {param_range}")
+
+        # Try to get from dataset metadata if it's a VIMH dataset
+        if hasattr(dataset, '_metadata') and dataset._metadata:
+            param_mappings = dataset._metadata.get('parameter_mappings', {})
+            if head_name in param_mappings:
+                mapping = param_mappings[head_name]
+                if 'min' in mapping and 'max' in mapping:
+                    return (mapping['min'], mapping['max'])
+
+        # Fallback to default range
+        print(f"Warning: No parameter range found for {head_name}, using default (0.0, 1.0)")
+        return (0.0, 1.0)
 
     def _is_regression_loss(self, criterion) -> bool:
         """Check if a loss function is regression-based."""
