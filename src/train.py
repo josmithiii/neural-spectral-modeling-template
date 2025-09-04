@@ -56,8 +56,26 @@ from src.utils import (
     log_hyperparameters,
     task_wrapper,
 )
+from src.utils.architecture_utils import (
+    ArchitectureMetadataExtractor,
+    create_spectrogram_transforms,
+    configure_vimh_model,
+)
 
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+def _setup_datamodule_with_transforms(cfg: DictConfig) -> LightningDataModule:
+    """Setup datamodule with appropriate transforms for the dataset type."""
+    datamodule_kwargs = {}
+
+    if 'vimh' in cfg.data._target_.lower():
+        # Use shared spectrogram transforms utility
+        transforms_kwargs, log_message = create_spectrogram_transforms()
+        datamodule_kwargs.update(transforms_kwargs)
+        log.info(log_message)
+
+    return hydra.utils.instantiate(cfg.data, **datamodule_kwargs)
 
 
 def _preflight_check_label_diversity(datamodule: LightningDataModule, max_batches: int = 3) -> None:
@@ -130,83 +148,21 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     
-    # For VIMH spectrogram datasets, use appropriate transforms instead of image-oriented ones
-    datamodule_kwargs = {}
-    if 'vimh' in cfg.data._target_.lower():
-        from torchvision.transforms import transforms
-        
-        # Create spectrogram-appropriate transforms
-        # No color jittering, rotation, or other image augmentations that don't make sense for spectrograms
-        spectrogram_train_transform = transforms.Compose([
-            # For now, just use identity transform - we can add spectrogram-specific augmentations later
-            # No normalization either to preserve the original spectrogram values for audio reconstruction
-        ])
-        
-        spectrogram_val_test_transform = transforms.Compose([
-            # Identity transform for validation and test - no modifications
-        ])
-        
-        datamodule_kwargs.update({
-            'train_transform': spectrogram_train_transform,
-            'val_transform': spectrogram_val_test_transform,
-            'test_transform': spectrogram_val_test_transform
-        })
-        
-        log.info("Using spectrogram-appropriate transforms (no image augmentations)")
-    
-    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data, **datamodule_kwargs)
+    # Setup datamodule with appropriate transforms
+    datamodule: LightningDataModule = _setup_datamodule_with_transforms(cfg)
 
     # For VIMH datasets, configure model with parameter names from metadata
     if 'vimh' in cfg.data._target_.lower() and hasattr(cfg.model, 'auto_configure_from_dataset') and cfg.model.auto_configure_from_dataset:
-        try:
-            from src.utils.vimh_utils import get_parameter_names_from_metadata, get_heads_config_from_metadata, get_image_dimensions_from_metadata
-            
-            # Auto-configure input channels from dataset metadata
-            if hasattr(cfg.model, 'net') and hasattr(cfg.model.net, 'input_channels'):
-                height, width, channels = get_image_dimensions_from_metadata(cfg.data.data_dir)
-                if cfg.model.net.input_channels != channels:
-                    log.info(f"Auto-configuring network input channels: {cfg.model.net.input_channels} -> {channels}")
-                    cfg.model.net.input_channels = channels
-            
-            parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
-            if parameter_names and hasattr(cfg.model, 'net'):
-                log.info(f"Configuring model with parameter names from dataset: {parameter_names}")
-
-                # Configure model based on output mode
-                if hasattr(cfg.model, 'output_mode') and cfg.model.output_mode == 'regression':
-                    # For regression mode, use parameter_names
-                    cfg.model.net.parameter_names = parameter_names
-                else:
-                    # For classification/ordinal mode, use heads_config
-                    heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
-                    cfg.model.net.heads_config = heads_config
-
-                # Auto-configure loss_weights (equal weight for all parameters)
-                if not hasattr(cfg.model, 'loss_weights') or not cfg.model.loss_weights or len(cfg.model.loss_weights) == 0:
-                    cfg.model.loss_weights = {name: 1.0 for name in parameter_names}
-                    log.info(f"Auto-configured loss_weights: {cfg.model.loss_weights}")
-
-            # Auto-configure auxiliary input size based on dataset auxiliary features
-            if (hasattr(cfg.data, 'auxiliary_features') and cfg.data.auxiliary_features and 
-                hasattr(cfg.model, 'net') and hasattr(cfg.model.net, 'auxiliary_input_size')):
-                
-                # Calculate auxiliary input size based on feature types
-                auxiliary_input_size = 0
-                for feature_type in cfg.data.auxiliary_features:
-                    if feature_type == "decay_time":
-                        auxiliary_input_size += 1  # decay_time extracts 1 feature
-                    # Add other feature types as needed in the future
-                
-                if auxiliary_input_size > 0:
-                    old_size = cfg.model.net.get('auxiliary_input_size', 0)
-                    cfg.model.net.auxiliary_input_size = auxiliary_input_size
-                    log.info(f"Auto-configured auxiliary_input_size: {old_size} -> {auxiliary_input_size} (based on {cfg.data.auxiliary_features})")
-        except Exception as e:
-            log.warning(f"Failed to auto-configure model from dataset metadata: {e}")
+        # Note: model is instantiated below, so we'll configure it after instantiation
+        pass
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
-    
+
+    # Configure VIMH model if needed (after instantiation)
+    if 'vimh' in cfg.data._target_.lower() and hasattr(cfg.model, 'auto_configure_from_dataset') and cfg.model.auto_configure_from_dataset:
+        configure_vimh_model(model, datamodule, cfg)
+
     # Log important model configuration details
     if hasattr(model, 'output_mode'):
         log.info(f"Model output mode: {model.output_mode}")
@@ -236,183 +192,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
     
-    # Add architecture metadata to model for checkpoint saving
+    # Extract and store architecture metadata for checkpoint reconstruction
     if hasattr(model, 'net'):
-        # Store architecture metadata for evaluation script reconstruction
-        architecture_metadata = {}
-        
-        # Get dataset metadata if available from datamodule - need to setup first
-        dataset_metadata = {}
-        if hasattr(datamodule, 'get_dataset_info'):
-            try:
-                # Ensure datamodule is set up
-                if not hasattr(datamodule, 'data_train') or datamodule.data_train is None:
-                    datamodule.setup("fit")
-                dataset_metadata = datamodule.get_dataset_info()
-                log.info(f"Retrieved dataset metadata: {list(dataset_metadata.keys())}")
-            except Exception as e:
-                log.warning(f"Could not get dataset metadata: {e}")
-                dataset_metadata = {}
-        
-        # Detect ViT architecture
-        if hasattr(model.net, 'embedding') and hasattr(model.net.embedding, 'pos_embedding'):
-            architecture_metadata['type'] = 'ViT'
-            
-            # Store ViT parameters - need to get from hparams since they're not stored as attributes
-            model_hparams = model.hparams
-            if hasattr(model, 'net') and hasattr(model_hparams, 'net'):
-                net_hparams = model_hparams.net
-                
-                # Extract parameters from the ViT model config
-                architecture_metadata['embed_dim'] = getattr(net_hparams, 'embed_dim', 64)
-                architecture_metadata['n_layers'] = getattr(net_hparams, 'n_layers', 6) 
-                architecture_metadata['n_attention_heads'] = getattr(net_hparams, 'n_attention_heads', 4)
-                architecture_metadata['patch_size'] = getattr(net_hparams, 'patch_size', 4)
-                architecture_metadata['image_size'] = getattr(net_hparams, 'image_size', 28)
-                architecture_metadata['input_channels'] = getattr(net_hparams, 'n_channels', 1)
-                architecture_metadata['forward_mul'] = getattr(net_hparams, 'forward_mul', 2)
-                architecture_metadata['dropout'] = getattr(net_hparams, 'dropout', 0.1)
-                architecture_metadata['use_torch_layers'] = getattr(net_hparams, 'use_torch_layers', False)
-            else:
-                # Fallback - try to infer from model structure and dataset
-                log.warning("Could not access ViT hyperparameters, using inference from model")
-                
-                # Try to infer from position embedding dimensions
-                if hasattr(model.net, 'embedding') and hasattr(model.net.embedding, 'pos_embedding'):
-                    pos_emb_shape = model.net.embedding.pos_embedding.shape
-                    num_patches = pos_emb_shape[1]  # Second dimension is number of patches
-                    embed_dim = pos_emb_shape[2]    # Third dimension is embedding dimension
-                    architecture_metadata['embed_dim'] = embed_dim
-                    
-                    # Infer image size and patch size from dataset metadata and num_patches
-                    if dataset_metadata and 'height' in dataset_metadata and 'width' in dataset_metadata:
-                        height = dataset_metadata['height']  
-                        width = dataset_metadata['width']
-                        log.info(f"Dataset dimensions: {height}x{width}, num_patches: {num_patches}")
-                        
-                        # Try common patch sizes to find the right one
-                        found = False
-                        for ps in [2, 4, 6, 8, 12, 16]:
-                            if (height % ps == 0) and (width % ps == 0):
-                                expected_patches = (height // ps) * (width // ps)
-                                log.info(f"Trying patch_size {ps}: would give {expected_patches} patches")
-                                if expected_patches == num_patches:
-                                    architecture_metadata['patch_size'] = ps
-                                    architecture_metadata['image_size'] = [height, width]
-                                    log.info(f"Found match: patch_size={ps}, image_size=[{height}, {width}]")
-                                    found = True
-                                    break
-                        
-                        if not found:
-                            log.warning(f"Could not find patch size for {height}x{width} with {num_patches} patches, using defaults")
-                            # Try to infer from square root if possible
-                            import math
-                            sqrt_patches = int(math.sqrt(num_patches))
-                            if sqrt_patches * sqrt_patches == num_patches:
-                                # Square layout - common for ViTs
-                                if height == width:
-                                    # Square image - easy case
-                                    patch_size = height // sqrt_patches
-                                    architecture_metadata['patch_size'] = patch_size
-                                    architecture_metadata['image_size'] = [height, width]
-                                    log.info(f"Inferred from square layout: patch_size={patch_size}, image_size=[{height}, {width}]")
-                                else:
-                                    # Rectangular image - more complex
-                                    architecture_metadata['patch_size'] = 4
-                                    architecture_metadata['image_size'] = [height, width]
-                            else:
-                                # Non-square patch layout
-                                architecture_metadata['patch_size'] = 4
-                                architecture_metadata['image_size'] = [height, width]
-                    else:
-                        log.warning("No dataset metadata available, using defaults")
-                        architecture_metadata['patch_size'] = 4
-                        architecture_metadata['image_size'] = 28
-                else:
-                    # Complete fallback
-                    architecture_metadata['embed_dim'] = 64
-                    architecture_metadata['patch_size'] = 4
-                    architecture_metadata['image_size'] = 28
-                    
-                architecture_metadata['n_layers'] = len(model.net.encoder) if hasattr(model.net, 'encoder') else 6
-                architecture_metadata['n_attention_heads'] = 4
-                architecture_metadata['input_channels'] = 1
-                
-        # Detect CNN architecture  
-        elif hasattr(model.net, 'conv_layers') or hasattr(model.net, 'conv1'):
-            architecture_metadata['type'] = 'CNN'
-            
-            # Store CNN parameters - try to get from hparams first, then infer from structure
-            model_hparams = model.hparams
-            if hasattr(model, 'net') and hasattr(model_hparams, 'net'):
-                net_hparams = model_hparams.net
-                
-                # Extract parameters from the CNN model config
-                architecture_metadata['input_channels'] = getattr(net_hparams, 'input_channels', 1)
-                architecture_metadata['conv1_channels'] = getattr(net_hparams, 'conv1_channels', 16)
-                architecture_metadata['conv2_channels'] = getattr(net_hparams, 'conv2_channels', 32)
-                architecture_metadata['fc_hidden'] = getattr(net_hparams, 'fc_hidden', 64)
-                architecture_metadata['dropout'] = getattr(net_hparams, 'dropout', 0.5)
-                
-                # Get input size from dataset metadata
-                if dataset_metadata and 'height' in dataset_metadata and 'width' in dataset_metadata:
-                    architecture_metadata['input_size'] = max(dataset_metadata['height'], dataset_metadata['width'])
-                else:
-                    architecture_metadata['input_size'] = getattr(net_hparams, 'input_size', 32)
-            else:
-                # Fallback - try to infer from model structure
-                log.warning("Could not access CNN hyperparameters, using inference from model")
-                
-                # Try to infer from actual layer weights
-                if hasattr(model.net, 'conv_layers') and len(model.net.conv_layers) > 0:
-                    # Get input channels from first conv layer
-                    first_conv = model.net.conv_layers[0]
-                    if hasattr(first_conv, 'weight'):
-                        conv_weight = first_conv.weight
-                        architecture_metadata['input_channels'] = conv_weight.shape[1]  # Input channels
-                        architecture_metadata['conv1_channels'] = conv_weight.shape[0]  # Output channels
-                    else:
-                        architecture_metadata['input_channels'] = 1
-                        architecture_metadata['conv1_channels'] = 16
-                        
-                    # Get second conv layer channels if available
-                    if len(model.net.conv_layers) > 4:  # Assuming ReLU and other layers in between
-                        second_conv = model.net.conv_layers[4]  # Common pattern: Conv->ReLU->MaxPool->Conv
-                        if hasattr(second_conv, 'weight'):
-                            architecture_metadata['conv2_channels'] = second_conv.weight.shape[0]
-                        else:
-                            architecture_metadata['conv2_channels'] = 32
-                    else:
-                        architecture_metadata['conv2_channels'] = 32
-                else:
-                    # Complete fallback
-                    architecture_metadata['input_channels'] = 1
-                    architecture_metadata['conv1_channels'] = 16
-                    architecture_metadata['conv2_channels'] = 32
-                
-                # Try to infer FC hidden size
-                if hasattr(model.net, 'shared_features') and len(model.net.shared_features) > 0:
-                    # Look for Linear layers in shared_features
-                    for layer in model.net.shared_features:
-                        if hasattr(layer, 'weight') and len(layer.weight.shape) == 2:
-                            architecture_metadata['fc_hidden'] = layer.weight.shape[0]
-                            break
-                    else:
-                        architecture_metadata['fc_hidden'] = 64
-                else:
-                    architecture_metadata['fc_hidden'] = 64
-                    
-                # Get input size from dataset metadata
-                if dataset_metadata and 'height' in dataset_metadata and 'width' in dataset_metadata:
-                    architecture_metadata['input_size'] = max(dataset_metadata['height'], dataset_metadata['width'])
-                else:
-                    architecture_metadata['input_size'] = 32
-                    
-                architecture_metadata['dropout'] = 0.5
-        
-        # Store in model hparams for checkpoint saving (underscore attributes may not be saved)
-        model.hparams['architecture_metadata'] = architecture_metadata
-        log.info(f"Stored architecture metadata: {architecture_metadata}")
+        metadata_extractor = ArchitectureMetadataExtractor()
+        metadata_extractor.extract_and_store_metadata(model, datamodule)
 
     if cfg.get("train"):
         # Preflight: ensure label diversity across a few batches before fitting
