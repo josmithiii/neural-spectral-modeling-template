@@ -17,6 +17,7 @@ import os
 import sys
 from pathlib import Path
 import json
+from dataclasses import dataclass
 
 import hydra
 import rootutils
@@ -50,6 +51,250 @@ from src.utils import (
 from src.utils.synth_utils import SimpleSawSynth, SpectrogramProcessor, check_params
 
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+# Custom exceptions for better error handling
+class CheckpointError(Exception):
+    """Base exception for checkpoint-related errors."""
+    pass
+
+
+class ArchitectureInferenceError(CheckpointError):
+    """Raised when model architecture cannot be inferred from checkpoint."""
+    pass
+
+
+class MissingCheckpointDataError(CheckpointError):
+    """Raised when required data is missing from checkpoint."""
+    pass
+
+
+@dataclass
+class ArchitectureConfig:
+    """Configuration for reconstructed model architecture."""
+    architecture_type: str
+    input_channels: int = 1
+    conv1_channels: int = 16
+    conv2_channels: int = 32
+    fc_hidden: int = 64
+    dropout: float = 0.5
+    input_size: int = 32
+    embed_dim: int = 64
+    n_layers: int = 6
+    n_attention_heads: int = 4
+    patch_size: int = 4
+    image_size: Tuple[int, int] = (28, 28)
+    forward_mul: float = 2.0
+    use_torch_layers: bool = False
+
+
+class CheckpointArchitectureReconstructor:
+    """Centralized class for reconstructing model architecture from checkpoints."""
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """Initialize reconstructor with configuration.
+
+        Args:
+            config: Configuration dictionary with default values and settings
+        """
+        self.config = config or {}
+        self.default_dropout = self.config.get('default_dropout', 0.5)
+        self.default_patch_size = self.config.get('default_patch_size', 4)
+        self.default_embed_dim = self.config.get('default_embed_dim', 64)
+
+    def reconstruct_from_checkpoint(self, checkpoint_path: str, heads_config: Dict[str, int],
+                                  dataset_metadata: Optional[Dict[str, Any]] = None) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+        """Reconstruct model architecture from checkpoint with stored metadata or inference.
+
+        Args:
+            checkpoint_path: Path to the checkpoint file
+            heads_config: Configuration of model heads (parameter names -> num_classes)
+            dataset_metadata: Optional dataset metadata for architecture inference
+
+        Returns:
+            Tuple of (reconstructed_network, architecture_config)
+
+        Raises:
+            ArchitectureInferenceError: When architecture cannot be determined
+            MissingCheckpointDataError: When required checkpoint data is missing
+        """
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+        except Exception as e:
+            raise CheckpointError(f"Failed to load checkpoint {checkpoint_path}: {e}")
+
+        hyper_parameters = checkpoint.get('hyper_parameters', {})
+        architecture_metadata = hyper_parameters.get('architecture_metadata', {})
+
+        # Try stored metadata first (preferred method)
+        if architecture_metadata and architecture_metadata.get('type'):
+            return self._reconstruct_from_metadata(architecture_metadata, heads_config)
+
+        # Fallback to inference from weights
+        log.warning("No architecture metadata found in checkpoint, attempting inference from weights")
+        return self._reconstruct_from_weights(checkpoint["state_dict"], heads_config, dataset_metadata)
+
+    def _reconstruct_from_metadata(self, metadata: Dict[str, Any], heads_config: Dict[str, int]) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+        """Reconstruct model using stored architecture metadata."""
+        arch_type = metadata['type']
+
+        if arch_type == 'ViT':
+            return self._create_vit_from_metadata(metadata, heads_config)
+        elif arch_type == 'CNN':
+            return self._create_cnn_from_metadata(metadata, heads_config)
+        else:
+            raise ArchitectureInferenceError(f"Unknown architecture type in metadata: {arch_type}")
+
+    def _create_vit_from_metadata(self, metadata: Dict[str, Any], heads_config: Dict[str, int]) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+        """Create ViT model from stored metadata."""
+        from src.models.components.vision_transformer import VisionTransformer
+
+        config = ArchitectureConfig(
+            architecture_type='ViT',
+            input_channels=metadata.get('input_channels', 1),
+            embed_dim=metadata.get('embed_dim', self.default_embed_dim),
+            n_layers=metadata.get('n_layers', 6),
+            n_attention_heads=metadata.get('n_attention_heads', 4),
+            patch_size=metadata.get('patch_size', self.default_patch_size),
+            image_size=tuple(metadata.get('image_size', [28, 28])),
+            forward_mul=metadata.get('forward_mul', 2.0),
+            dropout=metadata.get('dropout', 0.1),
+            use_torch_layers=metadata.get('use_torch_layers', False)
+        )
+
+        net = VisionTransformer(
+            image_size=config.image_size,
+            patch_size=config.patch_size,
+            n_channels=config.input_channels,
+            embed_dim=config.embed_dim,
+            n_layers=config.n_layers,
+            n_attention_heads=config.n_attention_heads,
+            heads_config=heads_config,
+            forward_mul=config.forward_mul,
+            dropout=config.dropout,
+            use_torch_layers=config.use_torch_layers
+        )
+
+        return net, config
+
+    def _create_cnn_from_metadata(self, metadata: Dict[str, Any], heads_config: Dict[str, int]) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+        """Create CNN model from stored metadata."""
+        from src.models.components.simple_cnn import SimpleCNN
+
+        config = ArchitectureConfig(
+            architecture_type='CNN',
+            input_channels=metadata.get('input_channels', 1),
+            conv1_channels=metadata.get('conv1_channels', 16),
+            conv2_channels=metadata.get('conv2_channels', 32),
+            fc_hidden=metadata.get('fc_hidden', 64),
+            dropout=metadata.get('dropout', self.default_dropout),
+            input_size=metadata.get('input_size', 32)
+        )
+
+        net = SimpleCNN(
+            input_channels=config.input_channels,
+            conv1_channels=config.conv1_channels,
+            conv2_channels=config.conv2_channels,
+            fc_hidden=config.fc_hidden,
+            heads_config=heads_config,
+            dropout=config.dropout,
+            input_size=config.input_size
+        )
+
+        return net, config
+
+    def _reconstruct_from_weights(self, state_dict: Dict[str, torch.Tensor], heads_config: Dict[str, int],
+                                dataset_metadata: Optional[Dict[str, Any]] = None) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+        """Reconstruct model by inferring architecture from weights (fallback method)."""
+        if 'net.embedding.pos_embedding' in state_dict:
+            return self._infer_vit_architecture(state_dict, heads_config, dataset_metadata)
+        elif any(key.startswith('net.conv_layers.0.weight') or key.startswith('net.features.0.weight') or
+                 key.startswith('net.conv1.weight') for key in state_dict.keys()):
+            return self._infer_cnn_architecture(state_dict, heads_config, dataset_metadata)
+        else:
+            raise ArchitectureInferenceError(
+                "Cannot determine model architecture from checkpoint weights. "
+                "Expected ViT (net.embedding.pos_embedding) or CNN (net.conv_layers.0.weight) weights."
+            )
+
+    def _infer_vit_architecture(self, state_dict: Dict[str, torch.Tensor], heads_config: Dict[str, int],
+                               dataset_metadata: Optional[Dict[str, Any]] = None) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+        """Infer ViT architecture from weights (not recommended - use metadata instead)."""
+        log.error("ViT architecture inference from weights is unreliable and not supported.")
+        log.error("Please ensure your checkpoint contains architecture metadata.")
+        raise ArchitectureInferenceError(
+            "Cannot reliably infer ViT architecture from checkpoint weights alone. "
+            "ViT architecture must be stored in checkpoint metadata."
+        )
+
+    def _infer_cnn_architecture(self, state_dict: Dict[str, torch.Tensor], heads_config: Dict[str, int],
+                               dataset_metadata: Optional[Dict[str, Any]] = None) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+        """Infer CNN architecture from weights."""
+        if not dataset_metadata:
+            raise MissingCheckpointDataError("CNN architecture inference requires dataset metadata")
+
+        required_keys = ['height', 'width']
+        if not all(key in dataset_metadata for key in required_keys):
+            raise MissingCheckpointDataError(f"CNN inference requires dataset metadata with: {required_keys}")
+
+        # Extract CNN parameters with validation
+        cnn_params = self._extract_cnn_parameters(state_dict, dataset_metadata)
+
+        from src.models.components.simple_cnn import SimpleCNN
+        net = SimpleCNN(
+            input_channels=cnn_params['input_channels'],
+            conv1_channels=cnn_params['conv1_channels'],
+            conv2_channels=cnn_params['conv2_channels'],
+            fc_hidden=cnn_params['fc_hidden'],
+            heads_config=heads_config,
+            dropout=self.default_dropout,
+            input_size=cnn_params['input_size']
+        )
+
+        config = ArchitectureConfig(
+            architecture_type='CNN',
+            **cnn_params,
+            dropout=self.default_dropout
+        )
+
+        return net, config
+
+    def _extract_cnn_parameters(self, state_dict: Dict[str, torch.Tensor], dataset_metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract CNN parameters from state dict with validation."""
+        params = {}
+
+        # Validate required weights exist
+        required_weights = ['net.conv_layers.0.weight', 'net.conv_layers.4.weight']
+        missing_weights = [key for key in required_weights if key not in state_dict]
+        if missing_weights:
+            raise MissingCheckpointDataError(f"CNN checkpoint missing required weights: {missing_weights}")
+
+        # Extract conv1 parameters
+        conv1_weight = state_dict['net.conv_layers.0.weight']
+        params['input_channels'] = conv1_weight.shape[1]  # Input channels
+        params['conv1_channels'] = conv1_weight.shape[0]  # Output channels
+
+        # Extract conv2 parameters
+        conv2_weight = state_dict['net.conv_layers.4.weight']
+        params['conv2_channels'] = conv2_weight.shape[0]
+
+        # Extract FC hidden size
+        fc_candidates = ['net.shared_features.1.weight', 'net.shared_features.0.weight']
+        fc_weight = None
+        for candidate in fc_candidates:
+            if candidate in state_dict:
+                fc_weight = state_dict[candidate]
+                break
+
+        if fc_weight is None:
+            raise MissingCheckpointDataError(f"CNN checkpoint missing FC weights: {fc_candidates}")
+
+        params['fc_hidden'] = fc_weight.shape[0]
+
+        # Get input size from dataset
+        params['input_size'] = max(dataset_metadata['height'], dataset_metadata['width'])
+
+        return params
 
 
 def find_latest_checkpoint(base_dir: str = "logs/train") -> Optional[str]:
@@ -1116,11 +1361,13 @@ class InteractiveAudioEvaluator:
                     from IPython.display import display
                     # Only use IPython if we're actually in a Jupyter environment
                     try:
-                        get_ipython()  # This will raise NameError if not in IPython
-                        display(ipd.Audio(audio, rate=sample_rate))
-                        success = True
-                        print(f"   ✓ Displayed via Jupyter")
-                    except NameError:
+                        # Check if we're in IPython without calling get_ipython directly
+                        import sys
+                        if 'IPython' in sys.modules:
+                            display(ipd.Audio(audio, rate=sample_rate))
+                            success = True
+                            print(f"   ✓ Displayed via Jupyter")
+                    except Exception:
                         # Not in IPython/Jupyter, skip this method
                         pass
                 except Exception as e:
@@ -1209,11 +1456,13 @@ class InteractiveAudioEvaluator:
                     from IPython.display import display
                     # Only use IPython if we're actually in a Jupyter environment
                     try:
-                        get_ipython()  # This will raise NameError if not in IPython
-                        display(ipd.Audio(audio, rate=sample_rate))
-                        success = True
-                        print(f"   ✓ Displayed via Jupyter")
-                    except NameError:
+                        # Check if we're in IPython without calling get_ipython directly
+                        import sys
+                        if 'IPython' in sys.modules:
+                            display(ipd.Audio(audio, rate=sample_rate))
+                            success = True
+                            print(f"   ✓ Displayed via Jupyter")
+                    except Exception:
                         # Not in IPython/Jupyter, skip this method
                         pass
                 except Exception as e:
@@ -1270,292 +1519,274 @@ class InteractiveAudioEvaluator:
 
 
 @task_wrapper
-def evaluate_audio_reconstruction(cfg: DictConfig) -> Dict[str, Any]:
+def evaluate_audio_reconstruction(cfg: DictConfig) -> Tuple[Dict[str, Any], Optional[None]]:
     """
     Main evaluation function for audio reconstruction.
-    
+
     Args:
         cfg: Hydra configuration
-        
+
     Returns:
-        Dictionary of evaluation results
+        Tuple of (evaluation results dictionary, None)
     """
-    # Auto-discover checkpoint if not provided
+    try:
+        # Setup and validation
+        ckpt_path = _resolve_checkpoint_path(cfg)
+        device = _determine_device()
+        datamodule = _setup_datamodule(cfg, ckpt_path)
+        model = _load_model_from_checkpoint(ckpt_path, datamodule, device)
+
+        # Create evaluator and run evaluation
+        evaluator = AudioReconstructionEvaluator(model, datamodule, device)
+        return _run_evaluation(cfg, evaluator)
+
+    except CheckpointError as e:
+        log.error(f"Checkpoint error: {e}")
+        raise
+    except Exception as e:
+        log.error(f"Unexpected error during evaluation: {e}")
+        raise
+
+
+def _resolve_checkpoint_path(cfg: DictConfig) -> str:
+    """Resolve checkpoint path from config or auto-discovery."""
     ckpt_path = cfg.get("ckpt_path")
     if not ckpt_path:
         ckpt_path = find_latest_checkpoint()
         if not ckpt_path:
-            raise ValueError(
+            raise CheckpointError(
                 "No checkpoint path provided and no checkpoints found. "
                 "Please either:\n"
-                "1. Provide ckpt_path=path/to/checkpoint.ckpt, or\n" 
+                "1. Provide ckpt_path=path/to/checkpoint.ckpt, or\n"
                 "2. Ensure you have trained checkpoints in logs/train/"
             )
-    
-    # Verify checkpoint exists
+
     if not os.path.exists(ckpt_path):
-        raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
-    
-    # Load checkpoint to extract metadata first
-    log.info(f"Loading model from checkpoint: {ckpt_path}")
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
-    
-    # Extract dataset metadata from checkpoint to properly configure datamodule
+        raise CheckpointError(f"Checkpoint not found: {ckpt_path}")
+
+    log.info(f"Using checkpoint: {ckpt_path}")
+    return ckpt_path
+
+
+def _determine_device() -> str:
+    """Determine the appropriate device for evaluation."""
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def _setup_datamodule(cfg: DictConfig, ckpt_path: str) -> LightningDataModule:
+    """Setup and configure the datamodule for evaluation."""
+    # Load checkpoint to extract dataset metadata
+    checkpoint = torch.load(ckpt_path, map_location='cpu', weights_only=False)
     vimh_data = checkpoint.get('VIMHDataModule', {})
     dataset_metadata = vimh_data.get('dataset_metadata', {})
-    
+
     # Configure datamodule to use the same dataset that was used for training
     if dataset_metadata and 'dataset_name' in dataset_metadata:
         trained_dataset_name = dataset_metadata['dataset_name']
         log.info(f"Training used dataset: {trained_dataset_name}")
-        
-        # Try to use the same dataset directory for evaluation
+
         potential_data_dir = f"data/{trained_dataset_name}"
         if os.path.exists(potential_data_dir):
             log.info(f"Using training dataset directory: {potential_data_dir}")
             cfg.data.data_dir = potential_data_dir
         else:
             log.warning(f"Training dataset directory {potential_data_dir} not found, using config default")
-    
+
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    # Explicitly use identity transforms for spectrograms (no fallbacks)
+
+    # Use identity transforms for spectrograms
     from torchvision.transforms import transforms
     identity_transform = transforms.Compose([])
+
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.data,
         train_transform=identity_transform,
         val_transform=identity_transform,
         test_transform=identity_transform,
     )
-    
-    # If we have saved metadata, inject it into the datamodule
+
+    # Inject saved metadata if available
     if dataset_metadata and 'parameter_names' in dataset_metadata:
         log.info(f"Found saved dataset metadata with parameters: {dataset_metadata['parameter_names']}")
         datamodule._saved_dataset_metadata = dataset_metadata
         log.info("Injected saved metadata into datamodule")
-    
-    # Setup the datamodule to load datasets (setup train for auto-configuration)
-    datamodule.setup("fit")  # This sets up train dataset which is needed for auto-configuration
-    
-    # Try to load model directly from checkpoint using Lightning's built-in method first
+
+    # Setup the datamodule
+    datamodule.setup("fit")
+    return datamodule
+
+
+def _load_model_from_checkpoint(ckpt_path: str, datamodule: LightningDataModule, device: str) -> LightningModule:
+    """Load model from checkpoint with proper architecture reconstruction."""
+    log.info(f"Loading model from checkpoint: {ckpt_path}")
+
+    # Try Lightning's built-in checkpoint loading first
     try:
-        # Try to use Lightning's load_from_checkpoint with the exact class
         from src.models.multihead_module import MultiheadLitModule
         model: LightningModule = MultiheadLitModule.load_from_checkpoint(
-            ckpt_path, 
+            ckpt_path,
             map_location=device,
-            strict=False  # Allow loading with missing/extra keys
+            strict=False
         )
-        log.info("Successfully loaded model from checkpoint")
+        log.info("Successfully loaded model using Lightning's built-in method")
+        return model
     except Exception as e:
-        log.warning(f"Failed to load from checkpoint directly: {e}")
-        log.info("Trying alternative loading method with original model config...")
-        
-        # Extract the original model configuration from the checkpoint hyperparameters
+        log.warning(f"Lightning checkpoint loading failed: {e}")
+        log.info("Attempting manual model reconstruction...")
+
+    # Manual reconstruction using our new architecture reconstructor
+    return _reconstruct_model_manually(ckpt_path, datamodule, device)
+
+
+def _reconstruct_model_manually(ckpt_path: str, datamodule: LightningDataModule, device: str) -> LightningModule:
+    """Manually reconstruct model when Lightning's method fails."""
+    # Get heads configuration from datamodule
+    if not hasattr(datamodule, 'data_train') or datamodule.data_train is None:
+        raise CheckpointError("Cannot reconstruct model: datamodule not properly configured")
+
+    heads_config = datamodule.data_train.get_heads_config()
+    log.info(f"Retrieved heads config: {list(heads_config.keys())}")
+
+    # Get dataset metadata for architecture inference
+    dataset_metadata = getattr(datamodule, '_saved_dataset_metadata', {})
+
+    # Use the new architecture reconstructor
+    reconstructor_config = {
+        'default_dropout': 0.5,
+        'default_patch_size': 4,
+        'default_embed_dim': 64
+    }
+    reconstructor = CheckpointArchitectureReconstructor(reconstructor_config)
+
+    try:
+        net, arch_config = reconstructor.reconstruct_from_checkpoint(
+            ckpt_path, heads_config, dataset_metadata
+        )
+        log.info(f"Successfully reconstructed {arch_config.architecture_type} model")
+
+        # Load checkpoint for hyperparameters
+        checkpoint = torch.load(ckpt_path, map_location='cpu', weights_only=False)
         hyper_parameters = checkpoint.get('hyper_parameters', {})
-        log.info(f"Checkpoint hyperparameters keys: {list(hyper_parameters.keys())}")
-        
-        # Check for stored architecture metadata first
-        architecture_metadata = hyper_parameters.get('architecture_metadata', {})
-        log.info(f"Architecture metadata: {architecture_metadata}")
-        
-        # Get checkpoint state dict for later use
-        checkpoint_state_dict = checkpoint["state_dict"]
-        first_weight_key = list(checkpoint_state_dict.keys())[0]
-        log.info(f"First weight key: {first_weight_key}")
-        
-        # Get heads config from the properly configured datamodule
-        if hasattr(datamodule, 'data_train') and datamodule.data_train is not None:
-            heads_config = datamodule.data_train.get_heads_config()
-            log.info(f"Retrieved heads config from datamodule: {list(heads_config.keys())}")
-            
-            # Use stored architecture metadata if available
-            if architecture_metadata and architecture_metadata.get('type') == 'ViT':
-                log.info("Using stored ViT architecture metadata from checkpoint")
-                
-                # Create ViT with stored parameters
-                from src.models.components.vision_transformer import VisionTransformer
-                net = VisionTransformer(
-                    image_size=architecture_metadata['image_size'],
-                    patch_size=architecture_metadata['patch_size'], 
-                    n_channels=architecture_metadata['input_channels'],
-                    embed_dim=architecture_metadata['embed_dim'],
-                    n_layers=architecture_metadata['n_layers'],
-                    n_attention_heads=architecture_metadata['n_attention_heads'],
-                    heads_config=heads_config,
-                    forward_mul=architecture_metadata.get('forward_mul', 2),
-                    dropout=architecture_metadata.get('dropout', 0.1),
-                    use_torch_layers=architecture_metadata.get('use_torch_layers', False)
-                )
-                
-            elif architecture_metadata and architecture_metadata.get('type') == 'CNN':
-                log.info("Using stored CNN architecture metadata from checkpoint")
-                
-                # Create CNN with stored parameters (provide defaults for missing params)
-                from src.models.components.simple_cnn import SimpleCNN
-                net = SimpleCNN(
-                    input_channels=architecture_metadata.get('input_channels', 1),
-                    conv1_channels=architecture_metadata.get('conv1_channels', 16),
-                    conv2_channels=architecture_metadata.get('conv2_channels', 32),
-                    fc_hidden=architecture_metadata.get('fc_hidden', 64),
-                    heads_config=heads_config,
-                    dropout=architecture_metadata.get('dropout', 0.5),
-                    input_size=architecture_metadata.get('input_size', 32)
-                )
-                
-            else:
-                # Fallback: try to infer from state dict structure - FAIL FAST!
-                log.warning("No architecture metadata found in checkpoint, trying to infer from weights")
-                
-                if 'net.embedding.pos_embedding' in checkpoint_state_dict:
-                    log.info("Detected Vision Transformer architecture from checkpoint")
-                    log.error("Cannot reliably infer ViT architecture from checkpoint weights alone")
-                    log.error("ViT architecture must be fully specified in hyperparameters or config")
-                    sys.exit(1)
-                    
-                elif 'net.conv_layers.0.weight' in checkpoint_state_dict or 'net.features.0.weight' in checkpoint_state_dict or 'net.conv1.weight' in checkpoint_state_dict:
-                    log.info("Detected CNN architecture from checkpoint")
-                
-                    # FAIL FAST: Infer CNN architecture parameters from checkpoint weights - no defaults!
-                    if 'net.conv_layers.0.weight' not in checkpoint_state_dict:
-                        log.error("SimpleCNN checkpoint missing net.conv_layers.0.weight")
-                        sys.exit(1)
-                    
-                    conv1_weight = checkpoint_state_dict['net.conv_layers.0.weight']
-                    conv1_channels = conv1_weight.shape[0]  # Number of output channels
-                    input_channels = conv1_weight.shape[1]   # Should be 1
-                    
-                    # Get conv2 channels - REQUIRED, no fallback
-                    if 'net.conv_layers.4.weight' not in checkpoint_state_dict:
-                        log.error("SimpleCNN checkpoint missing net.conv_layers.4.weight")
-                        sys.exit(1)
-                        
-                    conv2_weight = checkpoint_state_dict['net.conv_layers.4.weight']
-                    conv2_channels = conv2_weight.shape[0]
-                    
-                    # Get FC hidden size from shared_features layer - REQUIRED, no fallback
-                    if 'net.shared_features.1.weight' in checkpoint_state_dict:
-                        shared_fc_weight = checkpoint_state_dict['net.shared_features.1.weight']
-                        fc_hidden = shared_fc_weight.shape[0]
-                    elif 'net.shared_features.0.weight' in checkpoint_state_dict:
-                        shared_fc_weight = checkpoint_state_dict['net.shared_features.0.weight']
-                        fc_hidden = shared_fc_weight.shape[0]
-                    else:
-                        log.error("SimpleCNN checkpoint missing both net.shared_features.0.weight and net.shared_features.1.weight")
-                        sys.exit(1)
-                    
-                    # Extract input size from dataset metadata - REQUIRED
-                    if not dataset_metadata or 'height' not in dataset_metadata or 'width' not in dataset_metadata:
-                        log.error("CNN requires dataset metadata with height and width")
-                        sys.exit(1)
-                        
-                    input_size = max(dataset_metadata['height'], dataset_metadata['width'])
-                    
-                    log.info(f"Inferred CNN params: conv1_channels={conv1_channels}, conv2_channels={conv2_channels}, fc_hidden={fc_hidden}, input_size={input_size}")
-                    
-                    # Create CNN with inferred parameters
-                    from src.models.components.simple_cnn import SimpleCNN
-                    net = SimpleCNN(
-                        input_channels=input_channels,
-                        conv1_channels=conv1_channels,
-                        conv2_channels=conv2_channels,
-                        fc_hidden=fc_hidden,
-                        heads_config=heads_config,
-                        dropout=0.5,  # This should also be extracted from checkpoint, but SimpleCNN doesn't save it
-                        input_size=input_size
-                    )
-                else:
-                    log.error("Could not determine model architecture from checkpoint - no recognizable architecture found")
-                    log.error("Expected either:")
-                    log.error("  - ViT: net.embedding.pos_embedding")  
-                    log.error("  - CNN: net.conv_layers.0.weight")
-                    sys.exit(1)
-                
-            # Create multihead module with inferred network (common for both ViT and CNN)
-            from src.models.multihead_module import MultiheadLitModule
-            
-            # Create default criterion for each head to satisfy the model requirements
-            from torch.nn import CrossEntropyLoss
-            criteria = {head_name: CrossEntropyLoss() for head_name in heads_config.keys()}
-            
-            model = MultiheadLitModule(
-                net=net,
-                optimizer=hyper_parameters.get('optimizer'),
-                scheduler=None,  # Will be set later if needed
-                loss_weights=hyper_parameters.get('loss_weights', {}),
-                compile=hyper_parameters.get('compile', False),
-                criteria=criteria,  # Provide explicit criteria
-                auto_configure_from_dataset=False,  # Disable auto-config to preserve loaded model structure
-                output_mode=hyper_parameters.get('output_mode', 'classification')
-            )
-            
-            log.info(f"Model created with inferred architecture")
-        else:
-            log.warning("Could not get heads config from datamodule, using default model")
-            model: LightningModule = hydra.utils.instantiate(cfg.model)
-        
-        # Try to load state dict with relaxed matching
-        model_state_dict = model.state_dict()
-        
-        # Filter to only load weights that match in shape and name
-        compatible_weights = {}
-        for key, value in checkpoint_state_dict.items():
-            if key in model_state_dict and model_state_dict[key].shape == value.shape:
+
+        # Create the complete model
+        from src.models.multihead_module import MultiheadLitModule
+        from torch.nn import CrossEntropyLoss
+
+        criteria = {head_name: CrossEntropyLoss() for head_name in heads_config.keys()}
+
+        model = MultiheadLitModule(
+            net=net,
+            optimizer=hyper_parameters.get('optimizer'),
+            scheduler=None,
+            loss_weights=hyper_parameters.get('loss_weights', {}),
+            compile=hyper_parameters.get('compile', False),
+            criteria=criteria,
+            auto_configure_from_dataset=False,
+            output_mode=hyper_parameters.get('output_mode', 'classification')
+        )
+
+        # Load compatible weights
+        _load_compatible_weights(model, checkpoint["state_dict"])
+
+        return model
+
+    except (ArchitectureInferenceError, MissingCheckpointDataError) as e:
+        log.error(f"Model reconstruction failed: {e}")
+        raise CheckpointError(f"Could not reconstruct model from checkpoint: {e}")
+
+
+def _load_compatible_weights(model: LightningModule, checkpoint_state_dict: Dict[str, torch.Tensor]) -> None:
+    """Load only compatible weights from checkpoint state dict."""
+    model_state_dict = model.state_dict()
+
+    compatible_weights = {}
+    incompatible_weights = []
+
+    for key, value in checkpoint_state_dict.items():
+        if key in model_state_dict:
+            if model_state_dict[key].shape == value.shape:
                 compatible_weights[key] = value
             else:
-                log.error(f"Incompatible weight: {key} (checkpoint: {value.shape}, model: {model_state_dict.get(key, 'missing').shape if key in model_state_dict else 'missing'})")
-                sys.exit(1)
-        
+                incompatible_weights.append(
+                    f"{key} (checkpoint: {value.shape}, model: {model_state_dict[key].shape})"
+                )
+        else:
+            incompatible_weights.append(f"{key} (missing in model)")
+
+    # Report incompatible weights
+    if incompatible_weights:
+        log.warning(f"Found {len(incompatible_weights)} incompatible/missing weights:")
+        for weight_info in incompatible_weights[:5]:  # Show first 5
+            log.warning(f"  - {weight_info}")
+        if len(incompatible_weights) > 5:
+            log.warning(f"  ... and {len(incompatible_weights) - 5} more")
+
+    # Load compatible weights
+    if compatible_weights:
         model.load_state_dict(compatible_weights, strict=False)
         log.info(f"Loaded {len(compatible_weights)} compatible weights from checkpoint")
-    
-    # Create evaluator
-    evaluator = AudioReconstructionEvaluator(model, datamodule, device)
-    
-    # Configuration options
+    else:
+        raise CheckpointError("No compatible weights found in checkpoint")
+
+
+def _run_evaluation(cfg: DictConfig, evaluator: AudioReconstructionEvaluator) -> Tuple[Dict[str, Any], Optional[None]]:
+    """Run the actual evaluation based on configuration."""
     num_samples = cfg.get("num_samples", 5)
     interactive = cfg.get("interactive", False)
     save_audio = cfg.get("save_audio", False)
     output_dir = cfg.get("output_dir", "audio_eval_results")
-    
+
     if interactive:
-        # Launch interactive widget
         log.info("Launching interactive evaluator...")
         interactive_eval = InteractiveAudioEvaluator(evaluator)
         plt.show()
         return {"message": "Interactive evaluation launched"}, None
     else:
-        # Batch evaluation
-        log.info(f"Evaluating {num_samples} samples...")
-        results = []
-        
-        for i in range(min(num_samples, len(evaluator.test_dataset))):
-            log.info(f"Evaluating sample {i+1}/{num_samples}")
-            result = evaluator.evaluate_sample(
-                i, plot=True, save_audio=save_audio, output_dir=output_dir
-            )
-            results.append(result)
-        
-        # Compute aggregate statistics
-        all_metrics = [r["audio_metrics"] for r in results]
-        aggregate_metrics = {}
-        
-        for metric_name in all_metrics[0].keys():
-            values = [m[metric_name] for m in all_metrics if np.isfinite(m[metric_name])]
-            if values:
-                aggregate_metrics[f"mean_{metric_name}"] = np.mean(values)
-                aggregate_metrics[f"std_{metric_name}"] = np.std(values)
-        
-        log.info("Aggregate metrics:")
-        for metric, value in aggregate_metrics.items():
-            log.info(f"  {metric}: {value:.6f}")
-        
-        return {
-            "individual_results": results,
-            "aggregate_metrics": aggregate_metrics,
-            "num_samples_evaluated": len(results)
-        }, None
+        return _run_batch_evaluation(evaluator, num_samples, save_audio, output_dir)
+
+
+def _run_batch_evaluation(evaluator: AudioReconstructionEvaluator, num_samples: int,
+                         save_audio: bool, output_dir: str) -> Tuple[Dict[str, Any], Optional[None]]:
+    """Run batch evaluation on multiple samples."""
+    log.info(f"Evaluating {num_samples} samples...")
+    results = []
+
+    for i in range(min(num_samples, len(evaluator.test_dataset))):
+        log.info(f"Evaluating sample {i+1}/{num_samples}")
+        result = evaluator.evaluate_sample(
+            i, plot=True, save_audio=save_audio, output_dir=output_dir
+        )
+        results.append(result)
+
+    # Compute aggregate statistics
+    aggregate_metrics = _compute_aggregate_metrics(results)
+
+    log.info("Aggregate metrics:")
+    for metric, value in aggregate_metrics.items():
+        log.info(f"  {metric}: {value:.6f}")
+
+    return {
+        "individual_results": results,
+        "aggregate_metrics": aggregate_metrics,
+        "num_samples_evaluated": len(results)
+    }, None
+
+
+def _compute_aggregate_metrics(results: List[Dict[str, Any]]) -> Dict[str, float]:
+    """Compute aggregate metrics from individual evaluation results."""
+    if not results:
+        return {}
+
+    all_metrics = [r["audio_metrics"] for r in results]
+    aggregate_metrics = {}
+
+    for metric_name in all_metrics[0].keys():
+        values = [m[metric_name] for m in all_metrics if np.isfinite(m[metric_name])]
+        if values:
+            aggregate_metrics[f"mean_{metric_name}"] = float(np.mean(values))
+            aggregate_metrics[f"std_{metric_name}"] = float(np.std(values))
+
+    return aggregate_metrics
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="audio_eval")
