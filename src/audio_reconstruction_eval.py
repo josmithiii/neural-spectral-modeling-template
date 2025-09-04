@@ -157,7 +157,7 @@ class CheckpointArchitectureReconstructor:
             n_attention_heads=metadata.get('n_attention_heads', 4),
             patch_size=metadata.get('patch_size', self.default_patch_size),
             image_size=tuple(metadata.get('image_size', [28, 28])),
-            forward_mul=metadata.get('forward_mul', 2.0),
+            forward_mul=int(metadata.get('forward_mul', 2)),
             dropout=metadata.get('dropout', 0.1),
             use_torch_layers=metadata.get('use_torch_layers', False)
         )

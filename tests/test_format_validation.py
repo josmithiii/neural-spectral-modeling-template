@@ -443,8 +443,8 @@ class TestParameterValidation:
             'channels': 3,
             'parameter_names': ['param_0', 'param_1'],
             'parameter_mappings': {
-                'param_0': {'min': 0, 'max': 10, 'description': 'Test param 0'},
-                'param_1': {'min': 0, 'max': 10, 'description': 'Test param 1'}
+                'param_0': {'min': 0, 'step': 0.625, 'max': 10, 'description': 'Test param 0'},
+                'param_1': {'min': 0, 'step': 0.625, 'max': 10, 'description': 'Test param 1'}
             }
         }
 
@@ -541,8 +541,8 @@ class TestCompressionValidation:
             'image_size': '32x32x3',
             'parameter_names': ['param_0', 'param_1'],
             'parameter_mappings': {
-                'param_0': {'min': 0, 'max': 9, 'description': 'Test param 0'},
-                'param_1': {'min': 0, 'max': 19, 'description': 'Test param 1'}
+                'param_0': {'min': 0, 'step': 0.03529, 'max': 9, 'description': 'Test param 0'},
+                'param_1': {'min': 0, 'step': 0.07451, 'max': 19, 'description': 'Test param 1'}
             }
         }
 

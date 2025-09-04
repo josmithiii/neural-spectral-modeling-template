@@ -71,12 +71,14 @@ def mock_vimh_metadata():
         'parameter_mappings': {
             'note_number': {
                 'min': 50.0,
+                'step': 0.007843137,
                 'max': 52.0,
                 'scale': 'linear',
                 'description': 'Test note number parameter'
             },
             'note_velocity': {
                 'min': 80.0,
+                'step': 0.007843137,
                 'max': 82.0,
                 'scale': 'linear',
                 'description': 'Test note velocity parameter'
@@ -156,7 +158,7 @@ class TestVIMHDataset:
 
         dataset = VIMHDataset(str(temp_dir), train=True)
 
-        image, labels = dataset[0]
+        image, labels, auxiliary_features = dataset[0]
 
         assert isinstance(image, torch.Tensor)
         assert image.shape == (3, 32, 32)
@@ -179,7 +181,7 @@ class TestVIMHDataset:
             target_transform=target_transform
         )
 
-        image, labels = dataset[0]
+        image, labels, auxiliary_features = dataset[0]
 
         # Check that transforms were applied
         assert torch.max(image) > 1.0  # Should be > 1 due to doubling
@@ -276,8 +278,8 @@ class TestVIMHDataset:
             'channels': C,
             'parameter_names': param_names,
             'parameter_mappings': {
-                'note_velocity': {'min': 0.0, 'max': 127.0, 'scale': 'linear'},
-                'log10_decay_time': {'min': -2.0, 'max': 0.3, 'scale': 'linear'},
+                'note_velocity': {'min': 0.0, 'step': 7.9375, 'max': 127.0, 'scale': 'linear'},
+                'log10_decay_time': {'min': -2.0, 'step': 0.14375, 'max': 0.3, 'scale': 'linear'},
             },
         }
 
@@ -378,7 +380,10 @@ class TestVIMHDataset:
             'width': 28,
             'channels': 1,
             'varying_parameters': 1,
-            'parameter_names': ['digit_class']
+            'parameter_names': ['digit_class'],
+            'parameter_mappings': {
+                'digit_class': {'min': 0, 'step': 0.03529, 'max': 9, 'description': 'Test digit class'}
+            }
         })
 
         train_file = temp_dir / 'train_batch'
@@ -396,7 +401,7 @@ class TestVIMHDataset:
         assert len(dataset) == 5
 
         # Test sample
-        image, labels = dataset[0]
+        image, labels, auxiliary_features = dataset[0]
         assert image.shape == (1, 28, 28)
         assert 'digit_class' in labels
 
@@ -457,7 +462,7 @@ class TestVIMHDataModule:
         assert test_loader is not None
 
         # Test batch loading
-        batch_images, batch_labels = next(iter(train_loader))
+        batch_images, batch_labels, batch_auxiliary = next(iter(train_loader))
         assert isinstance(batch_images, torch.Tensor)
         assert isinstance(batch_labels, dict)
         assert 'note_number' in batch_labels
@@ -477,11 +482,11 @@ class TestVIMHDataModule:
 
         # Create mock batch data
         batch = [
-            (torch.randn(3, 32, 32), {'note_number': 10, 'note_velocity': 20}),
-            (torch.randn(3, 32, 32), {'note_number': 15, 'note_velocity': 25})
+            (torch.randn(3, 32, 32), {'note_number': 10, 'note_velocity': 20}, None),
+            (torch.randn(3, 32, 32), {'note_number': 15, 'note_velocity': 25}, None)
         ]
 
-        batched_images, batched_labels = dm._multihead_collate_fn(batch)
+        batched_images, batched_labels, batched_auxiliary = dm._multihead_collate_fn(batch)
 
         assert batched_images.shape == (2, 3, 32, 32)
         assert batched_labels['note_number'].shape == (2,)
@@ -588,7 +593,7 @@ class TestVIMHDataModule:
             'width': 28,
             'channels': 1,
             'parameter_names': ['digit'],
-            'parameter_mappings': {'digit': {'min': 0, 'max': 9}}
+            'parameter_mappings': {'digit': {'min': 0, 'step': 0.5625, 'max': 9}}
         }
 
         # Create consistent pickle data
@@ -636,7 +641,7 @@ class TestVIMHDataModule:
             'width': 28,
             'channels': 1,
             'parameter_names': ['digit'],
-            'parameter_mappings': {'digit': {'min': 0, 'max': 9}}
+            'parameter_mappings': {'digit': {'min': 0, 'step': 0.5625, 'max': 9}}
         }
 
         # And pickle data says 28x28x1 too
@@ -704,7 +709,7 @@ class TestVIMHIntegration:
 
         # Test dataloader creation
         train_loader = dm.train_dataloader()
-        batch_images, batch_labels = next(iter(train_loader))
+        batch_images, batch_labels, batch_auxiliary = next(iter(train_loader))
 
         assert isinstance(batch_images, torch.Tensor)
         assert isinstance(batch_labels, dict)
@@ -728,7 +733,7 @@ class TestVIMHIntegration:
             images = []
             labels_dict = {}
 
-            for image, labels in batch:
+            for image, labels, auxiliary_features in batch:
                 images.append(image)
                 if not labels_dict:
                     for head_name in labels.keys():
@@ -746,7 +751,7 @@ class TestVIMHIntegration:
         # Test DataLoader creation
         dataloader = DataLoader(dataset, batch_size=3, shuffle=False, collate_fn=custom_collate)
 
-        # Test batch loading
+        # Test batch loading  
         batch_images, batch_labels = next(iter(dataloader))
 
         assert isinstance(batch_images, torch.Tensor)
