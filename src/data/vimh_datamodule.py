@@ -533,9 +533,36 @@ class VIMHDataModule(LightningDataModule):
 
         Do not use it to assign state (self.x = y).
         """
-        # For VIMH, we assume the data is already prepared/downloaded
-        # This method can be extended to handle automatic dataset download/preparation
-        pass
+        # Check if VIMH dataset exists, generate if needed
+        data_path = Path(self.data_dir)
+        
+        # Check for required files
+        train_file = data_path / "train_batch"
+        test_file = data_path / "test_batch"
+        metadata_file = data_path / "vimh_dataset_info.json"
+        
+        if not (train_file.exists() and test_file.exists() and metadata_file.exists()):
+            print(f"VIMH dataset not found at {self.data_dir}, auto-generating...")
+            
+            # Try to infer complexity from directory name
+            complexity = "cifar100"  # Default
+            dir_name = data_path.name.lower()
+            if "cifar10" in dir_name:
+                complexity = "cifar10"
+            elif "small" in dir_name or "mini" in dir_name:
+                complexity = "custom"
+            
+            # Import and generate dataset
+            from .vimh_generator import generate_vimh_dataset
+            
+            # Create parent directory if it doesn't exist
+            data_path.mkdir(parents=True, exist_ok=True)
+            
+            # Generate dataset
+            generate_vimh_dataset(
+                output_dir=str(data_path),
+                complexity=complexity
+            )
 
     def setup(self, stage: Optional[str] = None) -> None:
         """Load data. Set variables: `self.data_train`, `self.data_val`, `self.data_test`.

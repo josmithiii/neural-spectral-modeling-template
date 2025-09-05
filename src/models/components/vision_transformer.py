@@ -46,7 +46,7 @@ class EmbedLayer(nn.Module):
         x = x.reshape([B, x.shape[1], -1])                                        # B, E, IH/P, IW/P --> B, E, (IH/P*IW/P) --> B, E, N
         x = x.permute(0, 2, 1)                                                    # B, E, N          --> B, N, E
         x = x + self.pos_embedding                                                # B, N, E          --> B, N, E
-        x = torch.cat((torch.repeat_interleave(self.cls_token, B, 0), x), dim=1)  # B, N, E          --> B, (N+1), E       --> B, S, E
+        x = torch.cat((self.cls_token.expand(B, -1, -1), x), dim=1)  # B, N, E          --> B, (N+1), E       --> B, S, E
         x = self.dropout(x)
         return x
 

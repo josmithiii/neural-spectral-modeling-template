@@ -17,6 +17,8 @@ defaults:
 
 tags: ["vimh", "cnn"]
 
+task_name: "example"
+
 seed: 12345
 
 trainer:

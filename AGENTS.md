@@ -1,33 +1,39 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/`: Training, evaluation, data modules, and models (e.g., `src/train.py`, `src/data/`, `src/models/`).
-- `configs/`: Hydra configs for `data/`, `model/`, `trainer/`, and `experiment/` presets.
-- `tests/`: Pytest suite (`test_*.py`) with fast and `slow` markers.
-- `data/`, `logs/`, `outputs/`, `diagrams/`: Generated artifacts; keep out of commits.
-- `viz/`, `examples/`, `docs/`: Diagrams, usage samples, and documentation.
+- Source: `src/` (training in `src/train.py`, evaluation in `src/eval.py`, data modules under `src/data/`, models under `src/models/`, utilities under `src/utils/`).
+- Configs: `configs/` (Hydra YAML for `data/`, `model/`, `trainer/`, `experiment/`).
+- Tests: `tests/` (pytest suite with fast and `slow` markers).
+- Assets & outputs: datasets under `data/`, logs under `logs/`, figures under `viz/`, docs in docs/*.
 
 ## Build, Test, and Development Commands
-- Environment: `sh setup.sh` to create the virtual env; list tasks with `make h`.
-- Datasets: `make sds` (small), `make sdl` (large), `make sdma` (Moog set); view with `make ddr`.
-- Train: `make tr` (defaults in `configs/train.yaml`), quick check `make trq`, or override: `python src/train.py experiment=trivial_micro_small`.
-- Experiments: `make ex` (example), `make etms`/`etts` (trivial CNN), `make emb`/`eme`/`emr` (Moog CNN). List configs: `make lc`.
-- Tests: `make t` (fast), `make ta` (all). Format/lint: `make f`. TensorBoard: `make tb`.
+- Quick train smoke test: `make tq` (1 epoch on VIMH with small batches).
+- Run experiments: `python src/train.py experiment=<name>` (e.g., `experiment=example`).
+- Select configs: `python src/train.py model=cnn_64k data=vimh trainer=mps`.
+- Tests (fast): `make test` or `pytest -k "not slow"`.
+- Tests (all): `make test-all`.
+- Format & lint: `make format` (pre-commit: black, isort, flake8, bandit, etc.).
+- TensorBoard: `make tensorboard` then open `http://localhost:6006`.
 
 ## Coding Style & Naming Conventions
-- Python 3.8+; 4‑space indent; limit lines to 99 (Black).
-- Naming: `snake_case` functions/modules, `PascalCase` classes, `UPPER_SNAKE` constants; tests `test_*.py`.
-- Tools (pre-commit): Black, isort, flake8, docformatter, bandit, mdformat, codespell, nbqa. Run `make f` before commits.
-- Configs: prefer Hydra overrides over code edits; add reusable YAML under `configs/{data,model,experiment}`.
+- Python: PEP 8, 4-space indents, type hints for public APIs.
+- Formatting: black (line length 99), isort (black profile), docformatter; run via `make format`.
+- Linting: flake8 (with selected ignores) and bandit; keep warnings low.
+- Config names: lower_snake (e.g., `cnn_64k`, `vimh_16kdss`).
+- Modules/functions `snake_case`, classes `CamelCase`, constants `UPPER_CASE`.
 
 ## Testing Guidelines
-- Framework: Pytest with `slow` marker; fast path excludes slow by default.
-- Run: `pytest -k "not slow"` or target a file: `pytest tests/test_vimh_datasets.py -q`.
-- Add unit tests for new modules and regression tests for fixes; keep data-light and mark heavy/long tests as `@pytest.mark.slow`.
+- Framework: pytest with markers and parametrization.
+- Location: `tests/test_*.py`; name tests `test_*` and mark long ones `@pytest.mark.slow`.
+- Run locally before PR: `pytest -q` (fast path), then full `pytest` if changing training behavior).
+- Coverage: keep meaningful assertions; avoid network and large downloads in unit tests.
 
 ## Commit & Pull Request Guidelines
-- Commits: imperative, concise subjects; optional scope (e.g., `models:`, `data:`, `main:`). One logical change per commit.
-- PRs: clear description, linked issues, reproduction steps, key command(s) used (e.g., Hydra overrides), and results (logs, metrics, or diagrams). Ensure `make f` and `make t` pass; update docs/configs when behavior changes.
+- Commits: imperative mood, concise subject; optional scope (e.g., `train: fix audio eval`).
+- PRs: include description of changes, Hydra command(s) used, sample logs (`logs/train/runs/`), and linked issues.
+- Checklist: tests pass, `make format` clean, configs reproducible (pin overrides in the PR body).
 
 ## Security & Configuration Tips
-- Do not commit secrets; use `.env.example` as a template. Store datasets in `data/` and logs in `logs/`. Use bandit via pre-commit and prefer config-driven changes over hard-coded paths.
+- Checkpoints: loading remote URLs is blocked; use local files only.
+- Config: prefer Hydra overrides (e.g., `trainer.max_epochs=3`) instead of editing YAML.
+- Env: see `.env.example`, `requirements.txt`, and `environment.yaml`; `rootutils` sets `PROJECT_ROOT` for stable paths.

@@ -11,6 +11,8 @@ defaults:
 
 tags: ["moog", "vcf", "basic", "cnn_micro"]
 
+task_name: "moog_cnn_basic"
+
 seed: 12345
 
 trainer:
