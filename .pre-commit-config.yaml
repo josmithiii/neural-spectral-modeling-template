@@ -23,6 +23,7 @@ repos:
     hooks:
       - id: black
         args: [--line-length, "99"]
+        # Runs on all tracked Python files by default
 
   # python import sorting
   - repo: https://github.com/PyCQA/isort
@@ -30,6 +31,7 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
+        # Runs on all tracked Python files by default
 
   # python upgrading syntax to newer version
   - repo: https://github.com/asottile/pyupgrade
@@ -37,6 +39,7 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py38-plus]
+        # Modernizes Python syntax; behavior-only changes are rare
 
   # python docstring formatting
   - repo: https://github.com/myint/docformatter
