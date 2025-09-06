@@ -1,8 +1,9 @@
-from typing import Any, Dict, Optional, Tuple, List
-import warnings
-import torch
 import json
+import warnings
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import torch
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import transforms
@@ -97,20 +98,22 @@ class VIMHDataModule(LightningDataModule):
         # Default transforms for variable-size images
         # These will be adjusted based on the actual image dimensions
         # Note: Data is already converted to tensor by the dataset
-        self.default_transforms = transforms.Compose([
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Generic normalization
-        ])
+        self.default_transforms = transforms.Compose(
+            [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]  # Generic normalization
+        )
 
         # Enhanced training transforms with data augmentation
         # Will be adjusted based on actual image size
-        self.default_train_transforms = transforms.Compose([
-            transforms.ToPILImage(),  # Convert tensor back to PIL for augmentation
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
+        self.default_train_transforms = transforms.Compose(
+            [
+                transforms.ToPILImage(),  # Convert tensor back to PIL for augmentation
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]
+        )
 
         # Set transforms (use provided or defaults)
         self.train_transform = train_transform or self.default_train_transforms
@@ -131,55 +134,69 @@ class VIMHDataModule(LightningDataModule):
         # Will be set after loading the dataset
         self.heads_config: Dict[str, int] = {}
         self.parameter_ranges: Dict[str, float] = {}  # Parameter ranges for perceptual loss
-        self.parameter_bounds: Dict[str, Tuple[float, float]] = {}  # Parameter (min, max) for regression
+        self.parameter_bounds: Dict[str, Tuple[float, float]] = (
+            {}
+        )  # Parameter (min, max) for regression
         self.image_shape: Tuple[int, int, int] = (3, 32, 32)  # Default, will be updated
 
     def _adjust_transforms_for_image_size(self, height: int, width: int, channels: int) -> None:
         """Adjust transforms based on actual image dimensions."""
         # Update the default train transforms with proper padding/cropping
-        
+
         if channels == 1:
             # Use grayscale transforms for single-channel images
-            self.default_train_transforms = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomRotation(15),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
-            ])
+            self.default_train_transforms = transforms.Compose(
+                [
+                    transforms.ToPILImage(),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(15),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5,), (0.5,)),  # Single channel normalization
+                ]
+            )
 
-            self.default_transforms = transforms.Compose([
-                transforms.Normalize((0.5,), (0.5,))  # Single channel normalization
-            ])
+            self.default_transforms = transforms.Compose(
+                [transforms.Normalize((0.5,), (0.5,))]  # Single channel normalization
+            )
         else:
             # Use RGB transforms for multi-channel images
             if height == 32 and width == 32:
                 # CIFAR-10 style normalization for 32x32 RGB
-                self.default_train_transforms = transforms.Compose([
-                    transforms.ToPILImage(),
-                    transforms.RandomCrop(32, padding=4),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.RandomRotation(15),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-                ])
+                self.default_train_transforms = transforms.Compose(
+                    [
+                        transforms.ToPILImage(),
+                        transforms.RandomCrop(32, padding=4),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.RandomRotation(15),
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                    ]
+                )
 
-                self.default_transforms = transforms.Compose([
-                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-                ])
+                self.default_transforms = transforms.Compose(
+                    [transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
+                )
             else:
                 # Generic RGB transforms for other sizes
-                self.default_train_transforms = transforms.Compose([
-                    transforms.ToPILImage(),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.RandomRotation(15),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Generic RGB normalization
-                ])
+                self.default_train_transforms = transforms.Compose(
+                    [
+                        transforms.ToPILImage(),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.RandomRotation(15),
+                        transforms.ToTensor(),
+                        transforms.Normalize(
+                            (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+                        ),  # Generic RGB normalization
+                    ]
+                )
 
-                self.default_transforms = transforms.Compose([
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Generic RGB normalization
-                ])
+                self.default_transforms = transforms.Compose(
+                    [
+                        transforms.Normalize(
+                            (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+                        )  # Generic RGB normalization
+                    ]
+                )
 
         # Update transforms if they were using defaults
         if self.using_default_train_transform:
@@ -199,11 +216,11 @@ class VIMHDataModule(LightningDataModule):
         """
         try:
             dir_name = Path(data_dir).name
-            if dir_name.startswith('vimh-'):
+            if dir_name.startswith("vimh-"):
                 # Extract "32x32x3" from "vimh-32x32x3_8000Hz_1p0s_256dss_simple_2p"
-                parts = dir_name.split('_')[0]  # "vimh-32x32x3"
-                dims = parts.split('-')[1]      # "32x32x3"
-                h, w, c = map(int, dims.split('x'))
+                parts = dir_name.split("_")[0]  # "vimh-32x32x3"
+                dims = parts.split("-")[1]  # "32x32x3"
+                h, w, c = map(int, dims.split("x"))
                 return h, w, c
         except (IndexError, ValueError):
             pass
@@ -216,13 +233,13 @@ class VIMHDataModule(LightningDataModule):
         :return: (height, width, channels) tuple or None if file not found or invalid
         """
         try:
-            metadata_file = Path(data_dir) / 'vimh_dataset_info.json'
+            metadata_file = Path(data_dir) / "vimh_dataset_info.json"
             if metadata_file.exists():
-                with open(metadata_file, 'r') as f:
+                with open(metadata_file) as f:
                     metadata = json.load(f)
-                    h = metadata['height']
-                    w = metadata['width']
-                    c = metadata['channels']
+                    h = metadata["height"]
+                    w = metadata["width"]
+                    c = metadata["channels"]
                     return h, w, c
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
             pass
@@ -241,22 +258,22 @@ class VIMHDataModule(LightningDataModule):
             import struct
 
             # Check pickle format first (easier to parse)
-            train_file = Path(data_dir) / 'train_batch'
+            train_file = Path(data_dir) / "train_batch"
             if train_file.exists():
-                with open(train_file, 'rb') as f:
+                with open(train_file, "rb") as f:
                     data = pickle.load(f)
-                    if 'height' in data and 'width' in data and 'channels' in data:
-                        return data['height'], data['width'], data['channels']
+                    if "height" in data and "width" in data and "channels" in data:
+                        return data["height"], data["width"], data["channels"]
 
             # Check binary format if pickle not available
-            binary_file = Path(data_dir) / 'train'
+            binary_file = Path(data_dir) / "train"
             if binary_file.exists():
-                with open(binary_file, 'rb') as f:
+                with open(binary_file, "rb") as f:
                     # Read first sample metadata (first 6 bytes)
                     metadata_bytes = f.read(6)
                     if len(metadata_bytes) == 6:
                         # Unpack as 3 uint16 values: height, width, channels
-                        h, w, c = struct.unpack('<HHH', metadata_bytes)
+                        h, w, c = struct.unpack("<HHH", metadata_bytes)
                         return h, w, c
 
         except (FileNotFoundError, pickle.UnpicklingError, struct.error):
@@ -326,29 +343,40 @@ class VIMHDataModule(LightningDataModule):
         """
         try:
             # Try to load from JSON first (fastest)
-            metadata_file = Path(data_dir) / 'vimh_dataset_info.json'
+            metadata_file = Path(data_dir) / "vimh_dataset_info.json"
             if metadata_file.exists():
-                with open(metadata_file, 'r') as f:
+                with open(metadata_file) as f:
                     metadata = json.load(f)
 
                 # Calculate heads config from parameter mappings using min/max/step
                 heads_config = {}
-                if 'parameter_names' in metadata and 'parameter_mappings' in metadata:
-                    param_names = metadata['parameter_names']
-                    param_mappings = metadata['parameter_mappings']
+                if "parameter_names" in metadata and "parameter_mappings" in metadata:
+                    param_names = metadata["parameter_names"]
+                    param_mappings = metadata["parameter_mappings"]
 
                     for param_name in param_names:
                         if param_name in param_mappings:
                             info = param_mappings[param_name]
-                            if all(k in info for k in ('min', 'max', 'step')) and float(info['step']) > 0:
-                                pmin, pmax, step = float(info['min']), float(info['max']), float(info['step'])
+                            if (
+                                all(k in info for k in ("min", "max", "step"))
+                                and float(info["step"]) > 0
+                            ):
+                                pmin, pmax, step = (
+                                    float(info["min"]),
+                                    float(info["max"]),
+                                    float(info["step"]),
+                                )
                                 num = (pmax - pmin) / step
                                 steps = int(round(num))
                                 if abs(num - steps) > 1e-3:
-                                    print(f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}")
+                                    print(
+                                        f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}"
+                                    )
                                 heads_config[param_name] = steps + 1
                             else:
-                                raise ValueError(f"Parameter '{param_name}' missing min/max/step or invalid step in metadata")
+                                raise ValueError(
+                                    f"Parameter '{param_name}' missing min/max/step or invalid step in metadata"
+                                )
 
                 return heads_config
 
@@ -369,19 +397,19 @@ class VIMHDataModule(LightningDataModule):
 
         try:
             # Try to load from JSON metadata
-            metadata_file = Path(data_dir) / 'vimh_dataset_info.json'
+            metadata_file = Path(data_dir) / "vimh_dataset_info.json"
             if metadata_file.exists():
-                with open(metadata_file, 'r') as f:
+                with open(metadata_file) as f:
                     metadata = json.load(f)
 
-                if 'parameter_names' in metadata and 'parameter_mappings' in metadata:
-                    param_names = metadata['parameter_names']
-                    param_mappings = metadata['parameter_mappings']
+                if "parameter_names" in metadata and "parameter_mappings" in metadata:
+                    param_names = metadata["parameter_names"]
+                    param_mappings = metadata["parameter_mappings"]
 
                     for param_name in param_names:
                         if param_name in param_mappings:
                             param_info = param_mappings[param_name]
-                            param_range = param_info['max'] - param_info['min']
+                            param_range = param_info["max"] - param_info["min"]
                             parameter_ranges[param_name] = param_range
 
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
@@ -399,26 +427,28 @@ class VIMHDataModule(LightningDataModule):
 
         try:
             # Try to load from JSON metadata
-            metadata_file = Path(data_dir) / 'vimh_dataset_info.json'
+            metadata_file = Path(data_dir) / "vimh_dataset_info.json"
             if metadata_file.exists():
-                with open(metadata_file, 'r') as f:
+                with open(metadata_file) as f:
                     metadata = json.load(f)
 
-                if 'parameter_names' in metadata and 'parameter_mappings' in metadata:
-                    param_names = metadata['parameter_names']
-                    param_mappings = metadata['parameter_mappings']
+                if "parameter_names" in metadata and "parameter_mappings" in metadata:
+                    param_names = metadata["parameter_names"]
+                    param_mappings = metadata["parameter_mappings"]
 
                     for param_name in param_names:
                         if param_name in param_mappings:
                             param_info = param_mappings[param_name]
-                            parameter_bounds[param_name] = (param_info['min'], param_info['max'])
+                            parameter_bounds[param_name] = (param_info["min"], param_info["max"])
 
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
             pass
 
         return parameter_bounds
 
-    def _multihead_collate_fn(self, batch: List[Tuple[torch.Tensor, Dict[str, int], Optional[torch.Tensor]]]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Optional[torch.Tensor]]:
+    def _multihead_collate_fn(
+        self, batch: List[Tuple[torch.Tensor, Dict[str, int], Optional[torch.Tensor]]]
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Optional[torch.Tensor]]:
         """Custom collate function for multihead labels and auxiliary features.
 
         Converts a batch of (image, labels_dict, auxiliary_features) tuples into batched tensors.
@@ -438,7 +468,7 @@ class VIMHDataModule(LightningDataModule):
                 # Backward compatibility
                 image, labels = item
                 aux_features = None
-                
+
             images.append(image)
 
             # Initialize label tensors on first iteration
@@ -449,7 +479,7 @@ class VIMHDataModule(LightningDataModule):
             # Collect labels for each head
             for head_name, label_value in labels.items():
                 labels_dict[head_name].append(label_value)
-                
+
             # Collect auxiliary features
             auxiliary_features.append(aux_features)
 
@@ -467,7 +497,12 @@ class VIMHDataModule(LightningDataModule):
         if batch_size >= 2:
             for head_name, labels in batched_labels.items():
                 try:
-                    if labels.ndim == 1 and labels.dtype in (torch.int8, torch.int16, torch.int32, torch.int64):
+                    if labels.ndim == 1 and labels.dtype in (
+                        torch.int8,
+                        torch.int16,
+                        torch.int32,
+                        torch.int64,
+                    ):
                         if torch.all(labels == labels[0]):
                             msg = (
                                 f"All targets in batch are identical for head '{head_name}' (value={labels[0].item()}). "
@@ -534,16 +569,16 @@ class VIMHDataModule(LightningDataModule):
         Do not use it to assign state (self.x = y).
         """
         # Check if VIMH dataset exists, generate if needed
-        data_path = Path(self.data_dir)
-        
+        data_path = Path(self.hparams.data_dir)
+
         # Check for required files
         train_file = data_path / "train_batch"
         test_file = data_path / "test_batch"
         metadata_file = data_path / "vimh_dataset_info.json"
-        
+
         if not (train_file.exists() and test_file.exists() and metadata_file.exists()):
-            print(f"VIMH dataset not found at {self.data_dir}, auto-generating...")
-            
+            print(f"VIMH dataset not found at {self.hparams.data_dir}, auto-generating...")
+
             # Try to infer complexity from directory name
             complexity = "cifar100"  # Default
             dir_name = data_path.name.lower()
@@ -551,18 +586,15 @@ class VIMHDataModule(LightningDataModule):
                 complexity = "cifar10"
             elif "small" in dir_name or "mini" in dir_name:
                 complexity = "custom"
-            
+
             # Import and generate dataset
             from .vimh_generator import generate_vimh_dataset
-            
+
             # Create parent directory if it doesn't exist
             data_path.mkdir(parents=True, exist_ok=True)
-            
+
             # Generate dataset
-            generate_vimh_dataset(
-                output_dir=str(data_path),
-                complexity=complexity
-            )
+            generate_vimh_dataset(output_dir=str(data_path), complexity=complexity)
 
     def setup(self, stage: Optional[str] = None) -> None:
         """Load data. Set variables: `self.data_train`, `self.data_val`, `self.data_test`.
@@ -589,7 +621,9 @@ class VIMHDataModule(LightningDataModule):
         if not self.data_train and not self.data_val and not self.data_test:
             try:
                 # Efficiently detect image dimensions with cross-validation
-                height, width, channels = self._detect_and_validate_image_dimensions(self.hparams.data_dir)
+                height, width, channels = self._detect_and_validate_image_dimensions(
+                    self.hparams.data_dir
+                )
                 self.image_shape = (channels, height, width)  # PyTorch format (C, H, W)
 
                 # Load heads configuration efficiently
@@ -610,7 +644,7 @@ class VIMHDataModule(LightningDataModule):
                     train=True,
                     transform=self.train_transform,
                     target_width=self.hparams.target_width,
-                    auxiliary_features=self.hparams.auxiliary_features
+                    auxiliary_features=self.hparams.auxiliary_features,
                 )
 
                 self.data_test = VIMHDataset(
@@ -618,7 +652,7 @@ class VIMHDataModule(LightningDataModule):
                     train=False,
                     transform=self.test_transform,
                     target_width=self.hparams.target_width,
-                    auxiliary_features=self.hparams.auxiliary_features
+                    auxiliary_features=self.hparams.auxiliary_features,
                 )
 
                 # For validation, we'll use the test dataset with val transforms
@@ -628,11 +662,13 @@ class VIMHDataModule(LightningDataModule):
                     train=False,
                     transform=self.val_transform,
                     target_width=self.hparams.target_width,
-                    auxiliary_features=self.hparams.auxiliary_features
+                    auxiliary_features=self.hparams.auxiliary_features,
                 )
 
             except Exception as e:
-                raise RuntimeError(f"Failed to load VIMH dataset from {self.hparams.data_dir}: {e}")
+                raise RuntimeError(
+                    f"Failed to load VIMH dataset from {self.hparams.data_dir}: {e}"
+                )
 
     def train_dataloader(self) -> DataLoader[Any]:
         """Create and return the train dataloader.
@@ -701,16 +737,16 @@ class VIMHDataModule(LightningDataModule):
         :return: A dictionary containing the datamodule state that you want to save.
         """
         state = {
-            'heads_config': self.heads_config,
-            'image_shape': self.image_shape,
+            "heads_config": self.heads_config,
+            "image_shape": self.image_shape,
         }
-        
+
         # Also save dataset metadata if available for audio reconstruction evaluation
-        if hasattr(self, 'data_train') and self.data_train is not None:
+        if hasattr(self, "data_train") and self.data_train is not None:
             dataset_info = self.data_train.get_dataset_info()
-            if 'metadata_format' in dataset_info:
-                state['dataset_metadata'] = dataset_info['metadata_format']
-        
+            if "metadata_format" in dataset_info:
+                state["dataset_metadata"] = dataset_info["metadata_format"]
+
         return state
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
@@ -719,12 +755,12 @@ class VIMHDataModule(LightningDataModule):
 
         :param state_dict: The datamodule state returned by `self.state_dict()`.
         """
-        self.heads_config = state_dict.get('heads_config', {})
-        self.image_shape = state_dict.get('image_shape', (3, 32, 32))
-        
+        self.heads_config = state_dict.get("heads_config", {})
+        self.image_shape = state_dict.get("image_shape", (3, 32, 32))
+
         # Restore dataset metadata if available
-        if 'dataset_metadata' in state_dict:
-            self._saved_dataset_metadata = state_dict['dataset_metadata']
+        if "dataset_metadata" in state_dict:
+            self._saved_dataset_metadata = state_dict["dataset_metadata"]
 
     def get_dataset_info(self) -> Dict[str, Any]:
         """Get comprehensive information about the loaded dataset.
@@ -732,29 +768,29 @@ class VIMHDataModule(LightningDataModule):
         :return: Dictionary with dataset information.
         """
         # Try to return saved metadata first (for loaded checkpoints)
-        if hasattr(self, '_saved_dataset_metadata') and self._saved_dataset_metadata:
+        if hasattr(self, "_saved_dataset_metadata") and self._saved_dataset_metadata:
             return self._saved_dataset_metadata
-            
+
         if self.data_train is None:
-            return {'error': 'Dataset not loaded yet. Call setup() first.'}
+            return {"error": "Dataset not loaded yet. Call setup() first."}
 
         # Get full dataset info from the actual dataset
         dataset_info = self.data_train.get_dataset_info()
         base_info = {
-            'heads_config': self.heads_config,
-            'image_shape': self.image_shape,
-            'num_train_samples': len(self.data_train) if self.data_train else 0,
-            'num_val_samples': len(self.data_val) if self.data_val else 0,
-            'num_test_samples': len(self.data_test) if self.data_test else 0,
-            'batch_size': self.hparams.batch_size,
-            'num_workers': self.hparams.num_workers,
-            'data_dir': self.hparams.data_dir,
+            "heads_config": self.heads_config,
+            "image_shape": self.image_shape,
+            "num_train_samples": len(self.data_train) if self.data_train else 0,
+            "num_val_samples": len(self.data_val) if self.data_val else 0,
+            "num_test_samples": len(self.data_test) if self.data_test else 0,
+            "batch_size": self.hparams.batch_size,
+            "num_workers": self.hparams.num_workers,
+            "data_dir": self.hparams.data_dir,
         }
-        
+
         # Merge with actual dataset metadata if available
-        if 'metadata_format' in dataset_info:
-            base_info.update(dataset_info['metadata_format'])
-        
+        if "metadata_format" in dataset_info:
+            base_info.update(dataset_info["metadata_format"])
+
         return base_info
 
 
@@ -773,9 +809,7 @@ if __name__ == "__main__":
 
         # Initialize data module
         dm = VIMHDataModule(
-            data_dir="data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p",
-            batch_size=4,
-            num_workers=0
+            data_dir="data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p", batch_size=4, num_workers=0
         )
 
         # Setup the data module
@@ -789,7 +823,9 @@ if __name__ == "__main__":
         val_loader = dm.val_dataloader()
         test_loader = dm.test_dataloader()
 
-        print(f"✓ Created dataloaders - train: {len(train_loader)}, val: {len(val_loader)}, test: {len(test_loader)}")
+        print(
+            f"✓ Created dataloaders - train: {len(train_loader)}, val: {len(val_loader)}, test: {len(test_loader)}"
+        )
 
         # Test a batch
         batch_images, batch_labels = next(iter(train_loader))
@@ -801,4 +837,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"✗ Error testing data module: {e}")
         import traceback
+
         traceback.print_exc()
