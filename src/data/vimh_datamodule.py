@@ -577,24 +577,14 @@ class VIMHDataModule(LightningDataModule):
         metadata_file = data_path / "vimh_dataset_info.json"
 
         if not (train_file.exists() and test_file.exists() and metadata_file.exists()):
-            print(f"VIMH dataset not found at {self.hparams.data_dir}, auto-generating...")
-
-            # Try to infer complexity from directory name
-            complexity = "cifar100"  # Default
-            dir_name = data_path.name.lower()
-            if "cifar10" in dir_name:
-                complexity = "cifar10"
-            elif "small" in dir_name or "mini" in dir_name:
-                complexity = "custom"
-
-            # Import and generate dataset
-            from .vimh_generator import generate_vimh_dataset
-
-            # Create parent directory if it doesn't exist
-            data_path.mkdir(parents=True, exist_ok=True)
-
-            # Generate dataset
-            generate_vimh_dataset(output_dir=str(data_path), complexity=complexity)
+            raise FileNotFoundError(
+                f"VIMH dataset not found at {self.hparams.data_dir}.\n"
+                f"Please generate a dataset using:\n\n"
+                f"    python generate_vimh.py\n\n"
+                f"Or to generate a dataset with specific dimensions matching your config:\n\n"
+                f"    python generate_vimh.py generate.height=32 generate.width=32 generate.channels=1\n\n"
+                f"See 'python generate_vimh.py --help' for more options."
+            )
 
     def setup(self, stage: Optional[str] = None) -> None:
         """Load data. Set variables: `self.data_train`, `self.data_val`, `self.data_test`.
@@ -616,6 +606,9 @@ class VIMHDataModule(LightningDataModule):
                     f"Batch size ({self.hparams.batch_size}) is not divisible by the number of devices ({self.trainer.world_size})."
                 )
             self.batch_size_per_device = self.hparams.batch_size // self.trainer.world_size
+
+        # Ensure dataset exists before loading - call prepare_data if needed
+        self.prepare_data()
 
         # load datasets only if not loaded already
         if not self.data_train and not self.data_val and not self.data_test:

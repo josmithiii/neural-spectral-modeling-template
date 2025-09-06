@@ -98,7 +98,7 @@ python src/audio_reconstruction_eval.py interactive=true num_samples=5
 ## Expert Tips
 - Use `trainer=mps` for Mac training (nearly always)
 - Set `num_workers: 0` in data configs for MPS compatibility
-- VIMH datasets auto-generate on first use
+- VIMH datasets can be created using `generate_vimh.py`
 - Use `make format` before commits
 - Check `make h` for all available targets
 - TensorBoard runs on `http://localhost:6006`
