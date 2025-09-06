@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: cnn_micro  # Small model for 4-parameter dataset
+  - override /model: cnn_micro # Small model for 4-parameter dataset
   - override /callbacks: default
   - override /trainer: default
 
@@ -18,7 +18,7 @@ seed: 12345
 trainer:
   min_epochs: 5
   max_epochs: 20
-  
+
 model:
   optimizer:
     lr: 0.003

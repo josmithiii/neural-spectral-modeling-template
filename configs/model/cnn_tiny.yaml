@@ -19,10 +19,10 @@ loss_weights: {}
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
   input_channels: 1
-  conv1_channels: 16  # Much smaller
-  conv2_channels: 32  # Much smaller
-  fc_hidden: 64       # Much smaller
-  heads_config: 
+  conv1_channels: 16 # Much smaller
+  conv2_channels: 32 # Much smaller
+  fc_hidden: 64 # Much smaller
+  heads_config:
     synth_param1: 10
   dropout: 0.3
   input_size: 32

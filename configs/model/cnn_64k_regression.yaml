@@ -17,19 +17,19 @@ scheduler:
 output_mode: regression
 
 # Criteria and loss_weights will be auto-configured from dataset metadata
-loss_weights: {}  # Will be auto-configured from dataset metadata
+loss_weights: {} # Will be auto-configured from dataset metadata
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
-  input_channels: 1  # will autoconfigure
+  input_channels: 1 # will autoconfigure
   conv1_channels: 64
   conv2_channels: 128
   fc_hidden: 512
-  output_mode: regression  # Enable regression mode
-  parameter_names: [synth_param1]  # Default placeholder - will be auto-configured from dataset metadata
+  output_mode: regression # Enable regression mode
+  parameter_names: [synth_param1] # Default placeholder - will be auto-configured from dataset metadata
   # parameter_ranges will be auto-configured from dataset metadata
   dropout: 0.5
-  input_size: 32  # VIMH image size (32x32 for spectrograms)
+  input_size: 32 # VIMH image size (32x32 for spectrograms)
 
 compile: false
 

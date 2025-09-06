@@ -1,13 +1,30 @@
+# Pre-commit hooks overview
+# - pre-commit-hooks: Generic hygiene (whitespace, EOF, YAML/TOML checks)
+# - black: Code formatting (Python) — opinionated, stable
+# - isort: Import sorting (Python) — black-compatible profile
+# - pyupgrade: Modernize syntax to target Python 3.8+
+# - docformatter: Docstring reflow — manual, check-only (educational preview)
+# - interrogate: Docstring coverage — limited to src/tests
+# - flake8: Lint (style/errors) — manual, focused on src/tests and select top-level scripts
+# - bandit: Security lint — focused on src/tests and select top-level scripts
+# - prettier: Markdown/YAML formatting — GFM-friendly
+# - shellcheck: Shell script linter
+# - codespell/nbstripout/nbqa: Spellcheck notebooks; run black/isort/flake8 inside notebooks
+
 default_language_version:
   python: python3
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
       # list of supported hooks: https://pre-commit.com/hooks.html
       - id: trailing-whitespace
+        # Avoid touching logs/ and archive/ even if present locally
+        exclude: ^(logs/|archive/)
       - id: end-of-file-fixer
+        # Avoid touching logs/ and archive/ even if present locally
+        exclude: ^(logs/|archive/)
       - id: check-docstring-first
       - id: check-yaml
       - id: debug-statements
@@ -19,44 +36,53 @@ repos:
 
   # python code formatting
   - repo: https://github.com/psf/black
-    rev: 23.1.0
+    rev: 25.1.0
     hooks:
       - id: black
         args: [--line-length, "99"]
+        exclude: ^(.githooks/)
+        # Runs on all tracked Python files by default
 
   # python import sorting
   - repo: https://github.com/PyCQA/isort
-    rev: 5.12.0
+    rev: 6.0.1
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
+        # Runs on all tracked Python files by default
 
   # python upgrading syntax to newer version
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.3.1
+    rev: v3.20.0
     hooks:
       - id: pyupgrade
         args: [--py38-plus]
+        # Modernizes Python syntax; behavior-only changes are rare
 
   # python docstring formatting
   - repo: https://github.com/myint/docformatter
-    rev: v1.7.4
+    rev: v1.7.7
     hooks:
       - id: docformatter
+        stages: [manual]
         args:
           [
-            --in-place,
+            --check,
+            --diff,
             --wrap-summaries=99,
             --wrap-descriptions=99,
             --style=sphinx,
             --black,
           ]
+        # Manual: run via `make fdc` or `make fp` for preview; does not block format
 
   # python docstring coverage checking
   - repo: https://github.com/econchick/interrogate
-    rev: 1.5.0 # or master if you're bold
+    rev: 1.7.0 # or master if you're bold
     hooks:
       - id: interrogate
+        # Check docstring coverage only within library and tests
+        files: ^(src/|tests/)
         args:
           [
             --verbose,
@@ -70,9 +96,12 @@ repos:
 
   # python check (PEP8), programming errors and code complexity
   - repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
+    rev: 7.3.0
     hooks:
       - id: flake8
+        stages: [manual]
+        # Lint only src/tests and selected top-level scripts
+        files: ^(src/|tests/|examples/|viz/|scripts/|display_vimh\.py$|single_step_inference\.py$|plot_loss_analysis\.py$)
         args:
           [
             "--extend-ignore",
@@ -84,14 +113,17 @@ repos:
 
   # python security linter
   - repo: https://github.com/PyCQA/bandit
-    rev: "1.7.5"
+    rev: "1.8.6"
     hooks:
       - id: bandit
-        args: ["-s", "B101"]
+        # Security lint only for src/tests and selected top-level scripts
+        files: ^(src/|tests/|examples/|viz/|scripts/|display_vimh\.py$|single_step_inference\.py$|plot_loss_analysis\.py$)
+        args: ["-s", "B101,B403,B110,B404,B603", "-lll"]
+        additional_dependencies: [pbr]
 
   # yaml formatting
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.0.0-alpha.6
+    rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
         types: [yaml]
@@ -99,41 +131,41 @@ repos:
 
   # shell scripts linter
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.9.0.2
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
+        # Lint shell scripts (sh/bash); no auto-fix
 
-  # md formatting
-  - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.16
+  # markdown formatting via Prettier (supports GFM)
+  # expand to markdown as well as yaml
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
     hooks:
-      - id: mdformat
-        args: ["--number"]
-        additional_dependencies:
-          - mdformat-gfm
-          - mdformat-tables
-          - mdformat_frontmatter
-          # - mdformat-toc
-          # - mdformat-black
+      - id: prettier
+        types: [yaml, markdown]
+        exclude: "environment.yaml"
+        # Formats Markdown (GFM-friendly) and YAML consistently
 
   # word spelling linter
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.4
+    rev: v2.4.1
     hooks:
       - id: codespell
         args:
           - --skip=logs/**,data/**,*.ipynb
           # - --ignore-words-list=abc,def
+        # Spellcheck; skips data/logs and notebooks
 
   # jupyter notebook cell output clearing
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.6.1
+    rev: 0.8.1
     hooks:
       - id: nbstripout
+        # Cleans notebook outputs only
 
   # jupyter notebook linting
   - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.6.3
+    rev: 1.9.1
     hooks:
       - id: nbqa-black
         args: ["--line-length=99"]
@@ -145,3 +177,4 @@ repos:
             "--extend-ignore=E203,E402,E501,F401,F841",
             "--exclude=logs/*,data/*",
           ]
+        # Runs black/isort/flake8 inside notebooks

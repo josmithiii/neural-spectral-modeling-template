@@ -20,12 +20,12 @@ net:
   _target_: src.models.components.vision_transformer.VisionTransformer
   n_channels: 1
   image_size: 32
-  patch_size: 8       # Larger patches for fewer tokens
-  embed_dim: 32       # Very small embedding
-  n_layers: 2         # Few layers
+  patch_size: 8 # Larger patches for fewer tokens
+  embed_dim: 32 # Very small embedding
+  n_layers: 2 # Few layers
   n_attention_heads: 4
   forward_mul: 2
-  output_size: 10     # Will be auto-configured
+  output_size: 10 # Will be auto-configured
   dropout: 0.2
   use_torch_layers: false
 

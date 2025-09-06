@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: vit_micro  # Small ViT for 4-parameter dataset
+  - override /model: vit_micro # Small ViT for 4-parameter dataset
   - override /callbacks: default
   - override /trainer: default
 
@@ -16,17 +16,17 @@ seed: 12345
 trainer:
   min_epochs: 5
   max_epochs: 15
-  
+
 model:
   optimizer:
     lr: 0.004
     weight_decay: 0.01
   net:
-    image_size: 32  # Override for 32x32 images
+    image_size: 32 # Override for 32x32 images
 
 data:
   data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_4p
-  batch_size: 16  # Smaller batch for ViT
+  batch_size: 16 # Smaller batch for ViT
 
 logger:
   tensorboard:

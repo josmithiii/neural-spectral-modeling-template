@@ -2,9 +2,9 @@
 
 defaults:
   - _self_
-  - data: vimh         # choose datamodule with test data
-  - model: cnn_64k     # choose model architecture  
-  - logger: null       # disable logging for evaluation
+  - data: vimh # choose datamodule with test data
+  - model: cnn_64k # choose model architecture
+  - logger: null # disable logging for evaluation
   - trainer: default
   - paths: default
   - extras: default
@@ -15,13 +15,13 @@ task_name: "audio_eval"
 tags: ["audio", "reconstruction", "eval"]
 
 # Checkpoint path - defaults to latest best checkpoint
-ckpt_path: null  # Will auto-discover latest best checkpoint if null
+ckpt_path: null # Will auto-discover latest best checkpoint if null
 
 # Evaluation configuration
-num_samples: 5           # Number of samples to evaluate
-interactive: true        # Launch interactive widget (set to false for batch mode)
-save_audio: true        # Save audio files to disk
-output_dir: "audio_eval_results"  # Output directory for audio files
+num_samples: 5 # Number of samples to evaluate
+interactive: true # Launch interactive widget (set to false for batch mode)
+save_audio: true # Save audio files to disk
+output_dir: "audio_eval_results" # Output directory for audio files
 
 # Audio playback (works in Jupyter notebooks)
 enable_playback: true

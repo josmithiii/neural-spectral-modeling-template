@@ -4,8 +4,8 @@
 # order of defaults determines the order in which configs override each other
 defaults:
   - _self_
-  - data: vimh  # defaults to small two-parameter test dataset: ./data/vimh.yaml
-  - model: cnn_64k     # Actually 1M + heads = 1.4M for 2 heads - ./model/cnn_64k.yaml
+  - data: vimh # defaults to small two-parameter test dataset: ./data/vimh.yaml
+  - model: cnn_64k # Actually 1M + heads = 1.4M for 2 heads - ./model/cnn_64k.yaml
   - callbacks: default
   - logger: tensorboard # set logger here or use command line (e.g. `python train.py logger=null` to disable)
   - trainer: default
@@ -53,5 +53,5 @@ optimized_metric: "val/acc_best"
 
 # Preflight validation settings
 preflight:
-  enabled: true                 # Disable to skip preflight checks
-  label_diversity_batches: 3    # Number of train batches to sample for label diversity
+  enabled: true # Disable to skip preflight checks
+  label_diversity_batches: 3 # Number of train batches to sample for label diversity

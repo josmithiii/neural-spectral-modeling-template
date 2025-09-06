@@ -19,7 +19,7 @@ trainer:
 
 model:
   optimizer:
-    lr: 0.003  # Lower LR for larger dataset
+    lr: 0.003 # Lower LR for larger dataset
     weight_decay: 0.01
 
 data:

@@ -18,17 +18,17 @@ seed: 12345
 
 # Enable auxiliary features in data config
 data:
-  auxiliary_features: ["decay_time"]  # Enable decay time feature extraction
-  num_workers: 0  # MPS doesn't support multiprocessing
+  auxiliary_features: ["decay_time"] # Enable decay time feature extraction
+  num_workers: 0 # MPS doesn't support multiprocessing
 
 trainer:
   min_epochs: 10
-  max_epochs: 30  # Reasonable for larger dataset
+  max_epochs: 30 # Reasonable for larger dataset
   gradient_clip_val: 0.5
 
 model:
   optimizer:
-    lr: 0.001  # Slightly lower LR for larger dataset
+    lr: 0.001 # Slightly lower LR for larger dataset
     weight_decay: 0.0001
   compile: false
 

@@ -5,6 +5,6 @@ data_dir: ${paths.root_dir}/data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 
 # Training parameters optimized for MPS (Mac) compatibility
 batch_size: 128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
-num_workers: 0  # Set to 0 for MPS compatibility (multiprocessing not supported on MPS)
+num_workers: 0 # Set to 0 for MPS compatibility (multiprocessing not supported on MPS)
 pin_memory: False
 persistent_workers: True

@@ -19,12 +19,12 @@ seed: 12345
 # Use smaller dataset with 256 samples
 data:
   data_dir: ${paths.root_dir}/data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
-  batch_size: 32  # Smaller batch for tiny dataset
-  auxiliary_features: ["decay_time"]  # Enable decay time feature extraction
+  batch_size: 32 # Smaller batch for tiny dataset
+  auxiliary_features: ["decay_time"] # Enable decay time feature extraction
 
 trainer:
   min_epochs: 10
-  max_epochs: 50  # More epochs for small dataset
+  max_epochs: 50 # More epochs for small dataset
   gradient_clip_val: 0.5
 
 model:

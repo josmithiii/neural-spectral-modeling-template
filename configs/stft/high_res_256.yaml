@@ -1,4 +1,4 @@
-# High resolution STFT for resonant peak analysis  
+# High resolution STFT for resonant peak analysis
 type: "stft"
 n_fft: 256
 n_window: 128

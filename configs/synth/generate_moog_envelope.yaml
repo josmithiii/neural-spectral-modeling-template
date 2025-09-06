@@ -28,10 +28,10 @@ synthesizer:
   parameters:
     # MIDI note number - vary for more interesting filter effects
     note_number:
-      min_value: 36.0  # C2 (65.4 Hz) - bass range where filter is most audible
-      step: 12.0       # Octave steps
-      max_value: 60.0  # C4 (261.6 Hz)
-      default: 48.0    # C3
+      min_value: 36.0 # C2 (65.4 Hz) - bass range where filter is most audible
+      step: 12.0 # Octave steps
+      max_value: 60.0 # C4 (261.6 Hz)
+      default: 48.0 # C3
       description: "MIDI note number (bass to mid range)"
 
     # MIDI velocity
@@ -44,10 +44,10 @@ synthesizer:
 
     # Amplitude decay time
     log10_decay_time:
-      min_value: 0.0   # log10(1.0) = 0.0 - 1 second decay
+      min_value: 0.0 # log10(1.0) = 0.0 - 1 second decay
       step: 0.15
-      max_value: 0.6   # log10(4.0) = 0.602 - 4 second decay
-      default: 0.3     # log10(2.0) = 0.301 - 2 second decay
+      max_value: 0.6 # log10(4.0) = 0.602 - 4 second decay
+      default: 0.3 # log10(2.0) = 0.301 - 2 second decay
       description: "Log10 of exponential decay time constant"
 
     # Filter always enabled
@@ -59,58 +59,58 @@ synthesizer:
 
     # Base cutoff frequency (starting point for envelope)
     filter_cutoff:
-      min_value: 80.0   # Very low - let envelope do the work
+      min_value: 80.0 # Very low - let envelope do the work
       step: 40.0
-      max_value: 400.0  # Still quite low
+      max_value: 400.0 # Still quite low
       default: 150.0
       description: "Base filter cutoff frequency in Hz"
 
     # Filter resonance
     filter_resonance:
-      min_value: 0.3    # Some resonance to hear filter character
+      min_value: 0.3 # Some resonance to hear filter character
       step: 0.1
-      max_value: 0.85   # High but stable
+      max_value: 0.85 # High but stable
       default: 0.7
       description: "Filter resonance (0-1)"
 
     # Filter envelope attack time
     filter_env_attack:
-      min_value: 0.0    # Instant attack
+      min_value: 0.0 # Instant attack
       step: 0.05
-      max_value: 0.3    # Slow attack
+      max_value: 0.3 # Slow attack
       default: 0.01
       description: "Filter envelope attack time (seconds)"
 
     # Filter envelope decay time
     filter_env_decay:
-      min_value: 0.1    # Quick decay
+      min_value: 0.1 # Quick decay
       step: 0.1
-      max_value: 1.5    # Long decay
-      default: 0.5      # Classic MiniMoog decay
+      max_value: 1.5 # Long decay
+      default: 0.5 # Classic MiniMoog decay
       description: "Filter envelope decay time (seconds)"
 
     # Filter envelope sustain level
     filter_env_sustain:
-      min_value: 0.0    # Full decay to base cutoff
+      min_value: 0.0 # Full decay to base cutoff
       step: 0.1
-      max_value: 0.6    # Partial sustain
+      max_value: 0.6 # Partial sustain
       default: 0.1
       description: "Filter envelope sustain level (0-1)"
 
     # Filter envelope release time
     filter_env_release:
-      min_value: 0.1    # Quick release
+      min_value: 0.1 # Quick release
       step: 0.1
-      max_value: 1.0    # Long release
+      max_value: 1.0 # Long release
       default: 0.3
       description: "Filter envelope release time (seconds)"
 
     # Filter envelope amount (in octaves)
     filter_env_amount:
-      min_value: 1.0    # 1 octave sweep
+      min_value: 1.0 # 1 octave sweep
       step: 0.5
-      max_value: 4.0    # 4 octave sweep - dramatic!
-      default: 2.5      # Classic sweep range
+      max_value: 4.0 # 4 octave sweep - dramatic!
+      default: 2.5 # Classic sweep range
       description: "Filter envelope depth (octaves)"
 
 # Configuration references

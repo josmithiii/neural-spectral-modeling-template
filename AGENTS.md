@@ -4,7 +4,7 @@
 - Source: `src/` (training in `src/train.py`, evaluation in `src/eval.py`, data modules under `src/data/`, models under `src/models/`, utilities under `src/utils/`).
 - Configs: `configs/` (Hydra YAML for `data/`, `model/`, `trainer/`, `experiment/`).
 - Tests: `tests/` (pytest suite with fast and `slow` markers).
-- Assets & outputs: datasets under `data/`, logs under `logs/`, figures under `viz/`, docs in docs/*.
+- Assets & outputs: datasets under `data/`, logs under `logs/`, figures under `viz/`, docs in `docs/`.
 
 ## Build, Test, and Development Commands
 - Quick train smoke test: `make tq` (1 epoch on VIMH with small batches).
@@ -37,3 +37,10 @@
 - Checkpoints: loading remote URLs is blocked; use local files only.
 - Config: prefer Hydra overrides (e.g., `trainer.max_epochs=3`) instead of editing YAML.
 - Env: see `.env.example`, `requirements.txt`, and `environment.yaml`; `rootutils` sets `PROJECT_ROOT` for stable paths.
+
+## YAML & Hydra Conventions
+- Quote numeric-like strings: write `"995"` (tags, IDs) to avoid unintended numeric parsing.
+- Keep Hydra interpolations unquoted: `${paths.root_dir}` (strings resolved at runtime).
+- Lists: prefer inline lists for tags, e.g., `tags: ["vimh", "cnn", "995"]`.
+- Booleans/Nulls: use lowercase YAML forms (`true`, `false`, `null`) unless you need string literals.
+- Paths: use `${paths.*}` for portability; avoid hardcoding absolute paths.

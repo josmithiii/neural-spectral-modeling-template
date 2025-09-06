@@ -34,7 +34,7 @@ seed: 12345
 trainer:
   min_epochs: 3
   max_epochs: 5
-  
+
 model:
   optimizer:
     lr: 0.005

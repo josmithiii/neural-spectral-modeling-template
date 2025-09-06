@@ -31,8 +31,7 @@ net:
   dropout: 0.2
   use_torch_layers: false
   output_mode: regression
-  parameter_names: [synth_param1]  # Placeholder; will be auto-configured from dataset metadata
+  parameter_names: [synth_param1] # Placeholder; will be auto-configured from dataset metadata
 
 compile: false
 auto_configure_from_dataset: true
-

@@ -6,7 +6,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: vit_tiny  # Medium ViT for 10-parameter dataset
+  - override /model: vit_tiny # Medium ViT for 10-parameter dataset
   - override /callbacks: default
   - override /trainer: default
 
@@ -17,18 +17,18 @@ seed: 12345
 trainer:
   min_epochs: 8
   max_epochs: 20
-  
+
 model:
   optimizer:
     lr: 0.003
     weight_decay: 0.005
   net:
-    image_size: [32, 64]  # Non-square images - requires ViT modification for rectangular support
-    patch_size: 8  # Larger patches for rectangular images
+    image_size: [32, 64] # Non-square images - requires ViT modification for rectangular support
+    patch_size: 8 # Larger patches for rectangular images
 
 data:
   data_dir: data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_10p
-  batch_size: 12  # Smaller batch for larger images and ViT
+  batch_size: 12 # Smaller batch for larger images and ViT
 
 logger:
   tensorboard:

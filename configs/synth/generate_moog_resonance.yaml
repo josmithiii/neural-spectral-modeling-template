@@ -28,10 +28,10 @@ synthesizer:
   parameters:
     # MIDI note number - focus on range where resonance is most audible
     note_number:
-      min_value: 40.0  # E2 (82.4 Hz) - guitar low E
-      step: 7.0        # Fifth intervals for harmonic interest
-      max_value: 54.0  # F#3 (185 Hz)
-      default: 47.0    # B2
+      min_value: 40.0 # E2 (82.4 Hz) - guitar low E
+      step: 7.0 # Fifth intervals for harmonic interest
+      max_value: 54.0 # F#3 (185 Hz)
+      default: 47.0 # B2
       description: "MIDI note number (low-mid range for resonance)"
 
     # MIDI velocity - keep high to hear resonance clearly
@@ -44,10 +44,10 @@ synthesizer:
 
     # Decay time - longer to hear resonant behavior
     log10_decay_time:
-      min_value: -0.5  # log10(0.316) ≈ -0.5 - ~300ms decay
+      min_value: -0.5 # log10(0.316) ≈ -0.5 - ~300ms decay
       step: 0.2
-      max_value: 0.5   # log10(3.16) ≈ 0.5 - ~3s decay  
-      default: 0.0     # log10(1.0) = 0.0 - 1s decay
+      max_value: 0.5 # log10(3.16) ≈ 0.5 - ~3s decay
+      default: 0.0 # log10(1.0) = 0.0 - 1s decay
       description: "Log10 of exponential decay time constant"
 
     # Filter always enabled
@@ -59,7 +59,7 @@ synthesizer:
 
     # Cutoff frequency - explore range where resonance is interesting
     filter_cutoff:
-      min_value: 200.0  # Low enough for dramatic filtering
+      min_value: 200.0 # Low enough for dramatic filtering
       step: 150.0
       max_value: 1400.0 # High enough for bright tones
       default: 600.0
@@ -67,10 +67,10 @@ synthesizer:
 
     # Filter resonance - THE KEY PARAMETER - explore high resonance
     filter_resonance:
-      min_value: 0.5    # Medium resonance
-      step: 0.05        # Fine steps to explore critical region
-      max_value: 0.95   # Very high - near self-oscillation
-      default: 0.8      # High resonance
+      min_value: 0.5 # Medium resonance
+      step: 0.05 # Fine steps to explore critical region
+      max_value: 0.95 # Very high - near self-oscillation
+      default: 0.8 # High resonance
       description: "Filter resonance (0-1) - HIGH RANGE"
 
     # Minimal envelope - let resonance be the star
@@ -87,7 +87,7 @@ synthesizer:
       description: "Filter envelope decay time (seconds) - minimal"
 
     filter_env_sustain:
-      min_value: 1.0  # Full sustain - no envelope modulation
+      min_value: 1.0 # Full sustain - no envelope modulation
       max_value: 1.0
       default: 1.0
       description: "Filter envelope sustain level (0-1) - full"
@@ -99,12 +99,12 @@ synthesizer:
       description: "Filter envelope release time (seconds) - minimal"
 
     filter_env_amount:
-      min_value: 0.0  # No envelope modulation - focus on static resonance
+      min_value: 0.0 # No envelope modulation - focus on static resonance
       max_value: 0.0
       default: 0.0
       description: "Filter envelope depth (octaves) - disabled"
 
-# Configuration references  
+# Configuration references
 defaults:
   - /stft: high_res_256
   - /mel: default

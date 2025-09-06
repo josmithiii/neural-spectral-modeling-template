@@ -43,7 +43,7 @@ synthesizer:
     note_velocity:
       # min_value: 10.0     # Really 0 is the min, but this sets our datasample range
       min_value: 126.0 # TEST
-      step: 0.5        # Nominal JND
+      step: 0.5 # Nominal JND
       max_value: 127.0 # MIDI velocity max is 127
       default: 127.0 # Full amplitude
       description: "MIDI velocity (amplitude)"
@@ -53,9 +53,9 @@ synthesizer:
       #     min_value: 100.0    # TEST
       #     max_value: 100.1    # log10(2.0) = 0.301
       min_value: -2.0 # log10(0.01) = -2.0
-      step: 0.1       # Rough JND
-      max_value: 0.3  # log10(2.0) = 0.301
-      default: -0.3   # log10(0.5) = -0.301
+      step: 0.1 # Rough JND
+      max_value: 0.3 # log10(2.0) = 0.301
+      default: -0.3 # log10(0.5) = -0.301
       description: "Log10 of exponential decay time constant"
 
 # STFT parameters for spectrogram generation

@@ -45,20 +45,20 @@ synthesizer:
     log10_decay_time:
       min_value: -1.0 # log10(0.1) = -1.0
       step: 0.1
-      max_value: 0.0  # log10(1.0) = 0.0
-      default: -0.3   # log10(0.5) = -0.301
+      max_value: 0.0 # log10(1.0) = 0.0
+      default: -0.3 # log10(0.5) = -0.301
       description: "Log10 of exponential decay time constant"
 
     # Filter enable/disable
     filter_enabled:
-      min_value: 1.0  # Always enabled for this test
+      min_value: 1.0 # Always enabled for this test
       max_value: 1.0
       default: 1.0
       description: "Enable Moog VCF filter"
 
     # Base cutoff frequency
     filter_cutoff:
-      min_value: 200.0  # Hz
+      min_value: 200.0 # Hz
       step: 100.0
       max_value: 2000.0 # Hz
       default: 800.0
@@ -68,7 +68,7 @@ synthesizer:
     filter_resonance:
       min_value: 0.0
       step: 0.1
-      max_value: 0.9   # Keep below 1.0 for stability
+      max_value: 0.9 # Keep below 1.0 for stability
       default: 0.5
       description: "Filter resonance (0-1)"
 
