@@ -121,13 +121,16 @@ repos:
         args: ["-s", "B101,B403,B110,B404,B603", "-lll"]
         additional_dependencies: [pbr]
 
-  # yaml formatting
+  # markdown and yaml formatting via Prettier (supports GFM)
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
-        types: [yaml]
+        name: "prettier (FORMATTING CHECK - WILL FAIL IF FILES NEED FORMATTING)"
+        types: [yaml, markdown]
         exclude: "environment.yaml"
+        # Formats Markdown (GFM-friendly) and YAML consistently
+        verbose: true
 
   # shell scripts linter
   - repo: https://github.com/shellcheck-py/shellcheck-py
@@ -135,16 +138,6 @@ repos:
     hooks:
       - id: shellcheck
         # Lint shell scripts (sh/bash); no auto-fix
-
-  # markdown formatting via Prettier (supports GFM)
-  # expand to markdown as well as yaml
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
-    hooks:
-      - id: prettier
-        types: [yaml, markdown]
-        exclude: "environment.yaml"
-        # Formats Markdown (GFM-friendly) and YAML consistently
 
   # word spelling linter
   - repo: https://github.com/codespell-project/codespell
