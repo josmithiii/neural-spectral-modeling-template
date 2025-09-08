@@ -30,15 +30,15 @@ sdma synth-dataset-moog-all: sdmb sdme sdmr ## Generate all Moog VCF datasets: b
 ddr display-dataset-recent: ## Display the most recently created dataset (default)
 	python display_vimh.py
 
-dds display-dataset-small: ## Display the small example VIMH dataset (256 samples)
-	python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+dds display-dataset-small: synth-dataset-small ## Display the small example VIMH dataset (256 samples)
+	python display_vimh.py
 
-ddl display-dataset-large: ## Display the larger example VIMH dataset (16k samples)
-	python display_vimh.py data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+ddl display-dataset-large: sdl ## Display the larger example VIMH dataset (16k samples)
+	python display_vimh.py
 
 # EXPERIMENTS "e" - Complete Configuration Examples
 
-ex exp-example: ## Train CNN on default dataset
+ex exp-example: synth-dataset-small ## Train CNN on default dataset
 	time python src/train.py experiment=example  # ./configs/experiment/example.yaml
 
 # TRIVIAL DATASET EXPERIMENTS "et" - Small models for testing on trivial synthetic data
@@ -193,7 +193,7 @@ tdv test-diagram-vgg: ## Generate VGG-style architecture diagrams (EPS + PNG)
 
 # RAW TRAINING TARGETS "tr" (no "experiment" - use hydra overrides to set desired config - experiments recommended instead)
 
-tr train: ## Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml
+tr train: synth-dataset-small ## Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml
 	time python src/train.py
 
 trq train-quick: ## Train super quickly the default model and dataset (quick sanity test to see if things are working)

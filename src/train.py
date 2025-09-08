@@ -1,3 +1,5 @@
+# Disable PyTorch 2.6 weights_only restriction for trusted LOCAL checkpoints
+import os.path
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
@@ -8,23 +10,35 @@ from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
 
-# Disable PyTorch 2.6 weights_only restriction for trusted LOCAL checkpoints
-import os.path
 _original_torch_load = torch.load
-def _patched_torch_load(f, map_location=None, pickle_module=None, weights_only=None, mmap=None, **kwargs):
+
+
+def _patched_torch_load(
+    f, map_location=None, pickle_module=None, weights_only=None, mmap=None, **kwargs
+):
     # Only allow loading from local files, not URLs
     if isinstance(f, str):
-        if f.startswith(('http://', 'https://', 'ftp://', 'ftps://')):
+        if f.startswith(("http://", "https://", "ftp://", "ftps://")):
             raise ValueError(f"Remote checkpoint loading not allowed for security: {f}")
         if not os.path.isfile(f):
             raise FileNotFoundError(f"Checkpoint file not found: {f}")
     # Force weights_only=False for trusted local research checkpoints
-    return _original_torch_load(f, map_location=map_location, pickle_module=pickle_module, weights_only=False, mmap=mmap, **kwargs)
+    return _original_torch_load(
+        f,
+        map_location=map_location,
+        pickle_module=pickle_module,
+        weights_only=False,
+        mmap=mmap,
+        **kwargs,
+    )
+
+
 torch.load = _patched_torch_load
 
 # Also patch Lightning's internal checkpoint loading
 try:
     from lightning.fabric.utilities import cloud_io
+
     cloud_io._load = _patched_torch_load
 except ImportError:
     pass
@@ -58,8 +72,8 @@ from src.utils import (
 )
 from src.utils.architecture_utils import (
     ArchitectureMetadataExtractor,
-    create_spectrogram_transforms,
     configure_vimh_model,
+    create_spectrogram_transforms,
 )
 
 log = RankedLogger(__name__, rank_zero_only=True)
@@ -69,7 +83,7 @@ def _setup_datamodule_with_transforms(cfg: DictConfig) -> LightningDataModule:
     """Setup datamodule with appropriate transforms for the dataset type."""
     datamodule_kwargs = {}
 
-    if 'vimh' in cfg.data._target_.lower():
+    if "vimh" in cfg.data._target_.lower():
         # Use shared spectrogram transforms utility
         transforms_kwargs, log_message = create_spectrogram_transforms()
         datamodule_kwargs.update(transforms_kwargs)
@@ -78,20 +92,26 @@ def _setup_datamodule_with_transforms(cfg: DictConfig) -> LightningDataModule:
     return hydra.utils.instantiate(cfg.data, **datamodule_kwargs)
 
 
-def _preflight_check_label_diversity(datamodule: LightningDataModule, max_batches: int = 3) -> None:
+def _preflight_check_label_diversity(
+    datamodule: LightningDataModule, max_batches: int = 3
+) -> None:
     """Validate that training labels vary across a few batches per head.
 
     Raises a ValueError if any head shows a single unique class across the sampled batches.
     """
     try:
-        # Ensure setup ran so loaders are available
+        # Ensure setup ran so loaders are available; if setup fails, surface the error
         try:
             datamodule.setup("fit")
-        except Exception:
-            # If the Trainer will call setup later, it's still OK — we just need loaders now
-            pass
+        except Exception as e:
+            # If setup fails (e.g., dataset missing), don't proceed with preflight
+            raise
 
         loader = datamodule.train_dataloader()
+        if loader is None:
+            # No loader available yet; skip preflight quietly
+            log.info("Preflight skipped: train_dataloader not available")
+            return
         it = iter(loader)
         uniques: Dict[str, set] = {}
         sampled = 0
@@ -106,7 +126,12 @@ def _preflight_check_label_diversity(datamodule: LightningDataModule, max_batche
                 if head not in uniques:
                     uniques[head] = set()
                 try:
-                    if tens.ndim == 1 and tens.dtype in (torch.int8, torch.int16, torch.int32, torch.int64):
+                    if tens.ndim == 1 and tens.dtype in (
+                        torch.int8,
+                        torch.int16,
+                        torch.int32,
+                        torch.int64,
+                    ):
                         uniques[head].update(tens.tolist())
                 except Exception:
                     # Non-scalar labels or different dtype – skip diversity check for this head
@@ -116,7 +141,9 @@ def _preflight_check_label_diversity(datamodule: LightningDataModule, max_batche
         for head in sorted(uniques.keys()):
             vals = sorted(list(uniques[head]))
             preview = ", ".join(map(str, vals[:10])) + (" …" if len(vals) > 10 else "")
-            log.info(f"Preflight head '{head}': {len(vals)} unique label(s) across {sampled} batch(es): [{preview}]")
+            log.info(
+                f"Preflight head '{head}': {len(vals)} unique label(s) across {sampled} batch(es): [{preview}]"
+            )
 
         problems = [h for h, s in uniques.items() if len(s) <= 1]
         if problems:
@@ -126,8 +153,8 @@ def _preflight_check_label_diversity(datamodule: LightningDataModule, max_batche
                 f"Observed unique labels across {sampled} batch(es): {details}. "
                 f"This often indicates label decoding issues."
             )
-    except Exception as e:
-        # Re-raise with clearer context
+    except Exception:
+        # Re-raise to be handled by the caller with existing error handling/logging
         raise
 
 
@@ -147,12 +174,16 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         L.seed_everything(cfg.seed, workers=True)
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    
+
     # Setup datamodule with appropriate transforms
     datamodule: LightningDataModule = _setup_datamodule_with_transforms(cfg)
 
     # For VIMH datasets, configure model with parameter names from metadata
-    if 'vimh' in cfg.data._target_.lower() and hasattr(cfg.model, 'auto_configure_from_dataset') and cfg.model.auto_configure_from_dataset:
+    if (
+        "vimh" in cfg.data._target_.lower()
+        and hasattr(cfg.model, "auto_configure_from_dataset")
+        and cfg.model.auto_configure_from_dataset
+    ):
         # Note: model is instantiated below, so we'll configure it after instantiation
         pass
 
@@ -160,14 +191,20 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     model: LightningModule = hydra.utils.instantiate(cfg.model)
 
     # Configure VIMH model if needed (after instantiation)
-    if 'vimh' in cfg.data._target_.lower() and hasattr(cfg.model, 'auto_configure_from_dataset') and cfg.model.auto_configure_from_dataset:
+    if (
+        "vimh" in cfg.data._target_.lower()
+        and hasattr(cfg.model, "auto_configure_from_dataset")
+        and cfg.model.auto_configure_from_dataset
+    ):
         configure_vimh_model(model, datamodule, cfg)
 
     # Log important model configuration details
-    if hasattr(model, 'output_mode'):
+    if hasattr(model, "output_mode"):
         log.info(f"Model output mode: {model.output_mode}")
-    if hasattr(model, 'criteria') and model.criteria:
-        criteria_info = {name: type(criterion).__name__ for name, criterion in model.criteria.items()}
+    if hasattr(model, "criteria") and model.criteria:
+        criteria_info = {
+            name: type(criterion).__name__ for name, criterion in model.criteria.items()
+        }
         log.info(f"Model loss functions: {criteria_info}")
 
     log.info("Instantiating callbacks...")
@@ -191,9 +228,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if logger:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
-    
+
     # Extract and store architecture metadata for checkpoint reconstruction
-    if hasattr(model, 'net'):
+    if hasattr(model, "net"):
         metadata_extractor = ArchitectureMetadataExtractor()
         metadata_extractor.extract_and_store_metadata(model, datamodule)
 
@@ -202,9 +239,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         enabled = True
         batches = 3
         try:
-            if hasattr(cfg, 'preflight'):
-                enabled = getattr(cfg.preflight, 'enabled', True)
-                batches = getattr(cfg.preflight, 'label_diversity_batches', 3)
+            if hasattr(cfg, "preflight"):
+                enabled = getattr(cfg.preflight, "enabled", True)
+                batches = getattr(cfg.preflight, "label_diversity_batches", 3)
         except Exception:
             pass
 
@@ -252,25 +289,27 @@ def main(cfg: DictConfig) -> Optional[float]:
     extras(cfg)
 
     # Print the key configs being used
-    log.info("="*60)
+    log.info("=" * 60)
     # Extract config names from hydra context
     try:
         from hydra.core.hydra_config import HydraConfig
+
         hydra_cfg = HydraConfig.get()
-        model_config = hydra_cfg.runtime.choices.get('model', 'unknown')
-        data_config = hydra_cfg.runtime.choices.get('data', 'unknown') 
-        trainer_config = hydra_cfg.runtime.choices.get('trainer', 'unknown')
+        model_config = hydra_cfg.runtime.choices.get("model", "unknown")
+        data_config = hydra_cfg.runtime.choices.get("data", "unknown")
+        trainer_config = hydra_cfg.runtime.choices.get("trainer", "unknown")
     except:
         # Fallback if hydra context not available
-        model_config = 'unknown'
-        data_config = 'unknown'
-        trainer_config = 'unknown'
-    
+        model_config = "unknown"
+        data_config = "unknown"
+        trainer_config = "unknown"
+
     log.info(f"MODEL CONFIG:     {model_config} ({cfg.model._target_})")
-    data_dir = getattr(cfg.data, 'data_dir', 'unknown')
+    data_dir = getattr(cfg.data, "data_dir", "unknown")
     # Show relative path if it's under project root
     import os
-    if data_dir != 'unknown' and os.path.isabs(data_dir):
+
+    if data_dir != "unknown" and os.path.isabs(data_dir):
         try:
             data_dir = os.path.relpath(data_dir)
         except:
@@ -284,7 +323,7 @@ def main(cfg: DictConfig) -> Optional[float]:
     log.info(f"TAGS:             {cfg.get('tags', 'none')}")
     if cfg.get("seed"):
         log.info(f"SEED:             {cfg.seed}")
-    log.info("="*60)
+    log.info("=" * 60)
 
     # train the model
     metric_dict, _ = train(cfg)

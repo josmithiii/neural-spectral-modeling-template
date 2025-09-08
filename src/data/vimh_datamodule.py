@@ -571,15 +571,23 @@ class VIMHDataModule(LightningDataModule):
         # Check if VIMH dataset exists, generate if needed
         data_path = Path(self.hparams.data_dir)
 
-        # Check for required files
-        train_file = data_path / "train_batch"
-        test_file = data_path / "test_batch"
+        # Check for required files (support both pickle and binary formats)
+        pickle_train = data_path / "train_batch"
+        pickle_test = data_path / "test_batch"
+        binary_train = data_path / "train"
+        binary_test = data_path / "test"
         metadata_file = data_path / "vimh_dataset_info.json"
 
-        if not (train_file.exists() and test_file.exists() and metadata_file.exists()):
+        has_pickle = pickle_train.exists() and pickle_test.exists()
+        has_binary = binary_train.exists() and binary_test.exists()
+        has_metadata = metadata_file.exists()
+
+        if not has_metadata or not (has_pickle or has_binary):
             raise FileNotFoundError(
-                f"VIMH dataset not found at {self.hparams.data_dir}.\n"
-                f"Please generate a dataset using:\n\n"
+                f"VIMH dataset not found or incomplete at {self.hparams.data_dir}.\n"
+                f"Expected either pickle files ('train_batch' & 'test_batch') or binary files ('train' & 'test'),\n"
+                f"plus 'vimh_dataset_info.json'.\n\n"
+                f"If needed, generate a dataset using:\n\n"
                 f"    python generate_vimh.py\n\n"
                 f"Or to generate a dataset with specific dimensions matching your config:\n\n"
                 f"    python generate_vimh.py generate.height=32 generate.width=32 generate.channels=1\n\n"
