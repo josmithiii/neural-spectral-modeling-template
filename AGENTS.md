@@ -34,6 +34,7 @@
 
 ## Commit & Pull Request Guidelines
 
+- git add: only what was altered or added this session unless directed otherwise.
 - Commits: imperative mood, concise subject; optional scope (e.g., `train: fix audio eval`).
 - PRs: include description of changes, Hydra command(s) used, sample logs (`logs/train/runs/`), and linked issues.
 - Checklist: tests pass, `make format` clean, configs reproducible (pin overrides in the PR body).
