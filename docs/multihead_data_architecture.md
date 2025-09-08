@@ -149,17 +149,20 @@ class CIFAR100Strategy(MultiheadLabelStrategy):
 #### Label Generation Examples
 
 **MNIST Strategy**:
+
 - **Primary**: Original digit (0-9)
 - **Thickness**: Thin vs thick digits based on pixel density
 - **Smoothness**: Smooth vs rough based on edge complexity
 
 **CIFAR-10 Strategy**:
+
 - **Primary**: Original class (airplane, car, etc.)
 - **Domain**: Natural vs artificial objects
 - **Mobility**: Mobile vs stationary objects
 - **Size**: Large vs small typical object size
 
 **CIFAR-100 Strategy**:
+
 - **Primary**: Fine labels (specific objects)
 - **Coarse**: Coarse labels (object categories)
 - **Domain**: Indoor vs outdoor vs abstract
@@ -199,17 +202,20 @@ Do you have a dataset with real multihead labels?
 ### Specific Usage Guidelines
 
 #### Use `multihead_dataset_base.py` when:
+
 - ❌ **Never directly** - it's an abstract base class
 - ✅ **Inheriting** to create new multihead dataset types
 - ✅ **Understanding** the core multihead data format
 
 #### Use `generic_multihead_dataset.py` when:
+
 - ✅ **Loading real multihead datasets** (CIFAR-100-MH format)
 - ✅ **Unknown dataset formats** that need auto-detection
 - ✅ **Custom binary datasets** with embedded metadata
 - ✅ **Research with varied formats** - let auto-detection handle it
 
 #### Use `multihead_dataset.py` when:
+
 - ✅ **Learning/teaching multihead concepts** with familiar datasets
 - ✅ **Prototyping multihead architectures** quickly
 - ✅ **Synthetic label experiments** on standard datasets

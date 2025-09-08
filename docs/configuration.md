@@ -7,6 +7,7 @@ The Lightning-Hydra-Template-Extended uses Hydra for configuration management, e
 ## 🎛️ Configuration Architecture
 
 ### Hydra Configuration Hierarchy
+
 ```
 configs/
 ├── train.yaml                 # Main training configuration
@@ -22,6 +23,7 @@ configs/
 ```
 
 ### Configuration Composition
+
 Hydra composes configurations through the `defaults` list:
 
 ```yaml
@@ -47,12 +49,14 @@ defaults:
 ### 1. Configurable Loss Functions
 
 **Before** (hardcoded):
+
 ```python
 # In model code
 self.criterion = torch.nn.CrossEntropyLoss()
 ```
 
 **Now** (configurable):
+
 ```yaml
 # configs/model/*.yaml
 criterion:
@@ -68,6 +72,7 @@ criterion:
 ### 2. Architecture-Specific Patterns
 
 **Model Configuration Template**:
+
 ```yaml
 # configs/model/{architecture}.yaml
 _target_: src.models.mnist_module.MNISTLitModule
@@ -98,6 +103,7 @@ compile: false
 ### 3. Multihead Configuration
 
 **Multihead Model Pattern**:
+
 ```yaml
 # configs/model/mnist_multihead_cnn_422k.yaml
 _target_: src.models.mnist_module.MNISTLitModule
@@ -137,7 +143,6 @@ net:
   - `python src/train.py preflight.label_diversity_batches=5`
 - Note: the dataloader also checks per-batch label diversity; it asserts during training and only warns during validation/test.
 
-
 ## 🧪 Experiment Configuration System
 
 ### What are Experiment Configs?
@@ -151,13 +156,13 @@ Experiment configs provide complete, reproducible specifications for research:
 
 ### When to Use Each Approach
 
-| Use Case | Command-Line Overrides | Experiment Configs |
-|----------|----------------------|-------------------|
-| **Quick exploration** | ✅ `python src/train.py model=mnist_cnn` | ❌ Too rigid |
-| **Parameter testing** | ✅ `python src/train.py model.optimizer.lr=0.01` | ❌ Overkill |
-| **Reproducible research** | ❌ Hard to reproduce exactly | ✅ Fixed configuration |
-| **Paper results** | ❌ Parameters can vary | ✅ Version controlled |
-| **Baseline comparisons** | ❌ Inconsistent setup | ✅ Standardized |
+| Use Case                  | Command-Line Overrides                           | Experiment Configs     |
+| ------------------------- | ------------------------------------------------ | ---------------------- |
+| **Quick exploration**     | ✅ `python src/train.py model=mnist_cnn`         | ❌ Too rigid           |
+| **Parameter testing**     | ✅ `python src/train.py model.optimizer.lr=0.01` | ❌ Overkill            |
+| **Reproducible research** | ❌ Hard to reproduce exactly                     | ✅ Fixed configuration |
+| **Paper results**         | ❌ Parameters can vary                           | ✅ Version controlled  |
+| **Baseline comparisons**  | ❌ Inconsistent setup                            | ✅ Standardized        |
 
 ### Experiment Configuration Structure
 
@@ -210,6 +215,7 @@ logger:
 ### 1. Systematic Hyperparameter Organization
 
 **Learning Rate Experiments**:
+
 ```bash
 # Test different learning rates
 python src/train.py model.optimizer.lr=0.01 tags="[lr_study,0.01]"
@@ -218,6 +224,7 @@ python src/train.py model.optimizer.lr=0.0001 tags="[lr_study,0.0001]"
 ```
 
 **Architecture Comparison**:
+
 ```bash
 # Same hyperparameters, different architectures
 python src/train.py experiment=baseline_config model=mnist_cnn tags="[arch_study,cnn]"
@@ -228,6 +235,7 @@ python src/train.py experiment=baseline_config model=mnist_vit_210k tags="[arch_
 ### 2. Hierarchical Configuration Strategy
 
 **Base Configuration**:
+
 ```yaml
 # configs/experiment/_base_mnist.yaml
 defaults:
@@ -243,6 +251,7 @@ data:
 ```
 
 **Specific Experiments**:
+
 ```yaml
 # configs/experiment/mnist_cnn_study.yaml
 defaults:
@@ -258,6 +267,7 @@ model:
 ### 3. Environment-Specific Configuration
 
 **Local Configuration** (not version controlled):
+
 ```yaml
 # configs/local/default.yaml
 # @package _global_
@@ -272,7 +282,7 @@ data:
   pin_memory: true
 
 trainer:
-  accelerator: mps  # or gpu, cpu
+  accelerator: mps # or gpu, cpu
 ```
 
 ## 🔄 Dynamic Configuration
@@ -280,6 +290,7 @@ trainer:
 ### Command-Line Overrides
 
 **Basic Overrides**:
+
 ```bash
 # Simple parameter changes
 python src/train.py trainer.max_epochs=20
@@ -291,6 +302,7 @@ python src/train.py trainer.max_epochs=20 model.optimizer.lr=0.01 data.batch_siz
 ```
 
 **Adding New Parameters**:
+
 ```bash
 # Add new parameters with +
 python src/train.py +model.new_param="value"
@@ -298,6 +310,7 @@ python src/train.py +trainer.new_flag=true
 ```
 
 **Removing Parameters**:
+
 ```bash
 # Remove parameters with ~
 python src/train.py ~model.scheduler
@@ -307,6 +320,7 @@ python src/train.py ~callbacks
 ### Variable Interpolation
 
 **Referencing Other Config Values**:
+
 ```yaml
 # configs/experiment/example.yaml
 batch_size: 64
@@ -322,6 +336,7 @@ logger:
 ```
 
 **Environment Variables**:
+
 ```yaml
 # Reference environment variables
 data_dir: ${oc.env:DATA_DIR,/default/path}
@@ -331,6 +346,7 @@ wandb_project: ${oc.env:WANDB_PROJECT,"default_project"}
 ## 🏷️ Tagging Strategy
 
 ### Hierarchical Tagging
+
 ```yaml
 tags: ["dataset", "architecture", "experiment_type", "version"]
 
@@ -341,6 +357,7 @@ tags: ["mnist", "multihead", "research", "v1"]
 ```
 
 ### Filtering and Analysis
+
 ```bash
 # Filter by tags in logs/experiments
 ls logs/train/runs/ | grep "mnist.*cnn"
@@ -350,6 +367,7 @@ ls logs/train/runs/ | grep "baseline.*v1"
 ## 🎨 Advanced Configuration Patterns
 
 ### 1. Conditional Configuration
+
 ```yaml
 # configs/model/adaptive_model.yaml
 defaults:
@@ -357,14 +375,15 @@ defaults:
 
 # Override based on data
 net:
-  input_channels: ???  # Will be set by data module
+  input_channels: ??? # Will be set by data module
 
 # Conditional parameters
 optimizer:
-  lr: ${oc.select:net.input_channels,0.001}  # Different LR for different inputs
+  lr: ${oc.select:net.input_channels,0.001} # Different LR for different inputs
 ```
 
 ### 2. Configuration Validation
+
 ```yaml
 # configs/experiment/validated_experiment.yaml
 # @package _global_
@@ -374,9 +393,9 @@ defaults:
   - override /model: mnist_cnn_421k
 
 # Validation constraints
-_target_: ???  # Must be specified
+_target_: ??? # Must be specified
 trainer:
-  max_epochs: ???  # Must be specified
+  max_epochs: ??? # Must be specified
 
 # With defaults
 model:
@@ -385,6 +404,7 @@ model:
 ```
 
 ### 3. Sweeps and Hyperparameter Search
+
 ```yaml
 # configs/hparams_search/mnist_optuna.yaml
 # @package _global_
@@ -405,6 +425,7 @@ hydra:
 ```
 
 **Usage**:
+
 ```bash
 python src/train.py -m hparams_search=mnist_optuna experiment=example
 ```
@@ -412,6 +433,7 @@ python src/train.py -m hparams_search=mnist_optuna experiment=example
 ## 🔍 Configuration Debugging
 
 ### 1. Print Resolved Configuration
+
 ```bash
 # See final configuration
 python src/train.py --cfg job
@@ -422,12 +444,14 @@ python src/train.py --cfg job --package data
 ```
 
 ### 2. Validate Configuration
+
 ```bash
 # Check for errors without running
 python src/train.py --cfg job trainer.max_epochs=0
 ```
 
 ### 3. Configuration Diff
+
 ```bash
 # Compare configurations
 python src/train.py --cfg job > config1.yaml
@@ -438,6 +462,7 @@ diff config1.yaml config2.yaml
 ## 📊 Configuration Management Workflow
 
 ### 1. Development Phase
+
 ```bash
 # Quick iteration with overrides
 python src/train.py model=mnist_cnn trainer.max_epochs=5
@@ -445,6 +470,7 @@ python src/train.py model=mnist_cnn model.optimizer.lr=0.01 trainer.max_epochs=5
 ```
 
 ### 2. Experimentation Phase
+
 ```bash
 # Create experiment configs for promising combinations
 # Save as configs/experiment/my_experiment.yaml
@@ -452,6 +478,7 @@ python src/train.py experiment=my_experiment
 ```
 
 ### 3. Production Phase
+
 ```bash
 # Use stable experiment configs
 python src/train.py experiment=production_baseline
@@ -461,6 +488,7 @@ python src/train.py experiment=production_advanced
 ## 🔗 Integration Points
 
 The configuration system integrates with:
+
 - **Lightning modules**: Automatic parameter injection
 - **Data modules**: Dynamic configuration based on data properties
 - **Callbacks**: Configurable training behavior

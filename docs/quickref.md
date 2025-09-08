@@ -3,6 +3,7 @@
 Expert power-user cheat sheet. No fluff.
 
 ## Make Targets (Essential)
+
 ```bash
 # SETUP
 make h            # Show all targets
@@ -40,22 +41,25 @@ make tensorboard  # Launch TensorBoard
 ```
 
 ## Architectures
-| Name | Type | Params | Best For | Config |
-|------|------|--------|----------|--------|
-| CNN Micro | CNN | ~8K | Quick prototyping | `cnn_micro` |
-| CNN 64K | CNN | ~64K | Standard spectral | `cnn_64k` |
-| EfficientNet | CNN | Variable | Complex features | `efficientnet_*` |
-| ViT | Transformer | Variable | Global patterns | `vit_*` |
-| ConvNeXt | CNN | Variable | Modern CNN | `convnext_*` |
+
+| Name         | Type        | Params   | Best For          | Config           |
+| ------------ | ----------- | -------- | ----------------- | ---------------- |
+| CNN Micro    | CNN         | ~8K      | Quick prototyping | `cnn_micro`      |
+| CNN 64K      | CNN         | ~64K     | Standard spectral | `cnn_64k`        |
+| EfficientNet | CNN         | Variable | Complex features  | `efficientnet_*` |
+| ViT          | Transformer | Variable | Global patterns   | `vit_*`          |
+| ConvNeXt     | CNN         | Variable | Modern CNN        | `convnext_*`     |
 
 ## Datasets
-| Dataset | Size | Type | Use Case |
-|---------|------|------|----------|
-| VIMH-256 | 256 samples | Synthetic multihead | Quick prototyping |
-| VIMH-16KDSS | 16K samples | Audio spectrograms | Full training |
-| Moog VCF | Variable | Filter parameter regression | Audio synthesis |
+
+| Dataset     | Size        | Type                        | Use Case          |
+| ----------- | ----------- | --------------------------- | ----------------- |
+| VIMH-256    | 256 samples | Synthetic multihead         | Quick prototyping |
+| VIMH-16KDSS | 16K samples | Audio spectrograms          | Full training     |
+| Moog VCF    | Variable    | Filter parameter regression | Audio synthesis   |
 
 ## Common Commands
+
 ```bash
 # Basic training with MPS (Mac)
 python src/train.py trainer=mps
@@ -77,6 +81,7 @@ python src/audio_reconstruction_eval.py interactive=true num_samples=5
 ```
 
 ## File Structure
+
 ```
 ├── src/
 │   ├── train.py              # Main training
@@ -96,6 +101,7 @@ python src/audio_reconstruction_eval.py interactive=true num_samples=5
 ```
 
 ## Expert Tips
+
 - Use `trainer=mps` for Mac training (nearly always)
 - Set `num_workers: 0` in data configs for MPS compatibility
 - VIMH datasets can be created using `generate_vimh.py`

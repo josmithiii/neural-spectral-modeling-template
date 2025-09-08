@@ -32,6 +32,7 @@ make tq
 ```
 
 **Expected `make tq` Results**:
+
 - Tests pass without errors
 - SimpleDenseNet trains for 1 epoch (~30 seconds)
 - Final accuracy around 56-60% on MNIST
@@ -55,6 +56,7 @@ make tqa
 ```
 
 **Expected Results**:
+
 - SimpleDenseNet: ~56% accuracy
 - SimpleCNN: ~74% accuracy
 - ViT: ~65% accuracy
@@ -74,6 +76,7 @@ make ca
 ```
 
 **Expected Results**:
+
 - Better convergence patterns visible
 - CNN shows consistent improvement
 - ConvNeXt demonstrates efficiency
@@ -123,6 +126,7 @@ make emhcm
 ```
 
 **Expected Results**:
+
 - Digit classification: ~99.1%
 - Thickness classification: ~99.2%
 - Smoothness classification: ~99.2%
@@ -143,6 +147,7 @@ make cbqa
 ```
 
 **Expected Results**:
+
 - 5-epoch results for sanity checking
 - CNN: ~45%, ConvNeXt: ~42%
 - Validates data loading and basic training
@@ -189,6 +194,7 @@ make cbs10
 ```
 
 **Expected Results**:
+
 - CNN: 85-92%
 - ConvNeXt: 90-95% (best)
 - ViT: 88-93%
@@ -394,6 +400,7 @@ python examples/vimh_training.py --demo --save-plots
 ## 📚 Appendix: Troubleshooting Common Issues
 
 ### Environment Issues
+
 ```bash
 # If you see "No module named 'rootutils'"
 source .venv/bin/activate.csh
@@ -403,6 +410,7 @@ make c && make cl
 ```
 
 ### Training Issues
+
 ```bash
 # For MPS/Mac users (most common setup)
 python src/train.py trainer=mps data.num_workers=0
@@ -412,6 +420,7 @@ python src/train.py data.batch_size=32
 ```
 
 ### Debugging
+
 ```bash
 # Run tests to verify everything works
 make t

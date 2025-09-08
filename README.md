@@ -15,36 +15,36 @@ Neural Networks (CNN) and Vision Transformer (ViT).
 
 The NSTM treats all images as _spectral representations_ for audio.
 This means that the image _height_ and _width_ are typically
-interpreted as _frequency_ and _time_, respectively.  The _channel
+interpreted as _frequency_ and _time_, respectively. The _channel
 dimension_ (typically color channels in images), is generally used for
 _alternate spectral representations_ such as
 
-* Alternate time-frequency resolutions (spectrograms with different settings),
-* Instantaneous Frequency (time-derivative of the spectral phase)
-* Group Delay (frequency-derivative of the spectral phase), 
-* Modulation Spectra (spectrogram of the spectrogram modules), 
+- Alternate time-frequency resolutions (spectrograms with different settings),
+- Instantaneous Frequency (time-derivative of the spectral phase)
+- Group Delay (frequency-derivative of the spectral phase),
+- Modulation Spectra (spectrogram of the spectrogram modules),
 
 and so on.
 
 Some might note that we don't _need_ alternative input
 representations, or even spectrograms, because a large neural network
-can learn to compute them when needed.  In principle, the input to the
+can learn to compute them when needed. In principle, the input to the
 network can be an undifferentiated _bit stream_ containing the audio.
 However, such "end-to-end" approaches require much more computation
 and training data, as the examples here will show.
 
 Thus, the purpose of the NSMT spectra-based approach is to facilitate
 _small, accurate, and fast_ neural networks for audio processing and
-classification.  We accept the inductive priors of human hearing, and
+classification. We accept the inductive priors of human hearing, and
 in return we get to use more efficient neural architectures such as
-the CNNs with conditioning inputs.  The examples will illustrate the
+the CNNs with conditioning inputs. The examples will illustrate the
 benefits of this choice for selected audio tasks.
 
 The NSMT project uses only the Variable Image Multi-Head (VIMH)
-dataset format from the LHTE.  (The LHT supports MNIST datasets, and
+dataset format from the LHTE. (The LHT supports MNIST datasets, and
 the
 [LHTE](https://github.com/josmithiii/lightning-hydra-template-extended.git).
-adds CIFAR and VIMH support to that.)  The CIFAR and MNIST support can
+adds CIFAR and VIMH support to that.) The CIFAR and MNIST support can
 be dropped here because VIMH can support those image resolutions,
 channel depths, and metadata, as special cases.
 
@@ -64,7 +64,7 @@ make h
 # Generate small synthetic dataset (256 samples)
 make sds    # or: python generate_vimh.py --config-name=synth/generate_simple_saw
 
-# Generate large synthetic dataset (16k samples)  
+# Generate large synthetic dataset (16k samples)
 make sdl    # or: python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384
 
 # Generate all Moog VCF datasets (basic, envelope, resonance)
@@ -157,6 +157,7 @@ make lc     # list all model, data, experiment configs
 ### 📊 Dataset Format
 
 VIMH datasets use a structured format with:
+
 - **Images**: Variable dimensions (e.g., 32x32x3, 28x28x1)
 - **Labels**: `[N] [param1_id] [param1_val] [param2_id] [param2_val] ...`
 - **Metadata**: JSON file with parameter mappings and dataset info
