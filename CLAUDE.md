@@ -16,136 +16,117 @@ This is the Neural Spectral Modeling Template (NSMT), a fork of the Lightning-Hy
 ## Common Commands
 
 ### Training
+
 ```bash
-# Basic training
-python src/train.py
+# Set up the environment (uv)
+sh setup.sh
 
-# Train with specific trainer (CPU/GPU/MPS)
-python src/train.py trainer=cpu
-python src/train.py trainer=gpu
-python src/train.py trainer=mps
+# Look over all make targets available
+make h
 
-# Train with experiment config
-python src/train.py experiment=example
+# ===== DATASET GENERATION =====
 
-# Makefile shortcuts
-make train          # or make t - basic training
-make trainmps       # or make tmps - train with MPS on Mac
-make help           # generate the list of make targets
-```
+# Generate small synthetic dataset (256 samples)
+make sds    # or: python generate_vimh.py --config-name=synth/generate_simple_saw
 
-### Testing
-```bash
-# Run tests (excluding slow tests)
-pytest -k "not slow"
-make test
+# Generate large synthetic dataset (16k samples)
+make sdl    # or: python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384
 
-# Run all tests
-pytest
-make test-all
+# Generate all Moog VCF datasets (basic, envelope, resonance)
+make sdma
 
-# Run specific test file
-pytest tests/test_train.py
-```
+# ===== DATASET DISPLAY =====
 
-### Code Quality
-```bash
-# Run pre-commit hooks (formatting, linting)
-pre-commit run -a
-make format
-```
+# Display most recently created dataset
+make ddr    # or: python display_vimh.py
 
-### Evaluation
-```bash
-# Evaluate checkpoint
-python src/eval.py ckpt_path="/path/to/checkpoint.ckpt"
-```
+# Display specific datasets
+make dds    # small dataset
+make ddl    # large dataset
 
-### Environment Management
-```bash
-source .venv/bin/activate.csh
+# ===== TRAINING EXPERIMENTS =====
 
-# Alternative activation shortcuts (see Makefile)
-make activate    # Shows alias setup for 'a' command
-make deactivate  # Shows alias setup for 'd' command
-```
+# Quick example experiment
+make ex     # CNN on default dataset
 
-### Visualization and Analysis
-```bash
-# Generate model architecture diagrams
-make td          # Text + graphical diagrams
-make tda         # All model architectures
-make tds         # Simple text-only diagrams  
-make tdss        # Sample architectures comparison
+# Trivial dataset experiments (small models for testing)
+make etms   # Micro CNN (~2K params) on small dataset, ordinal classification output
+make etmsr  # Micro CNN (~2K params) on small dataset, regression output (1 float/head)
+make etts   # Tiny CNN (~8K params) on small dataset
+make etml   # Micro CNN on large dataset
+make ettl   # Tiny CNN on large dataset
+make etall  # Run all trivial experiments
 
-# Compare architectures systematically (3 epochs each)
-make ca          # Compare medium-sized architectures
-```
+# ViT experiments on trivial datasets
+make evitms # Micro ViT (~8K params) on small dataset
+make evitts # Tiny ViT (~25K params) on small dataset
+make evitall # Run all ViT trivial experiments
 
-### Extended Training Commands
-```bash
-# Quick training (1 epoch, limited batches)
-make tq          # SimpleDenseNet quick
-make tqc         # CNN quick
-make tqv         # ViT quick
-make tqcn        # ConvNeXt quick
-make tqa         # All architectures quick
+# Moog VCF experiments (CNN)
+make emb    # Basic Moog VCF (4 params)
+make eme    # Moog envelope sweep (10 params), ordinal classification output
+make emer   # Moog envelope sweep (10 params), regression output
+make emr    # High-resonance Moog (8 params)
+make emall  # Generate datasets + train all Moog CNNs
 
-# Specific architecture training
-make trc         # Train CNN (SimpleCNN)
-make trvs        # Train small ViT (~38K params)
-make trcns       # Train ConvNeXt small (~68K params)
-```
+# Moog VCF experiments (ViT)
+make emvitb # ViT on basic Moog VCF
+make emvite # ViT on Moog envelope
+make emvitr # ViT on high-resonance Moog
+make emvitgta # Generate + train all Moog ViTs
 
-### VIMH (Variable Image MultiHead) Training
-```bash
-# VIMH dataset experiments
-make evimh       # VIMH CNN basic training
-make evimh16k    # VIMH CNN 16K dataset samples
-make evimho      # VIMH ordinal regression  
-make evimhr      # VIMH pure regression heads
-make evimhstk    # VIMH STK dataset training
+# ===== DIRECT TRAINING =====
 
-# Direct VIMH training
-python src/train.py experiment=cnn_16kdss
-python examples/vimh_training.py --demo --save-plots
-```
+# Train with default config
+make tr     # or: python src/train.py
 
-### Dataset Generation
-```bash
-# Generate default VIMH dataset for testing
-python generate_vimh.py
+# Quick sanity check (1 epoch)
+make trq    # or: python src/train.py trainer.max_epochs=1
 
-# Generate with options
-python generate_vimh.py --pickle           # Include pickle format
-python generate_vimh.py --shuffle          # Shuffle sample order
-python generate_vimh.py --temporal-envelope --spectral-envelope  # Add envelope channels
-```
+# Train on specific datasets
+make trs    # small dataset
+make trl    # large dataset
 
-### Utilities
-```bash
-# Clean generated files
-make clean       # Clean autogenerated files
-make dclean      # Clean data files
-make clean-logs  # Clean logs only
+# ===== TESTING & VISUALIZATION =====
 
-# List available configurations
-make list-configs  # List all model, data, and experiment configs
+# Run tests
+make t      # fast tests only
+make ta     # all tests
+
+# Generate model diagrams
+make td     # enhanced diagrams for all architectures
+make tds    # simple text-only diagrams
+make tdl    # list available model configs
+
+# ===== UTILITIES =====
+
+# Audio evaluation of latest checkpoint
+make ae
+
+# Clean up
+make c      # clean all autogenerated files
+make dc     # clean data files only
+make cl     # clean logs only
+
+# Code formatting
+make f      # run pre-commit hooks
 
 # TensorBoard
-make tensorboard  # Launch TensorBoard on port 6006
+make tb     # launch on port 6006
+
+# List configurations
+make lc     # list all model, data, experiment configs
+
 ```
 
 ### Environment Management
+
 ```bash
 source .venv/bin/activate.csh
-
-# Alternative activation shortcuts (see Makefile)
-make activate    # Shows alias setup for 'a' command
-make deactivate  # Shows alias setup for 'd' command
 ```
 
 ## Troubleshooting Notes
+
 - When you see "No module named 'rootutils'", run `source .venv/bin/activate.csh`
 - Use MPS trainer for Mac: `python src/train.py trainer=mps` (nearly always used by user)
 - For VIMH training, set `num_workers: 0` in data config as MPS doesn't support multiprocessing
@@ -154,7 +135,9 @@ make deactivate  # Shows alias setup for 'd' command
 ## Architecture Overview
 
 ### Extended Template Features
+
 This is the **Neural Spectral Modeling Template (NSMT)** with specialized audio processing features:
+
 - **Audio-focused**: Treats images as spectral representations (height=frequency, width=time)
 - **VIMH (Variable Image MultiHead)**: Advanced multihead dataset format with auto-configuration
 - **Spectral processing**: EfficientLeaf spectrograms, temporal/spectral envelopes, pre-emphasis filtering
@@ -164,10 +147,11 @@ This is the **Neural Spectral Modeling Template (NSMT)** with specialized audio 
 - **Make targets**: Convenient shortcuts for training, testing, and visualization
 
 ### Configuration System (Hydra)
+
 - **Main configs**: `configs/train.yaml` and `configs/eval.yaml` define default training/evaluation settings
 - **Modular configs**: Organized by component type in `configs/` subdirectories:
-  - `data/`: VIMH data module configurations (vimh, vimh_16kdss, vimh_stk)
-  - `model/`: CNN model configurations with different parameter counts (64K, STK variants)
+  - `data/`: VIMH data module configurations (vimh)
+  - `model/`: CNN model configurations with different parameter counts (micro, tiny, 64K variants)
   - `trainer/`: Lightning trainer configurations (CPU, GPU, MPS, DDP)
   - `callbacks/`: Training callbacks (progress bars, early stopping, checkpointing)
   - `logger/`: Logging configurations (TensorBoard, WandB, MLflow, etc.)
@@ -177,6 +161,7 @@ This is the **Neural Spectral Modeling Template (NSMT)** with specialized audio 
 - **Auto-configuration**: VIMH models auto-configure from dataset metadata
 
 ### Code Structure
+
 - **`src/train.py`**: Main training entry point using Hydra configuration
 - **`src/eval.py`**: Evaluation entry point for trained models
 - **`src/models/`**: Lightning modules with multihead support and spectral-optimized architectures
@@ -186,6 +171,7 @@ This is the **Neural Spectral Modeling Template (NSMT)** with specialized audio 
 - **Dynamic instantiation**: Uses `hydra.utils.instantiate()` to create objects from config `_target_` paths
 
 ### Key Patterns
+
 - **Multihead modules**: Extend Lightning modules with multiple prediction heads for parameter regression
 - **VIMH datasets**: Handle variable image dimensions with metadata-driven auto-configuration
 - **Spectral processing**: EfficientLeaf STFT/mel spectrograms with configurable frequency binning
@@ -194,11 +180,12 @@ This is the **Neural Spectral Modeling Template (NSMT)** with specialized audio 
 - **Hyperparameter logging**: All init parameters automatically saved via `self.save_hyperparameters()`
 
 ### Project Structure
+
 ```
 ├── configs/              # Hydra configuration files (data, model, experiment, etc.)
 ├── src/
 │   ├── train.py         # Main training script
-│   ├── eval.py          # Evaluation script  
+│   ├── eval.py          # Evaluation script
 │   ├── models/          # Multihead Lightning modules
 │   ├── data/            # VIMH data modules
 │   └── utils/           # Synthesis and processing utilities
@@ -211,6 +198,7 @@ This is the **Neural Spectral Modeling Template (NSMT)** with specialized audio 
 ```
 
 ### Dependencies and Tools
+
 - **Core ML**: `torch>=2.0.0`, `lightning>=2.0.0`, `torchmetrics>=0.11.4`, `torchvision>=0.15.0`
 - **Config**: `hydra-core==1.3.2`, `hydra-colorlog==1.2.0`, `hydra-optuna-sweeper==1.2.0`
 - **Utilities**: `rootutils` (project root setup), `rich` (terminal formatting)
@@ -239,4 +227,4 @@ This is the **Neural Spectral Modeling Template (NSMT)** with specialized audio 
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless they're absolutely necessary for achieving your goal
 - ALWAYS prefer editing an existing file to creating a new one
-- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User
+- NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User

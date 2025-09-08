@@ -25,7 +25,7 @@ loss_weights:
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
-  input_channels: 3 # VIMH typically has 3 color channels for spectrograms
+  input_channels: 3 # VIMH typically has 3 color channels for spectrograms with various resolutions
   conv1_channels: 64
   conv2_channels: 128
   fc_hidden: 512

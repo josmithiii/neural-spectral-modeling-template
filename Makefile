@@ -3,23 +3,23 @@ h help:  ## Show help
 
 # SYNTHETIC DATASET MAKE TARGETS "sd"
 
-sds synth-dataset-small: ## Synthesize a small example VIMH dataset (256 samples)
+sds synth-dataset-small: ## Synthesize a small example VIMH dataset with SawSynth (256 samples)
 	python generate_vimh.py --config-name=synth/generate_simple_saw
 	ls ./data/
 
-sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset (16k samples)
+sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset with SawSynth (16k samples)
 	python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384
 	ls ./data/
 
-sdmb synth-dataset-moog-basic: ## Synthesize VIMH dataset with basic Moog VCF (256 samples)
+sdmb synth-dataset-moog-basic: ## Synthesize VIMH dataset with basic Saw + Moog VCF (256 samples)
 	python generate_vimh.py --config-name=synth/generate_moog_basic
 	ls ./data/
 
-sdme synth-dataset-moog-envelope: ## Synthesize VIMH dataset with Moog envelope sweeps (512 samples)
+sdme synth-dataset-moog-envelope: ## Synthesize VIMH dataset with Saw + Moog envelope sweeps (512 samples)
 	python generate_vimh.py --config-name=synth/generate_moog_envelope
 	ls ./data/
 
-sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with high-resonance Moog exploration (384 samples)
+sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-resonance Moog exploration (384 samples)
 	python generate_vimh.py --config-name=synth/generate_moog_resonance
 	ls ./data/
 
@@ -185,7 +185,6 @@ tdsa test-diagram-simple-all: ## Generate simple diagrams for all architectures
 	python viz/simple_model_diagram.py --config cnn_64k_auxiliary
 	python viz/simple_model_diagram.py --config cnn_micro
 	python viz/simple_model_diagram.py --config cnn_tiny
-	python viz/simple_model_diagram.py --config cnn_stk
 	python viz/simple_model_diagram.py --config vit_micro
 	python viz/simple_model_diagram.py --config vit_tiny
 
