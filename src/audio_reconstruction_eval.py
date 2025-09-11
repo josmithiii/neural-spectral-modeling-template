@@ -1537,7 +1537,9 @@ class InteractiveAudioEvaluator:
                         elif system == "Linux":
                             subprocess.run(["aplay", tmp_path], check=True)
                         elif system == "Windows":
-                            subprocess.run(["start", tmp_path], shell=True, check=True)
+                            import os
+
+                            os.startfile(tmp_path)
 
                         success = True
                         print(f"   ✓ Played via system audio player")
@@ -1638,7 +1640,9 @@ class InteractiveAudioEvaluator:
                         elif system == "Linux":
                             subprocess.run(["aplay", tmp_path], check=True)
                         elif system == "Windows":
-                            subprocess.run(["start", tmp_path], shell=True, check=True)
+                            import os
+
+                            os.startfile(tmp_path)
 
                         success = True
                         print(f"   ✓ Played via system audio player")
