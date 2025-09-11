@@ -3,6 +3,7 @@
 import pytest
 import torch
 import torch.nn as nn
+
 from src.models.components.simple_cnn import SimpleCNN
 from src.models.losses import NormalizedRegressionLoss
 from src.models.vimh_lit_module import VIMHLitModule
@@ -17,19 +18,13 @@ class TestRegressionNetworkArchitecture:
             input_channels=3,
             output_mode="regression",
             parameter_names=["note_number", "note_velocity"],
-            parameter_ranges={
-                "note_number": (50.0, 52.0),
-                "note_velocity": (80.0, 82.0)
-            },
-            input_size=32
+            parameter_ranges={"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)},
+            input_size=32,
         )
 
         assert net.output_mode == "regression"
         assert net.parameter_names == ["note_number", "note_velocity"]
-        assert net.parameter_ranges == {
-            "note_number": (50.0, 52.0),
-            "note_velocity": (80.0, 82.0)
-        }
+        assert net.parameter_ranges == {"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)}
         assert net.is_multihead
         assert len(net.heads_config) == 2
         assert net.heads_config["note_number"] == 1
@@ -41,11 +36,8 @@ class TestRegressionNetworkArchitecture:
             input_channels=3,
             output_mode="regression",
             parameter_names=["note_number", "note_velocity"],
-            parameter_ranges={
-                "note_number": (50.0, 52.0),
-                "note_velocity": (80.0, 82.0)
-            },
-            input_size=32
+            parameter_ranges={"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)},
+            input_size=32,
         )
 
         batch_size = 4
@@ -68,11 +60,7 @@ class TestRegressionNetworkArchitecture:
     def test_regression_network_parameter_names_required(self):
         """Test that parameter_names is required for regression mode."""
         with pytest.raises(ValueError, match="parameter_names must be provided"):
-            SimpleCNN(
-                input_channels=3,
-                output_mode="regression",
-                input_size=32
-            )
+            SimpleCNN(input_channels=3, output_mode="regression", input_size=32)
 
     def test_regression_network_backward_compatibility(self):
         """Test that classification mode still works (backward compatibility)."""
@@ -80,7 +68,7 @@ class TestRegressionNetworkArchitecture:
             input_channels=3,
             output_mode="classification",
             heads_config={"note_number": 256, "note_velocity": 256},
-            input_size=32
+            input_size=32,
         )
 
         assert net.output_mode == "classification"
@@ -106,9 +94,7 @@ class TestNormalizedRegressionLoss:
     def test_normalized_regression_loss_initialization(self):
         """Test that NormalizedRegressionLoss initializes correctly."""
         loss_fn = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0),
-            loss_type="l1",
-            return_perceptual_units=True
+            param_range=(50.0, 52.0), loss_type="l1", return_perceptual_units=True
         )
 
         assert loss_fn.param_min == 50.0
@@ -126,9 +112,7 @@ class TestNormalizedRegressionLoss:
     def test_normalized_regression_loss_types(self, loss_type):
         """Test different loss types work correctly."""
         loss_fn = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0),
-            loss_type=loss_type,
-            return_perceptual_units=True
+            param_range=(50.0, 52.0), loss_type=loss_type, return_perceptual_units=True
         )
 
         # Test data
@@ -143,10 +127,7 @@ class TestNormalizedRegressionLoss:
 
     def test_normalized_regression_loss_unknown_type(self):
         """Test that unknown loss types raise errors."""
-        loss_fn = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0),
-            loss_type="unknown"
-        )
+        loss_fn = NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="unknown")
 
         preds = torch.tensor([[0.5]])
         targets = torch.tensor([51.0])
@@ -157,15 +138,11 @@ class TestNormalizedRegressionLoss:
     def test_normalized_regression_loss_perceptual_units(self):
         """Test that perceptual units scaling works correctly."""
         loss_fn_perceptual = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0),
-            loss_type="l1",
-            return_perceptual_units=True
+            param_range=(50.0, 52.0), loss_type="l1", return_perceptual_units=True
         )
 
         loss_fn_normalized = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0),
-            loss_type="mse",
-            return_perceptual_units=False
+            param_range=(50.0, 52.0), loss_type="mse", return_perceptual_units=False
         )
 
         # Test data
@@ -181,9 +158,7 @@ class TestNormalizedRegressionLoss:
     def test_normalized_regression_loss_target_clamping(self):
         """Test that targets are properly clamped to [0,1] range."""
         loss_fn = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0),
-            loss_type="l1",
-            return_perceptual_units=False
+            param_range=(50.0, 52.0), loss_type="l1", return_perceptual_units=False
         )
 
         # Test with target outside parameter range
@@ -204,22 +179,13 @@ class TestMultiheadRegressionModule:
             input_channels=3,
             output_mode="regression",
             parameter_names=["note_number", "note_velocity"],
-            parameter_ranges={
-                "note_number": (50.0, 52.0),
-                "note_velocity": (80.0, 82.0)
-            },
-            input_size=32
+            parameter_ranges={"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)},
+            input_size=32,
         )
 
         criteria = {
-            "note_number": NormalizedRegressionLoss(
-                param_range=(50.0, 52.0),
-                loss_type="l1"
-            ),
-            "note_velocity": NormalizedRegressionLoss(
-                param_range=(80.0, 82.0),
-                loss_type="l1"
-            )
+            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="l1"),
+            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), loss_type="l1"),
         }
 
         module = VIMHLitModule(
@@ -228,7 +194,7 @@ class TestMultiheadRegressionModule:
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria=criteria,
             output_mode="regression",
-            auto_configure_from_dataset=False
+            auto_configure_from_dataset=False,
         )
 
         assert module.output_mode == "regression"
@@ -241,22 +207,13 @@ class TestMultiheadRegressionModule:
             input_channels=3,
             output_mode="regression",
             parameter_names=["note_number", "note_velocity"],
-            parameter_ranges={
-                "note_number": (50.0, 52.0),
-                "note_velocity": (80.0, 82.0)
-            },
-            input_size=32
+            parameter_ranges={"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)},
+            input_size=32,
         )
 
         criteria = {
-            "note_number": NormalizedRegressionLoss(
-                param_range=(50.0, 52.0),
-                loss_type="l1"
-            ),
-            "note_velocity": NormalizedRegressionLoss(
-                param_range=(80.0, 82.0),
-                loss_type="l1"
-            )
+            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="l1"),
+            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), loss_type="l1"),
         }
 
         module = VIMHLitModule(
@@ -265,7 +222,7 @@ class TestMultiheadRegressionModule:
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria=criteria,
             output_mode="regression",
-            auto_configure_from_dataset=False
+            auto_configure_from_dataset=False,
         )
 
         # Test model step
@@ -273,7 +230,7 @@ class TestMultiheadRegressionModule:
         x = torch.randn(batch_size, 3, 32, 32)
         y = {
             "note_number": torch.tensor([51.0, 50.6, 51.4, 51.8]),
-            "note_velocity": torch.tensor([81.0, 80.3, 81.7, 80.9])
+            "note_velocity": torch.tensor([81.0, 80.3, 81.7, 80.9]),
         }
         batch = (x, y)
 
@@ -299,22 +256,13 @@ class TestMultiheadRegressionModule:
             input_channels=3,
             output_mode="regression",
             parameter_names=["note_number", "note_velocity"],
-            parameter_ranges={
-                "note_number": (50.0, 52.0),
-                "note_velocity": (80.0, 82.0)
-            },
-            input_size=32
+            parameter_ranges={"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)},
+            input_size=32,
         )
 
         criteria = {
-            "note_number": NormalizedRegressionLoss(
-                param_range=(50.0, 52.0),
-                loss_type="l1"
-            ),
-            "note_velocity": NormalizedRegressionLoss(
-                param_range=(80.0, 82.0),
-                loss_type="l1"
-            )
+            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="l1"),
+            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), loss_type="l1"),
         }
 
         module = VIMHLitModule(
@@ -323,7 +271,7 @@ class TestMultiheadRegressionModule:
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria=criteria,
             output_mode="regression",
-            auto_configure_from_dataset=False
+            auto_configure_from_dataset=False,
         )
 
         # Setup metrics
@@ -348,7 +296,7 @@ class TestMultiheadRegressionModule:
             output_mode="regression",
             parameter_names=["note_number"],
             parameter_ranges={"note_number": (50.0, 52.0)},
-            input_size=32
+            input_size=32,
         )
 
         module = VIMHLitModule(
@@ -357,7 +305,7 @@ class TestMultiheadRegressionModule:
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria={"note_number": nn.CrossEntropyLoss()},
             output_mode="regression",
-            auto_configure_from_dataset=False
+            auto_configure_from_dataset=False,
         )
 
         # Test different loss types
@@ -378,23 +326,14 @@ class TestRegressionModeIntegration:
             input_channels=3,
             output_mode="regression",
             parameter_names=["note_number", "note_velocity"],
-            parameter_ranges={
-                "note_number": (50.0, 52.0),
-                "note_velocity": (80.0, 82.0)
-            },
-            input_size=32
+            parameter_ranges={"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)},
+            input_size=32,
         )
 
         # Create loss functions
         criteria = {
-            "note_number": NormalizedRegressionLoss(
-                param_range=(50.0, 52.0),
-                loss_type="l1"
-            ),
-            "note_velocity": NormalizedRegressionLoss(
-                param_range=(80.0, 82.0),
-                loss_type="l1"
-            )
+            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="l1"),
+            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), loss_type="l1"),
         }
 
         # Create module
@@ -404,7 +343,7 @@ class TestRegressionModeIntegration:
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria=criteria,
             output_mode="regression",
-            auto_configure_from_dataset=False
+            auto_configure_from_dataset=False,
         )
 
         # Test training step
@@ -412,7 +351,7 @@ class TestRegressionModeIntegration:
         x = torch.randn(batch_size, 3, 32, 32)
         y = {
             "note_number": torch.tensor([51.0, 50.6, 51.4, 51.8]),
-            "note_velocity": torch.tensor([81.0, 80.3, 81.7, 80.9])
+            "note_velocity": torch.tensor([81.0, 80.3, 81.7, 80.9]),
         }
         batch = (x, y)
 
@@ -445,7 +384,7 @@ class TestRegressionModeIntegration:
             input_channels=3,
             output_mode="classification",
             heads_config={"note_number": 256, "note_velocity": 256},
-            input_size=32
+            input_size=32,
         )
 
         # Test regression mode
@@ -453,11 +392,8 @@ class TestRegressionModeIntegration:
             input_channels=3,
             output_mode="regression",
             parameter_names=["note_number", "note_velocity"],
-            parameter_ranges={
-                "note_number": (50.0, 52.0),
-                "note_velocity": (80.0, 82.0)
-            },
-            input_size=32
+            parameter_ranges={"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)},
+            input_size=32,
         )
 
         batch_size = 4

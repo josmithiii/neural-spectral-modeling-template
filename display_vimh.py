@@ -16,8 +16,8 @@ import numpy as np
 from matplotlib.widgets import Button
 from mpl_toolkits.mplot3d import Axes3D
 
-from src.utils.synth_utils import SimpleSawSynth
 from src.data.vimh_dataset import VIMHDataset
+from src.utils.synth_utils import SimpleSawSynth
 
 
 class VIMHViewer:
@@ -68,25 +68,23 @@ class VIMHViewer:
         # Force redraw of Figure 1 after all figures exist (for proper tab spacing)
         self.fig.canvas.draw()
 
-
-
     def get_sample_info(self, idx: int) -> Tuple[np.ndarray, Dict[str, Any]]:
         """Get spectrogram data and synthesis parameters for sample idx."""
         # Get the sample from the dataset (returns torch tensor in CHW format)
         sample_data = self.dataset[idx]
-        
+
         # Handle both 2-tuple (pickle format) and 3-tuple (binary format) cases
         if len(sample_data) == 2:
             image_tensor, labels_dict = sample_data
         else:
             image_tensor, labels_dict = sample_data[0], sample_data[1]
-        
+
         # Convert from CHW to HWC format for display
         spectrogram = image_tensor.permute(1, 2, 0).numpy()
-        
+
         # Get metadata for this sample
         sample_metadata = self.dataset._get_sample_metadata(idx)
-        
+
         # Extract synthesis parameters from the dataset info
         param_info = {
             "vimh_labels": sample_metadata.get("labels", {}),
@@ -101,18 +99,18 @@ class VIMHViewer:
         """Decode actual parameter values from labels dictionary."""
         params = {}
         param_mappings = self.dataset_info.get("parameter_mappings", {})
-        
+
         # Initialize all parameters to their minimum values
         for param_name, param_info in param_mappings.items():
             params[param_name] = param_info["min"]
-        
+
         # Decode quantized values back to actual parameter ranges
         for param_name, quantized_value in labels_dict.items():
             if param_name in param_mappings:
                 param_info = param_mappings[param_name]
                 min_val = param_info.get("min", 0)
                 max_val = param_info.get("max", 255)
-                
+
                 # Convert quantized value (0-255) to normalized (0-1) then to actual range
                 normalized_value = quantized_value / 255.0
                 actual_value = min_val + normalized_value * (max_val - min_val)
@@ -120,7 +118,7 @@ class VIMHViewer:
             else:
                 # If parameter not in mappings, store as-is
                 params[param_name] = quantized_value
-        
+
         return params
 
     def setup_plot(self):
@@ -132,7 +130,9 @@ class VIMHViewer:
         # Create layout: parameters (left), spectrogram (center), colorbar (right)
         # Increased left column width to prevent text overlap
         # NOTE: Due to matplotlib layout bug with tabs, initial display may cut off title - resize window to fix
-        gs = self.fig.add_gridspec(2, 3, width_ratios=[1.4, 2, 0.05], height_ratios=[4, 1], top=0.88, bottom=0.15)
+        gs = self.fig.add_gridspec(
+            2, 3, width_ratios=[1.4, 2, 0.05], height_ratios=[4, 1], top=0.88, bottom=0.15
+        )
 
         # Parameters text area
         self.ax_params = self.fig.add_subplot(gs[0, 0])
@@ -284,7 +284,11 @@ class VIMHViewer:
         spec_name = spectrogram_type.upper() if spectrogram_type else "Spectral"
 
         # Get channel label name
-        channel_label = self.channel_labels[self.channel] if self.channel < len(self.channel_labels) else f"Ch{self.channel}"
+        channel_label = (
+            self.channel_labels[self.channel]
+            if self.channel < len(self.channel_labels)
+            else f"Ch{self.channel}"
+        )
 
         title = f"Sample {self.current_idx + 1}/{self.total_samples}, Channel {self.channel} ({channel_label})\nVIMH Parameter Labels: [{labels_str}]"
         self.fig_3d.suptitle(
@@ -534,7 +538,11 @@ class VIMHViewer:
         labels = info["vimh_labels"]
         if labels:
             # For new dictionary format, count non-zero parameters
-            N = len([v for v in labels.values() if v != 0.0]) if isinstance(labels, dict) else len(labels)
+            N = (
+                len([v for v in labels.values() if v != 0.0])
+                if isinstance(labels, dict)
+                else len(labels)
+            )
             vimh_version = self.dataset_info.get("version", "1.0")
             param_text.append(f"VIMH FORMAT v{vimh_version}:")
             param_text.append(f"N={N} varying parameters")
@@ -578,13 +586,19 @@ class VIMHViewer:
 
         # Display spectrogram with dynamic title based on type and channel label
         spectrogram_type = self.dataset_info.get("spectrogram_config", {}).get("type", "mel")
-        spec_type_name = f"{spectrogram_type.upper()} Spectrogram" if spectrogram_type else "Spectrogram"
+        spec_type_name = (
+            f"{spectrogram_type.upper()} Spectrogram" if spectrogram_type else "Spectrogram"
+        )
 
         # Add channel label to title
         if len(spectrogram.shape) == 3:
             channels = spectrogram.shape[2]
             channel_idx = min(self.channel, channels - 1)
-            channel_label = self.channel_labels[channel_idx] if channel_idx < len(self.channel_labels) else f"Ch{channel_idx}"
+            channel_label = (
+                self.channel_labels[channel_idx]
+                if channel_idx < len(self.channel_labels)
+                else f"Ch{channel_idx}"
+            )
             spec_title = f"{spec_type_name} - {channel_label}"
         else:
             spec_title = spec_type_name
@@ -634,7 +648,11 @@ class VIMHViewer:
         cbar.set_label("Magnitude", rotation=270, labelpad=20)
 
         # Update navigation info with channel label
-        current_channel_label = self.channel_labels[self.channel] if self.channel < len(self.channel_labels) else f"Ch{self.channel}"
+        current_channel_label = (
+            self.channel_labels[self.channel]
+            if self.channel < len(self.channel_labels)
+            else f"Ch{self.channel}"
+        )
         nav_text = f"Left/Right: samples, Up/Down: channels, Q: quit, A: audio waterfall, Cmd+1/2/3: figures\nSample {self.current_idx + 1}/{self.total_samples}, Channel {self.channel + 1}/{self.num_channels} ({current_channel_label})"
         self.fig.text(0.5, 0.02, nav_text, ha="center", fontsize=10)
 

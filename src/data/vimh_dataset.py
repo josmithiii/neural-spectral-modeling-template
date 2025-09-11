@@ -1,10 +1,15 @@
 import json
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 import torch
+
+from ..utils.auxiliary_features import (
+    compute_temporal_envelope_from_spectrogram,
+    extract_auxiliary_features,
+)
 from .multihead_dataset_base import MultiheadDatasetBase
-from ..utils.auxiliary_features import extract_auxiliary_features, compute_temporal_envelope_from_spectrogram
 
 
 class VIMHDataset(MultiheadDatasetBase):
@@ -27,7 +32,7 @@ class VIMHDataset(MultiheadDatasetBase):
         transform: Optional[callable] = None,
         target_transform: Optional[callable] = None,
         target_width: float = 0.0,
-        auxiliary_features: Optional[list] = None
+        auxiliary_features: Optional[list] = None,
     ):
         """Initialize VIMH dataset.
 
@@ -49,20 +54,20 @@ class VIMHDataset(MultiheadDatasetBase):
         if data_path.is_dir():
             # Load from directory structure
             self.data_dir = data_path
-            self.metadata_file = self.data_dir / 'vimh_dataset_info.json'
-            
+            self.metadata_file = self.data_dir / "vimh_dataset_info.json"
+
             # Try both pickle and binary formats (pickle format first for backward compatibility)
             candidate_files = [
-                self.data_dir / ('train_batch' if train else 'test_batch'),  # pickle format
-                self.data_dir / ('train' if train else 'test')                # binary format
+                self.data_dir / ("train_batch" if train else "test_batch"),  # pickle format
+                self.data_dir / ("train" if train else "test"),  # binary format
             ]
-            
+
             self.batch_file = None
             for candidate in candidate_files:
                 if candidate.exists():
                     self.batch_file = candidate
                     break
-            
+
             if self.batch_file is None:
                 raise FileNotFoundError(
                     f"No {'training' if train else 'test'} data found in {self.data_dir}. "
@@ -72,7 +77,7 @@ class VIMHDataset(MultiheadDatasetBase):
             # Single file specified
             self.batch_file = data_path
             self.data_dir = data_path.parent
-            self.metadata_file = self.data_dir / 'vimh_dataset_info.json'
+            self.metadata_file = self.data_dir / "vimh_dataset_info.json"
 
         # Load metadata configuration
         metadata_format = self._load_metadata_config()
@@ -100,37 +105,46 @@ class VIMHDataset(MultiheadDatasetBase):
         update it and optionally write the updated value back to the dataset's
         `vimh_dataset_info.json`.
         """
-        if 'parameter_mappings' not in self.metadata_format:
+        if "parameter_mappings" not in self.metadata_format:
             return
 
         changed = False
-        for name, info in self.metadata_format['parameter_mappings'].items():
-            if not all(k in info for k in ('min', 'max', 'step')):
+        for name, info in self.metadata_format["parameter_mappings"].items():
+            if not all(k in info for k in ("min", "max", "step")):
                 continue
-            step = float(info['step'])
+            step = float(info["step"])
             if step <= 0:
                 continue
-            pmin, pmax = float(info['min']), float(info['max'])
+            pmin, pmax = float(info["min"]), float(info["max"])
             num = (pmax - pmin) / step
             steps = int(round(num))
             if abs(num - steps) > 1e-3:
-                print(f"Warning: parameter '{name}' (max-min)/step = {num} not integer; rounding to {steps}")
+                print(
+                    f"Warning: parameter '{name}' (max-min)/step = {num} not integer; rounding to {steps}"
+                )
             computed = steps + 1
-            if 'num_classes' not in info or int(info['num_classes']) != computed:
-                prev = info.get('num_classes', None)
-                self.metadata_format['parameter_mappings'][name]['num_classes'] = computed
+            if "num_classes" not in info or int(info["num_classes"]) != computed:
+                prev = info.get("num_classes", None)
+                self.metadata_format["parameter_mappings"][name]["num_classes"] = computed
                 changed = True
                 print(f"Info: set num_classes for '{name}': {prev} -> {computed}")
 
-        if changed and write_back and hasattr(self, 'metadata_file') and self.metadata_file.exists():
+        if (
+            changed
+            and write_back
+            and hasattr(self, "metadata_file")
+            and self.metadata_file.exists()
+        ):
             try:
-                with open(self.metadata_file, 'r') as f:
+                with open(self.metadata_file) as f:
                     meta = json.load(f)
-                if 'parameter_mappings' in meta:
-                    for name, info in self.metadata_format['parameter_mappings'].items():
-                        if name in meta['parameter_mappings']:
-                            meta['parameter_mappings'][name]['num_classes'] = info.get('num_classes')
-                with open(self.metadata_file, 'w') as f:
+                if "parameter_mappings" in meta:
+                    for name, info in self.metadata_format["parameter_mappings"].items():
+                        if name in meta["parameter_mappings"]:
+                            meta["parameter_mappings"][name]["num_classes"] = info.get(
+                                "num_classes"
+                            )
+                with open(self.metadata_file, "w") as f:
                     json.dump(meta, f, indent=2)
                 print(f"Updated num_classes in metadata file: {self.metadata_file}")
             except Exception as e:
@@ -144,48 +158,56 @@ class VIMHDataset(MultiheadDatasetBase):
         if not self.metadata_file.exists():
             # Provide default configuration
             return {
-                'format': 'VIMH',
-                'version': '1.0',
-                'parameter_names': ['param_0', 'param_1'],
-                'label_encoding': {
-                    'format': '[height] [width] [channels] [N] [param1_id] [param1_val] ...',
-                    'metadata_bytes': 6,
-                    'N_range': [0, 255],
-                    'param_id_range': [0, 255],
-                    'param_val_range': [0, 255]
-                }
+                "format": "VIMH",
+                "version": "1.0",
+                "parameter_names": ["param_0", "param_1"],
+                "label_encoding": {
+                    "format": "[height] [width] [channels] [N] [param1_id] [param1_val] ...",
+                    "metadata_bytes": 6,
+                    "N_range": [0, 255],
+                    "param_id_range": [0, 255],
+                    "param_val_range": [0, 255],
+                },
             }
 
         try:
-            with open(self.metadata_file, 'r') as f:
+            with open(self.metadata_file) as f:
                 metadata = json.load(f)
             return metadata
-        except (json.JSONDecodeError, IOError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             raise ValueError(f"Failed to load metadata from {self.metadata_file}: {e}")
 
     def _calculate_heads_config_from_metadata(self) -> None:
         """Calculate heads configuration from metadata parameter mappings if available."""
-        if 'parameter_mappings' in self.metadata_format:
-            param_mappings = self.metadata_format['parameter_mappings']
+        if "parameter_mappings" in self.metadata_format:
+            param_mappings = self.metadata_format["parameter_mappings"]
 
             # Only include varying parameters in heads_config
-            varying_params = self.metadata_format.get('parameter_names', [])
+            varying_params = self.metadata_format.get("parameter_names", [])
 
             # Derive number of classes from min/max/step for each varying parameter
             for param_name in varying_params:
                 if param_name in param_mappings:
                     param_info = param_mappings[param_name]
-                    if 'min' not in param_info or 'max' not in param_info or 'step' not in param_info:
-                        raise ValueError(f"Parameter '{param_name}' is missing min/max/step in metadata")
-                    pmin = float(param_info['min'])
-                    pmax = float(param_info['max'])
-                    step = float(param_info['step'])
+                    if (
+                        "min" not in param_info
+                        or "max" not in param_info
+                        or "step" not in param_info
+                    ):
+                        raise ValueError(
+                            f"Parameter '{param_name}' is missing min/max/step in metadata"
+                        )
+                    pmin = float(param_info["min"])
+                    pmax = float(param_info["max"])
+                    step = float(param_info["step"])
                     if step <= 0:
                         raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
                     num = (pmax - pmin) / step
                     num_steps = int(round(num))
                     if abs(num - num_steps) > 1e-3:
-                        print(f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {num_steps}")
+                        print(
+                            f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {num_steps}"
+                        )
                     self.heads_config[param_name] = num_steps + 1
 
     def _validate_dataset(self) -> None:
@@ -195,25 +217,29 @@ class VIMHDataset(MultiheadDatasetBase):
             raise FileNotFoundError(f"Dataset file not found: {self.batch_file}")
 
         # Validate format version if specified
-        if 'format' in self.metadata_format:
-            expected_format = 'VIMH'
-            actual_format = self.metadata_format.get('format')
+        if "format" in self.metadata_format:
+            expected_format = "VIMH"
+            actual_format = self.metadata_format.get("format")
             if actual_format != expected_format:
                 print(f"Warning: Expected format '{expected_format}', got '{actual_format}'")
 
         # Validate sample count matches metadata
-        if 'train_samples' in self.metadata_format and self.train:
-            expected_samples = self.metadata_format['train_samples']
+        if "train_samples" in self.metadata_format and self.train:
+            expected_samples = self.metadata_format["train_samples"]
             actual_samples = len(self.samples)
             if actual_samples != expected_samples:
-                print(f"Warning: Expected {expected_samples} training samples, got {actual_samples}")
-        elif 'test_samples' in self.metadata_format and not self.train:
-            expected_samples = self.metadata_format['test_samples']
+                print(
+                    f"Warning: Expected {expected_samples} training samples, got {actual_samples}"
+                )
+        elif "test_samples" in self.metadata_format and not self.train:
+            expected_samples = self.metadata_format["test_samples"]
             actual_samples = len(self.samples)
             if actual_samples != expected_samples:
                 print(f"Warning: Expected {expected_samples} test samples, got {actual_samples}")
 
-    def _create_soft_targets(self, class_index: int, num_classes: int, target_width: float) -> torch.Tensor:
+    def _create_soft_targets(
+        self, class_index: int, num_classes: int, target_width: float
+    ) -> torch.Tensor:
         """Create soft targets as Gaussian distribution around true class.
 
         :param class_index: True class index
@@ -227,7 +253,7 @@ class VIMHDataset(MultiheadDatasetBase):
         # Soft targets - Gaussian distribution
         class_indices = torch.arange(num_classes, dtype=torch.float32)
         distances = (class_indices - class_index) ** 2
-        weights = torch.exp(-distances / (2 * target_width ** 2))
+        weights = torch.exp(-distances / (2 * target_width**2))
         return weights / weights.sum()  # Normalize to probability distribution
 
     def _get_sample_metadata(self, idx: int) -> Dict[str, Any]:
@@ -249,15 +275,15 @@ class VIMHDataset(MultiheadDatasetBase):
 
         # Extract parameter information
         metadata = {
-            'sample_index': idx,
-            'labels': labels.copy(),
-            'image_shape': self.image_shape,
-            'dataset_type': 'train' if self.train else 'test'
+            "sample_index": idx,
+            "labels": labels.copy(),
+            "image_shape": self.image_shape,
+            "dataset_type": "train" if self.train else "test",
         }
 
         # Add parameter descriptions if available
-        if 'parameter_mappings' in self.metadata_format:
-            param_mappings = self.metadata_format['parameter_mappings']
+        if "parameter_mappings" in self.metadata_format:
+            param_mappings = self.metadata_format["parameter_mappings"]
             for param_name, param_value in labels.items():
                 if param_name in param_mappings:
                     mapping_info = param_mappings[param_name]
@@ -275,17 +301,17 @@ class VIMHDataset(MultiheadDatasetBase):
                         quantized_value = int(round(normalized_value * 255))
 
                     # Dequantize parameter value back to actual range
-                    param_min = mapping_info.get('min', 0)
-                    param_max = mapping_info.get('max', 255)
+                    param_min = mapping_info.get("min", 0)
+                    param_max = mapping_info.get("max", 255)
                     actual_value = param_min + normalized_value * (param_max - param_min)
 
-                    metadata[f'{param_name}_info'] = {
-                        'quantized_value': quantized_value,
-                        'normalized_value': normalized_value,
-                        'actual_value': actual_value,
-                        'description': mapping_info.get('description', ''),
-                        'range': [param_min, param_max],
-                        'scale': mapping_info.get('scale', 'linear')
+                    metadata[f"{param_name}_info"] = {
+                        "quantized_value": quantized_value,
+                        "normalized_value": normalized_value,
+                        "actual_value": actual_value,
+                        "description": mapping_info.get("description", ""),
+                        "range": [param_min, param_max],
+                        "scale": mapping_info.get("scale", "linear"),
                     }
 
         return metadata
@@ -297,24 +323,24 @@ class VIMHDataset(MultiheadDatasetBase):
         :return: Tuple of (image_tensor, labels_dict, auxiliary_features)
         """
         image, labels = super().__getitem__(idx)
-        
+
         # Store the original image for auxiliary feature extraction (before transforms)
         original_image = image.clone()
 
         # First, convert stored 0-255 quantized labels to class indices using min/max/step
-        if 'parameter_mappings' not in self.metadata_format:
+        if "parameter_mappings" not in self.metadata_format:
             raise ValueError("VIMH dataset missing parameter_mappings in metadata")
 
         class_labels: Dict[str, int] = {}
         for param_name, qv in labels.items():
             if param_name not in self.heads_config:
                 raise ValueError(f"Head for parameter '{param_name}' not present in heads_config")
-            mapping = self.metadata_format['parameter_mappings'].get(param_name)
-            if mapping is None or not all(k in mapping for k in ('min','max','step')):
+            mapping = self.metadata_format["parameter_mappings"].get(param_name)
+            if mapping is None or not all(k in mapping for k in ("min", "max", "step")):
                 raise ValueError(f"Parameter '{param_name}' missing min/max/step in metadata")
-            pmin = float(mapping['min'])
-            pmax = float(mapping['max'])
-            step = float(mapping['step'])
+            pmin = float(mapping["min"])
+            pmax = float(mapping["max"])
+            step = float(mapping["step"])
             if step <= 0:
                 raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
 
@@ -333,7 +359,9 @@ class VIMHDataset(MultiheadDatasetBase):
             soft_labels = {}
             for param_name, class_index in class_labels.items():
                 num_classes = int(self.heads_config[param_name])
-                soft_labels[param_name] = self._create_soft_targets(class_index, num_classes, self.target_width)
+                soft_labels[param_name] = self._create_soft_targets(
+                    class_index, num_classes, self.target_width
+                )
             labels = soft_labels
         else:
             labels = class_labels
@@ -349,11 +377,15 @@ class VIMHDataset(MultiheadDatasetBase):
         auxiliary_features = None
         if self.auxiliary_features:
             # Create data dict for auxiliary feature extraction
-            data_dict = {'image': original_image.unsqueeze(0)}  # Add batch dimension for processing
-            
+            data_dict = {
+                "image": original_image.unsqueeze(0)
+            }  # Add batch dimension for processing
+
             # Extract auxiliary features and squeeze batch dimension since we're processing single samples
             batch_features = extract_auxiliary_features(data_dict, self.auxiliary_features)
-            auxiliary_features = batch_features.squeeze(0)  # [num_features] instead of [1, num_features]
+            auxiliary_features = batch_features.squeeze(
+                0
+            )  # [num_features] instead of [1, num_features]
 
         return image, labels, auxiliary_features
 
@@ -363,12 +395,12 @@ class VIMHDataset(MultiheadDatasetBase):
         :param param_name: Name of the parameter
         :return: Parameter information dictionary
         """
-        if 'parameter_mappings' not in self.metadata_format:
-            return {'name': param_name, 'description': 'No metadata available'}
+        if "parameter_mappings" not in self.metadata_format:
+            return {"name": param_name, "description": "No metadata available"}
 
-        param_mappings = self.metadata_format['parameter_mappings']
+        param_mappings = self.metadata_format["parameter_mappings"]
         if param_name not in param_mappings:
-            return {'name': param_name, 'description': 'Parameter not found in metadata'}
+            return {"name": param_name, "description": "Parameter not found in metadata"}
 
         return param_mappings[param_name]
 
@@ -398,33 +430,37 @@ class VIMHDataset(MultiheadDatasetBase):
         :return: Dictionary with dataset statistics
         """
         stats = self.get_dataset_info()
-        stats.update({
-            'train_mode': self.train,
-            'class_distribution': self.get_class_distribution(),
-            'transforms': {
-                'image_transform': self.transform is not None,
-                'target_transform': self.target_transform is not None
+        stats.update(
+            {
+                "train_mode": self.train,
+                "class_distribution": self.get_class_distribution(),
+                "transforms": {
+                    "image_transform": self.transform is not None,
+                    "target_transform": self.target_transform is not None,
+                },
             }
-        })
+        )
 
         # Add parameter-specific statistics
-        if 'parameter_mappings' in self.metadata_format:
+        if "parameter_mappings" in self.metadata_format:
             param_stats = {}
             for param_name in self.heads_config.keys():
                 param_info = self.get_parameter_info(param_name)
-                param_values = [labels[param_name] for _, labels in self.samples if param_name in labels]
+                param_values = [
+                    labels[param_name] for _, labels in self.samples if param_name in labels
+                ]
 
                 param_stats[param_name] = {
-                    'description': param_info.get('description', ''),
-                    'min_quantized': min(param_values) if param_values else None,
-                    'max_quantized': max(param_values) if param_values else None,
-                    'min_actual': param_info.get('min', 0),
-                    'max_actual': param_info.get('max', 255),
-                    'unique_values': len(set(param_values)) if param_values else 0,
-                    'total_samples': len(param_values)
+                    "description": param_info.get("description", ""),
+                    "min_quantized": min(param_values) if param_values else None,
+                    "max_quantized": max(param_values) if param_values else None,
+                    "min_actual": param_info.get("min", 0),
+                    "max_actual": param_info.get("max", 255),
+                    "unique_values": len(set(param_values)) if param_values else 0,
+                    "total_samples": len(param_values),
                 }
 
-            stats['parameter_statistics'] = param_stats
+            stats["parameter_statistics"] = param_stats
 
         return stats
 
@@ -433,7 +469,7 @@ def create_vimh_datasets(
     data_dir: str,
     transform: Optional[callable] = None,
     target_transform: Optional[callable] = None,
-    target_width: float = 0.0
+    target_width: float = 0.0,
 ) -> Tuple[VIMHDataset, VIMHDataset]:
     """Create train and test VIMH datasets.
 
@@ -448,7 +484,7 @@ def create_vimh_datasets(
         train=True,
         transform=transform,
         target_transform=target_transform,
-        target_width=target_width
+        target_width=target_width,
     )
 
     test_dataset = VIMHDataset(
@@ -456,7 +492,7 @@ def create_vimh_datasets(
         train=False,
         transform=transform,
         target_transform=target_transform,
-        target_width=target_width
+        target_width=target_width,
     )
 
     return train_dataset, test_dataset
@@ -504,4 +540,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"✗ Error testing dataset: {e}")
         import traceback
+
         traceback.print_exc()

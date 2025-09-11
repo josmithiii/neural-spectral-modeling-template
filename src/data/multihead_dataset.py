@@ -1,7 +1,8 @@
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
+
 import torch
 from torch.utils.data import Dataset
-from typing import Dict, Any, Optional
-from abc import ABC, abstractmethod
 
 
 class MultiheadLabelStrategy(ABC):
@@ -18,9 +19,9 @@ class MNISTStrategy(MultiheadLabelStrategy):
 
     def get_multihead_labels(self, digit_label: int) -> Dict[str, int]:
         return {
-            'digit': digit_label,                           # Original digit (0-9)
-            'thickness': self._get_thickness(digit_label),  # Digit-dependent thickness
-            'smoothness': self._get_smoothness(digit_label) # Digit-dependent smoothness
+            "digit": digit_label,  # Original digit (0-9)
+            "thickness": self._get_thickness(digit_label),  # Digit-dependent thickness
+            "smoothness": self._get_smoothness(digit_label),  # Digit-dependent smoothness
         }
 
     def _get_thickness(self, digit: int) -> int:
@@ -69,7 +70,7 @@ class MultiheadDataset(Dataset):
         self.dataset_type = dataset_type
 
         # Create strategy based on dataset type
-        if dataset_type == 'mnist':
+        if dataset_type == "mnist":
             self.strategy = MNISTStrategy()
         else:
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
@@ -88,7 +89,7 @@ class MultiheadMNISTDataset(MultiheadDataset):
     """Backward compatibility wrapper for MNIST multihead dataset."""
 
     def __init__(self, base_dataset):
-        super().__init__(base_dataset, 'mnist')
+        super().__init__(base_dataset, "mnist")
 
 
 if __name__ == "__main__":
@@ -101,4 +102,3 @@ if __name__ == "__main__":
     for digit in range(10):
         labels = mnist_strategy.get_multihead_labels(digit)
         print(f"  {digit}   |     {labels['thickness']}     |     {labels['smoothness']}")
-

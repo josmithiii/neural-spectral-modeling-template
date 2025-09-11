@@ -12,25 +12,27 @@ Usage:
     python src/audio_reconstruction_eval.py ckpt_path=/path/to/checkpoint.ckpt data=vimh_16kdss
 """
 
-from typing import Any, Dict, List, Tuple, Optional
+import json
 import os
 import sys
-from pathlib import Path
-import json
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
+import matplotlib.pyplot as plt
+import numpy as np
 import rootutils
 import torch
 import torch.nn.functional as F
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button
 from lightning import LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
+from matplotlib.widgets import Button, Slider
 from omegaconf import DictConfig
+
 try:
     import IPython.display as ipd
+
     IPYTHON_AVAILABLE = True
 except ImportError:
     IPYTHON_AVAILABLE = False
@@ -56,22 +58,26 @@ log = RankedLogger(__name__, rank_zero_only=True)
 # Custom exceptions for better error handling
 class CheckpointError(Exception):
     """Base exception for checkpoint-related errors."""
+
     pass
 
 
 class ArchitectureInferenceError(CheckpointError):
     """Raised when model architecture cannot be inferred from checkpoint."""
+
     pass
 
 
 class MissingCheckpointDataError(CheckpointError):
     """Raised when required data is missing from checkpoint."""
+
     pass
 
 
 @dataclass
 class ArchitectureConfig:
     """Configuration for reconstructed model architecture."""
+
     architecture_type: str
     input_channels: int = 1
     conv1_channels: int = 16
@@ -98,12 +104,16 @@ class CheckpointArchitectureReconstructor:
             config: Configuration dictionary with default values and settings
         """
         self.config = config or {}
-        self.default_dropout = self.config.get('default_dropout', 0.5)
-        self.default_patch_size = self.config.get('default_patch_size', 4)
-        self.default_embed_dim = self.config.get('default_embed_dim', 64)
+        self.default_dropout = self.config.get("default_dropout", 0.5)
+        self.default_patch_size = self.config.get("default_patch_size", 4)
+        self.default_embed_dim = self.config.get("default_embed_dim", 64)
 
-    def reconstruct_from_checkpoint(self, checkpoint_path: str, heads_config: Dict[str, int],
-                                  dataset_metadata: Optional[Dict[str, Any]] = None) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+    def reconstruct_from_checkpoint(
+        self,
+        checkpoint_path: str,
+        heads_config: Dict[str, int],
+        dataset_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Reconstruct model architecture from checkpoint with stored metadata or inference.
 
         Args:
@@ -119,47 +129,55 @@ class CheckpointArchitectureReconstructor:
             MissingCheckpointDataError: When required checkpoint data is missing
         """
         try:
-            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         except Exception as e:
             raise CheckpointError(f"Failed to load checkpoint {checkpoint_path}: {e}")
 
-        hyper_parameters = checkpoint.get('hyper_parameters', {})
-        architecture_metadata = hyper_parameters.get('architecture_metadata', {})
+        hyper_parameters = checkpoint.get("hyper_parameters", {})
+        architecture_metadata = hyper_parameters.get("architecture_metadata", {})
 
         # Try stored metadata first (preferred method)
-        if architecture_metadata and architecture_metadata.get('type'):
+        if architecture_metadata and architecture_metadata.get("type"):
             return self._reconstruct_from_metadata(architecture_metadata, heads_config)
 
         # Fallback to inference from weights
-        log.warning("No architecture metadata found in checkpoint, attempting inference from weights")
-        return self._reconstruct_from_weights(checkpoint["state_dict"], heads_config, dataset_metadata)
+        log.warning(
+            "No architecture metadata found in checkpoint, attempting inference from weights"
+        )
+        return self._reconstruct_from_weights(
+            checkpoint["state_dict"], heads_config, dataset_metadata
+        )
 
-    def _reconstruct_from_metadata(self, metadata: Dict[str, Any], heads_config: Dict[str, int]) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+    def _reconstruct_from_metadata(
+        self, metadata: Dict[str, Any], heads_config: Dict[str, int]
+    ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Reconstruct model using stored architecture metadata."""
-        arch_type = metadata['type']
+        arch_type = metadata["type"]
 
-        if arch_type == 'ViT':
+        if arch_type == "ViT":
             return self._create_vit_from_metadata(metadata, heads_config)
-        elif arch_type == 'CNN':
+        elif arch_type == "CNN":
             return self._create_cnn_from_metadata(metadata, heads_config)
         else:
             raise ArchitectureInferenceError(f"Unknown architecture type in metadata: {arch_type}")
 
-    def _create_vit_from_metadata(self, metadata: Dict[str, Any], heads_config: Dict[str, int]) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+    def _create_vit_from_metadata(
+        self, metadata: Dict[str, Any], heads_config: Dict[str, int]
+    ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Create ViT model from stored metadata."""
         from src.models.components.vision_transformer import VisionTransformer
 
         config = ArchitectureConfig(
-            architecture_type='ViT',
-            input_channels=metadata.get('input_channels', 1),
-            embed_dim=metadata.get('embed_dim', self.default_embed_dim),
-            n_layers=metadata.get('n_layers', 6),
-            n_attention_heads=metadata.get('n_attention_heads', 4),
-            patch_size=metadata.get('patch_size', self.default_patch_size),
-            image_size=tuple(metadata.get('image_size', [28, 28])),
-            forward_mul=int(metadata.get('forward_mul', 2)),
-            dropout=metadata.get('dropout', 0.1),
-            use_torch_layers=metadata.get('use_torch_layers', False)
+            architecture_type="ViT",
+            input_channels=metadata.get("input_channels", 1),
+            embed_dim=metadata.get("embed_dim", self.default_embed_dim),
+            n_layers=metadata.get("n_layers", 6),
+            n_attention_heads=metadata.get("n_attention_heads", 4),
+            patch_size=metadata.get("patch_size", self.default_patch_size),
+            image_size=tuple(metadata.get("image_size", [28, 28])),
+            forward_mul=int(metadata.get("forward_mul", 2)),
+            dropout=metadata.get("dropout", 0.1),
+            use_torch_layers=metadata.get("use_torch_layers", False),
         )
 
         net = VisionTransformer(
@@ -172,23 +190,25 @@ class CheckpointArchitectureReconstructor:
             heads_config=heads_config,
             forward_mul=config.forward_mul,
             dropout=config.dropout,
-            use_torch_layers=config.use_torch_layers
+            use_torch_layers=config.use_torch_layers,
         )
 
         return net, config
 
-    def _create_cnn_from_metadata(self, metadata: Dict[str, Any], heads_config: Dict[str, int]) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+    def _create_cnn_from_metadata(
+        self, metadata: Dict[str, Any], heads_config: Dict[str, int]
+    ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Create CNN model from stored metadata."""
         from src.models.components.simple_cnn import SimpleCNN
 
         config = ArchitectureConfig(
-            architecture_type='CNN',
-            input_channels=metadata.get('input_channels', 1),
-            conv1_channels=metadata.get('conv1_channels', 16),
-            conv2_channels=metadata.get('conv2_channels', 32),
-            fc_hidden=metadata.get('fc_hidden', 64),
-            dropout=metadata.get('dropout', self.default_dropout),
-            input_size=metadata.get('input_size', 32)
+            architecture_type="CNN",
+            input_channels=metadata.get("input_channels", 1),
+            conv1_channels=metadata.get("conv1_channels", 16),
+            conv2_channels=metadata.get("conv2_channels", 32),
+            fc_hidden=metadata.get("fc_hidden", 64),
+            dropout=metadata.get("dropout", self.default_dropout),
+            input_size=metadata.get("input_size", 32),
         )
 
         net = SimpleCNN(
@@ -198,18 +218,26 @@ class CheckpointArchitectureReconstructor:
             fc_hidden=config.fc_hidden,
             heads_config=heads_config,
             dropout=config.dropout,
-            input_size=config.input_size
+            input_size=config.input_size,
         )
 
         return net, config
 
-    def _reconstruct_from_weights(self, state_dict: Dict[str, torch.Tensor], heads_config: Dict[str, int],
-                                dataset_metadata: Optional[Dict[str, Any]] = None) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+    def _reconstruct_from_weights(
+        self,
+        state_dict: Dict[str, torch.Tensor],
+        heads_config: Dict[str, int],
+        dataset_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Reconstruct model by inferring architecture from weights (fallback method)."""
-        if 'net.embedding.pos_embedding' in state_dict:
+        if "net.embedding.pos_embedding" in state_dict:
             return self._infer_vit_architecture(state_dict, heads_config, dataset_metadata)
-        elif any(key.startswith('net.conv_layers.0.weight') or key.startswith('net.features.0.weight') or
-                 key.startswith('net.conv1.weight') for key in state_dict.keys()):
+        elif any(
+            key.startswith("net.conv_layers.0.weight")
+            or key.startswith("net.features.0.weight")
+            or key.startswith("net.conv1.weight")
+            for key in state_dict.keys()
+        ):
             return self._infer_cnn_architecture(state_dict, heads_config, dataset_metadata)
         else:
             raise ArchitectureInferenceError(
@@ -217,8 +245,12 @@ class CheckpointArchitectureReconstructor:
                 "Expected ViT (net.embedding.pos_embedding) or CNN (net.conv_layers.0.weight) weights."
             )
 
-    def _infer_vit_architecture(self, state_dict: Dict[str, torch.Tensor], heads_config: Dict[str, int],
-                               dataset_metadata: Optional[Dict[str, Any]] = None) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+    def _infer_vit_architecture(
+        self,
+        state_dict: Dict[str, torch.Tensor],
+        heads_config: Dict[str, int],
+        dataset_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Infer ViT architecture from weights (not recommended - use metadata instead)."""
         log.error("ViT architecture inference from weights is unreliable and not supported.")
         log.error("Please ensure your checkpoint contains architecture metadata.")
@@ -227,59 +259,70 @@ class CheckpointArchitectureReconstructor:
             "ViT architecture must be stored in checkpoint metadata."
         )
 
-    def _infer_cnn_architecture(self, state_dict: Dict[str, torch.Tensor], heads_config: Dict[str, int],
-                               dataset_metadata: Optional[Dict[str, Any]] = None) -> Tuple[torch.nn.Module, ArchitectureConfig]:
+    def _infer_cnn_architecture(
+        self,
+        state_dict: Dict[str, torch.Tensor],
+        heads_config: Dict[str, int],
+        dataset_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Infer CNN architecture from weights."""
         if not dataset_metadata:
-            raise MissingCheckpointDataError("CNN architecture inference requires dataset metadata")
+            raise MissingCheckpointDataError(
+                "CNN architecture inference requires dataset metadata"
+            )
 
-        required_keys = ['height', 'width']
+        required_keys = ["height", "width"]
         if not all(key in dataset_metadata for key in required_keys):
-            raise MissingCheckpointDataError(f"CNN inference requires dataset metadata with: {required_keys}")
+            raise MissingCheckpointDataError(
+                f"CNN inference requires dataset metadata with: {required_keys}"
+            )
 
         # Extract CNN parameters with validation
         cnn_params = self._extract_cnn_parameters(state_dict, dataset_metadata)
 
         from src.models.components.simple_cnn import SimpleCNN
+
         net = SimpleCNN(
-            input_channels=cnn_params['input_channels'],
-            conv1_channels=cnn_params['conv1_channels'],
-            conv2_channels=cnn_params['conv2_channels'],
-            fc_hidden=cnn_params['fc_hidden'],
+            input_channels=cnn_params["input_channels"],
+            conv1_channels=cnn_params["conv1_channels"],
+            conv2_channels=cnn_params["conv2_channels"],
+            fc_hidden=cnn_params["fc_hidden"],
             heads_config=heads_config,
             dropout=self.default_dropout,
-            input_size=cnn_params['input_size']
+            input_size=cnn_params["input_size"],
         )
 
         config = ArchitectureConfig(
-            architecture_type='CNN',
-            **cnn_params,
-            dropout=self.default_dropout
+            architecture_type="CNN", **cnn_params, dropout=self.default_dropout
         )
 
         return net, config
 
-    def _extract_cnn_parameters(self, state_dict: Dict[str, torch.Tensor], dataset_metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_cnn_parameters(
+        self, state_dict: Dict[str, torch.Tensor], dataset_metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Extract CNN parameters from state dict with validation."""
         params = {}
 
         # Validate required weights exist
-        required_weights = ['net.conv_layers.0.weight', 'net.conv_layers.4.weight']
+        required_weights = ["net.conv_layers.0.weight", "net.conv_layers.4.weight"]
         missing_weights = [key for key in required_weights if key not in state_dict]
         if missing_weights:
-            raise MissingCheckpointDataError(f"CNN checkpoint missing required weights: {missing_weights}")
+            raise MissingCheckpointDataError(
+                f"CNN checkpoint missing required weights: {missing_weights}"
+            )
 
         # Extract conv1 parameters
-        conv1_weight = state_dict['net.conv_layers.0.weight']
-        params['input_channels'] = conv1_weight.shape[1]  # Input channels
-        params['conv1_channels'] = conv1_weight.shape[0]  # Output channels
+        conv1_weight = state_dict["net.conv_layers.0.weight"]
+        params["input_channels"] = conv1_weight.shape[1]  # Input channels
+        params["conv1_channels"] = conv1_weight.shape[0]  # Output channels
 
         # Extract conv2 parameters
-        conv2_weight = state_dict['net.conv_layers.4.weight']
-        params['conv2_channels'] = conv2_weight.shape[0]
+        conv2_weight = state_dict["net.conv_layers.4.weight"]
+        params["conv2_channels"] = conv2_weight.shape[0]
 
         # Extract FC hidden size
-        fc_candidates = ['net.shared_features.1.weight', 'net.shared_features.0.weight']
+        fc_candidates = ["net.shared_features.1.weight", "net.shared_features.0.weight"]
         fc_weight = None
         for candidate in fc_candidates:
             if candidate in state_dict:
@@ -289,10 +332,10 @@ class CheckpointArchitectureReconstructor:
         if fc_weight is None:
             raise MissingCheckpointDataError(f"CNN checkpoint missing FC weights: {fc_candidates}")
 
-        params['fc_hidden'] = fc_weight.shape[0]
+        params["fc_hidden"] = fc_weight.shape[0]
 
         # Get input size from dataset
-        params['input_size'] = max(dataset_metadata['height'], dataset_metadata['width'])
+        params["input_size"] = max(dataset_metadata["height"], dataset_metadata["width"])
 
         return params
 
@@ -300,29 +343,29 @@ class CheckpointArchitectureReconstructor:
 def find_latest_checkpoint(base_dir: str = "logs/train") -> Optional[str]:
     """
     Find the latest best checkpoint from training runs.
-    
+
     Args:
         base_dir: Base directory to search for training logs
-        
+
     Returns:
         Path to the latest best checkpoint, or None if not found
     """
     import glob
     from pathlib import Path
-    
+
     # Look for checkpoint patterns in training logs
     patterns = [
         f"{base_dir}/runs/*/checkpoints/best.ckpt",
-        f"{base_dir}/runs/*/checkpoints/last.ckpt", 
+        f"{base_dir}/runs/*/checkpoints/last.ckpt",
         f"{base_dir}/runs/*/checkpoints/*.ckpt",
         f"{base_dir}/*/checkpoints/best.ckpt",
         f"{base_dir}/*/checkpoints/last.ckpt",
-        f"{base_dir}/*/checkpoints/*.ckpt"
+        f"{base_dir}/*/checkpoints/*.ckpt",
     ]
-    
+
     latest_checkpoint = None
     latest_time = 0
-    
+
     for pattern in patterns:
         checkpoints = glob.glob(pattern)
         for ckpt_path in checkpoints:
@@ -334,7 +377,7 @@ def find_latest_checkpoint(base_dir: str = "logs/train") -> Optional[str]:
                     latest_checkpoint = ckpt_path
             except OSError:
                 continue
-    
+
     if latest_checkpoint:
         log.info(f"Auto-discovered checkpoint: {latest_checkpoint}")
         return latest_checkpoint
@@ -345,14 +388,13 @@ def find_latest_checkpoint(base_dir: str = "logs/train") -> Optional[str]:
 
 class AudioReconstructionEvaluator:
     """Evaluates model predictions by reconstructing and comparing audio."""
-    
-    def __init__(self, 
-                 model: LightningModule, 
-                 datamodule: LightningDataModule,
-                 device: str = "cpu"):
+
+    def __init__(
+        self, model: LightningModule, datamodule: LightningDataModule, device: str = "cpu"
+    ):
         """
         Initialize the evaluator.
-        
+
         Args:
             model: Trained PyTorch Lightning model
             datamodule: Data module with test dataset
@@ -362,64 +404,64 @@ class AudioReconstructionEvaluator:
         self.model.eval()
         self.datamodule = datamodule
         self.device = device
-        
+
         # Setup test dataset
         self.datamodule.setup("test")
         self.test_dataset = self.datamodule.data_test
-        
+
         # Get dataset metadata from datamodule (includes saved checkpoint metadata)
         self.dataset_info = self.datamodule.get_dataset_info()
         self.sample_rate = self.dataset_info.get("sample_rate", 8000)
         self.duration = self.dataset_info.get("duration", 1.0)
-        
+
         # Initialize synthesizer
         self.synth = SimpleSawSynth(sample_rate=self.sample_rate)
-        
+
         # Initialize spectrogram processor for visualization
         stft_config = self.dataset_info.get("spectrogram_config", {"type": "stft"})
         mel_config = self.dataset_info.get("mel_config", {})
         height = self.dataset_info.get("height", 32)
         width = self.dataset_info.get("width", 32)
-        
+
         # Ensure stft_config has required fields
         if "type" not in stft_config:
             stft_config["type"] = "stft"
-        
+
         self.spec_processor = SpectrogramProcessor(
             sample_rate=self.sample_rate,
             height=height,
             width=width,
             stft_config=stft_config,
-            mel_config=mel_config
+            mel_config=mel_config,
         )
-        
+
         # Debug: Print spectrogram processor configuration (can be removed)
         # log.info(f"SpectrogramProcessor config:")
-        # log.info(f"  Sample rate: {self.sample_rate} Hz") 
+        # log.info(f"  Sample rate: {self.sample_rate} Hz")
         # log.info(f"  Dimensions: {height}x{width}")
         # log.info(f"  STFT config: {stft_config}")
         # log.info(f"  MEL config: {mel_config}")
-        
+
         # Parameter mappings for denormalization (no fallbacks)
         self.param_mappings = self.dataset_info.get("parameter_mappings")
         self.param_names = self.dataset_info.get("parameter_names")
         if not self.param_mappings or not self.param_names:
             print("Dataset is missing parameter_mappings or parameter_names; aborting.")
             sys.exit(1)
-        
+
         log.info(f"Initialized evaluator with {len(self.test_dataset)} test samples")
         log.info(f"Sample rate: {self.sample_rate} Hz, Duration: {self.duration}s")
         log.info(f"Available parameters: {self.param_names}")
-        
+
         # Debug dataset metadata
         log.info(f"Dataset info keys: {list(self.dataset_info.keys())}")
         if self.param_mappings:
             log.info(f"Parameter mappings: {list(self.param_mappings.keys())}")
-        
+
         # Check if model output mode matches expectations
-        if hasattr(self.model, 'output_mode'):
+        if hasattr(self.model, "output_mode"):
             log.info(f"Model output mode: {self.model.output_mode}")
-        if hasattr(self.model, 'net') and hasattr(self.model.net, 'heads_config'):
+        if hasattr(self.model, "net") and hasattr(self.model.net, "heads_config"):
             log.info(f"Model heads config: {self.model.net.heads_config}")
 
     def check_prediction_diversity(self, n_samples: int = 20) -> Dict[str, Any]:
@@ -455,7 +497,7 @@ class AudioReconstructionEvaluator:
                         sys.exit(1)
 
                 for head_name, logits in preds.items():
-                    if getattr(self.model, 'output_mode', 'classification') == 'regression':
+                    if getattr(self.model, "output_mode", "classification") == "regression":
                         v = float(logits.squeeze().item())
                     else:
                         v = int(torch.argmax(logits, dim=-1).item())
@@ -466,46 +508,56 @@ class AudioReconstructionEvaluator:
         print("\nPrediction diversity over", n, "sample(s):")
         for name in self.param_names:
             vals = values.get(name, [])
-            if getattr(self.model, 'output_mode', 'classification') == 'regression':
+            if getattr(self.model, "output_mode", "classification") == "regression":
                 std = float(np.std(vals)) if vals else 0.0
-                report[name] = {"std": std, "min": float(min(vals)) if vals else None, "max": float(max(vals)) if vals else None}
+                report[name] = {
+                    "std": std,
+                    "min": float(min(vals)) if vals else None,
+                    "max": float(max(vals)) if vals else None,
+                }
                 status = "⚠️ low variance" if std < 1e-3 else "ok"
-                print(f"  - {name}: std={std:.6f} [{status}] range=({report[name]['min']}, {report[name]['max']})")
+                print(
+                    f"  - {name}: std={std:.6f} [{status}] range=({report[name]['min']}, {report[name]['max']})"
+                )
             else:
                 uniques = sorted(list(set(vals))) if vals else []
                 report[name] = {"unique": len(uniques), "values": uniques[:15]}
                 status = "⚠️ degenerate" if len(uniques) <= 1 else "ok"
-                preview = ", ".join(map(str, report[name]["values"])) + (" …" if len(uniques) > 15 else "")
+                preview = ", ".join(map(str, report[name]["values"])) + (
+                    " …" if len(uniques) > 15 else ""
+                )
                 print(f"  - {name}: {len(uniques)} unique [{status}] → [{preview}]")
 
         return report
-    
-    def denormalize_parameters(self, predicted_params: Dict[str, torch.Tensor]) -> Dict[str, float]:
+
+    def denormalize_parameters(
+        self, predicted_params: Dict[str, torch.Tensor]
+    ) -> Dict[str, float]:
         """
         Denormalize predicted parameters from [0,1] or class indices to actual parameter values.
-        
+
         Args:
             predicted_params: Dictionary of predicted parameter tensors
-            
+
         Returns:
             Dictionary of denormalized parameter values
         """
         denorm_params = {}
-        
+
         for param_name, pred_tensor in predicted_params.items():
             if param_name not in self.param_mappings:
                 print(f"Parameter '{param_name}' missing from parameter_mappings; aborting.")
                 sys.exit(1)
-            
+
             mapping = self.param_mappings[param_name]
             if "min" not in mapping or "max" not in mapping:
                 print(f"Parameter mapping for '{param_name}' missing 'min'/'max'; aborting.")
                 sys.exit(1)
             param_min = mapping["min"]
             param_max = mapping["max"]
-            
+
             # Handle different prediction formats
-            if getattr(self.model, 'output_mode', 'classification') == "regression":
+            if getattr(self.model, "output_mode", "classification") == "regression":
                 # Direct regression output (should be in [0,1])
                 normalized_value = float(pred_tensor.item())
             else:
@@ -520,41 +572,45 @@ class AudioReconstructionEvaluator:
                         # Round to nearest int within tolerance
                         num_steps = int(round(num_floats))
                         if abs(num_floats - num_steps) > 1e-3:
-                            print(f"Warning: parameter '{param_name}' (max-min)/step = {num_floats} not integer; rounding to {num_steps}")
+                            print(
+                                f"Warning: parameter '{param_name}' (max-min)/step = {num_floats} not integer; rounding to {num_steps}"
+                            )
                         num_classes = int(num_steps) + 1
                         mapping["num_classes"] = num_classes  # cache for later
                     else:
-                        print(f"Parameter mapping for '{param_name}' missing 'num_classes' and 'step'; aborting.")
+                        print(
+                            f"Parameter mapping for '{param_name}' missing 'num_classes' and 'step'; aborting."
+                        )
                         sys.exit(1)
                 class_idx = int(pred_tensor.item())
                 normalized_value = class_idx / (num_classes - 1)
-                
+
             # Denormalize to actual parameter range
             actual_value = param_min + normalized_value * (param_max - param_min)
             denorm_params[param_name] = actual_value
-            
+
         return denorm_params
-    
+
     def get_true_parameters(self, sample_idx: int) -> Dict[str, float]:
         """
         Get the true synthesis parameters for a dataset sample.
-        
+
         Args:
             sample_idx: Index of the sample in the test dataset
-            
+
         Returns:
             Dictionary of true parameter values
         """
         # Get metadata for this sample
         sample_metadata = self.test_dataset._get_sample_metadata(sample_idx)
-        
+
         # Debug: Print metadata structure for first few samples
         if sample_idx < 3:
             print(f"🔍 Sample {sample_idx} metadata keys: {list(sample_metadata.keys())}")
             for key, value in sample_metadata.items():
-                if isinstance(value, dict) and 'actual_value' in value:
+                if isinstance(value, dict) and "actual_value" in value:
                     print(f"   {key}: actual_value = {value['actual_value']}")
-        
+
         # Extract actual parameter values
         true_params = {}
         for param_name in self.param_names:
@@ -563,27 +619,31 @@ class AudioReconstructionEvaluator:
                 actual_value = sample_metadata[param_info_key]["actual_value"]
                 true_params[param_name] = actual_value
             else:
-                raise ValueError(f"Could not find true value for parameter {param_name} in sample metadata")
-                
+                raise ValueError(
+                    f"Could not find true value for parameter {param_name} in sample metadata"
+                )
+
         return true_params
-    
-    def run_inference(self, sample_idx: int) -> Tuple[Dict[str, float], Dict[str, float], torch.Tensor]:
+
+    def run_inference(
+        self, sample_idx: int
+    ) -> Tuple[Dict[str, float], Dict[str, float], torch.Tensor]:
         """
         Run model inference on a test sample.
-        
+
         Args:
             sample_idx: Index of the sample to evaluate
-            
+
         Returns:
             Tuple of (predicted_params, true_params, input_spectrogram)
         """
         # Check for model performance issues on first few samples
-        if sample_idx < 3 and hasattr(self, '_check_model_predictions'):
+        if sample_idx < 3 and hasattr(self, "_check_model_predictions"):
             self._check_model_predictions = False  # Only show once
             print("🔍 Checking model prediction quality...")
-            
+
         # Track predictions to detect if model always predicts the same values
-        if not hasattr(self, '_prediction_tracker'):
+        if not hasattr(self, "_prediction_tracker"):
             self._prediction_tracker = {}
             self._samples_checked = 0
         # Get the test sample
@@ -592,7 +652,7 @@ class AudioReconstructionEvaluator:
             image_tensor, labels_dict = sample_data
         else:
             image_tensor, labels_dict = sample_data[0], sample_data[1]
-            
+
         # Debug: Print image tensor info for first few samples (can be removed)
         # if sample_idx < 2:
         #     print(f"🔍 Raw dataset sample {sample_idx}:")
@@ -601,12 +661,12 @@ class AudioReconstructionEvaluator:
         #     print(f"   image_tensor type: {type(image_tensor)}")
         #     if hasattr(image_tensor, 'dtype'):
         #         print(f"   image_tensor dtype: {image_tensor.dtype}")
-        
+
         # Run inference
         with torch.no_grad():
             image_batch = image_tensor.unsqueeze(0).to(self.device)
             raw_predictions = self.model(image_batch)
-            
+
             # Debug: Print raw predictions to see if they're changing (can be removed)
             # if isinstance(raw_predictions, dict):
             #     for head_name, logits in raw_predictions.items():
@@ -615,7 +675,7 @@ class AudioReconstructionEvaluator:
             # else:
             #     print(f"   🔍 Sample {sample_idx}: raw_predictions shape={raw_predictions.shape}, "
             #          f"first few values={raw_predictions.flatten()[:3].tolist()}")
-            
+
             # Process predictions based on model type
             if not isinstance(raw_predictions, dict):
                 print("Model is expected to be multihead and return a dict of logits; aborting.")
@@ -633,138 +693,155 @@ class AudioReconstructionEvaluator:
                 head_name: torch.argmax(logits, dim=-1).squeeze(0)
                 for head_name, logits in raw_predictions.items()
             }
-        
+
         # Denormalize predictions
         predicted_params = self.denormalize_parameters(processed_predictions)
-        
+
         # Track predictions to detect issues
         self._samples_checked += 1
         for param_name, value in predicted_params.items():
             if param_name not in self._prediction_tracker:
                 self._prediction_tracker[param_name] = []
             self._prediction_tracker[param_name].append(value)
-            
+
         # Check for prediction issues after a few samples
         if self._samples_checked == 5:
             for param_name, values in self._prediction_tracker.items():
                 if all(abs(v - values[0]) < 1e-6 for v in values):
-                    print(f"⚠️  WARNING: Model always predicts the same value for {param_name}: {values[0]:.4f}")
-                    print(f"   This suggests the model was not trained properly or weights are incorrect.")
-                    print(f"   Expected behavior: predictions should vary across different input samples.")
-        
+                    print(
+                        f"⚠️  WARNING: Model always predicts the same value for {param_name}: {values[0]:.4f}"
+                    )
+                    print(
+                        f"   This suggests the model was not trained properly or weights are incorrect."
+                    )
+                    print(
+                        f"   Expected behavior: predictions should vary across different input samples."
+                    )
+
         # Get true parameters
         true_params = self.get_true_parameters(sample_idx)
-        
+
         return predicted_params, true_params, image_tensor
-    
+
     def synthesize_audio(self, params: Dict[str, float]) -> np.ndarray:
         """
         Synthesize audio using the given parameters.
-        
+
         Args:
             params: Dictionary of synthesis parameters
-            
+
         Returns:
             Generated audio array
         """
         # Start with a copy to avoid modifying original
         complete_params = params.copy()
-        
+
         # Add fixed parameters from dataset metadata to ensure identical synthesis
-        if hasattr(self, 'dataset_info') and 'fixed_parameters' in self.dataset_info:
-            fixed_params = self.dataset_info['fixed_parameters']
+        if hasattr(self, "dataset_info") and "fixed_parameters" in self.dataset_info:
+            fixed_params = self.dataset_info["fixed_parameters"]
             for param_name, param_info in fixed_params.items():
                 if param_name not in complete_params:
-                    complete_params[param_name] = param_info['value']
+                    complete_params[param_name] = param_info["value"]
                     log.debug(f"Added fixed parameter {param_name} = {param_info['value']}")
-        
-        # Set duration from dataset info 
+
+        # Set duration from dataset info
         complete_params["duration"] = self.duration
-        
+
         # Debug: Print complete parameter set for verification (can be disabled)
         # log.info(f"Complete synthesis parameters: {complete_params}")
-        
+
         # Check that we have required parameters
-        check_params(complete_params, "note_number", "note_velocity", "duration", "log10_decay_time")
-        
+        check_params(
+            complete_params, "note_number", "note_velocity", "duration", "log10_decay_time"
+        )
+
         # Generate audio - fail fast, no fallbacks
         audio = self.synth.generate_audio(complete_params)
         return audio
-    
-    def compute_audio_metrics(self, true_audio: np.ndarray, pred_audio: np.ndarray) -> Dict[str, float]:
+
+    def compute_audio_metrics(
+        self, true_audio: np.ndarray, pred_audio: np.ndarray
+    ) -> Dict[str, float]:
         """
         Compute perceptual metrics between true and predicted audio.
-        
+
         Args:
             true_audio: Original audio
             pred_audio: Reconstructed audio
-            
+
         Returns:
             Dictionary of computed metrics
         """
         metrics = {}
-        
+
         # Ensure same length
         min_len = min(len(true_audio), len(pred_audio))
         true_audio = true_audio[:min_len]
         pred_audio = pred_audio[:min_len]
-        
+
         # Mean Squared Error
         metrics["mse"] = float(np.mean((true_audio - pred_audio) ** 2))
-        
+
         # Root Mean Squared Error
         metrics["rmse"] = float(np.sqrt(metrics["mse"]))
-        
+
         # Signal-to-Noise Ratio
-        signal_power = np.mean(true_audio ** 2)
+        signal_power = np.mean(true_audio**2)
         noise_power = np.mean((true_audio - pred_audio) ** 2)
         if noise_power > 0:
             metrics["snr_db"] = float(10 * np.log10(signal_power / noise_power))
         else:
-            metrics["snr_db"] = float('inf')
-        
+            metrics["snr_db"] = float("inf")
+
         # Pearson correlation
         if np.std(true_audio) > 0 and np.std(pred_audio) > 0:
             correlation, _ = pearsonr(true_audio, pred_audio)
             metrics["correlation"] = float(correlation)
         else:
             metrics["correlation"] = 0.0
-        
+
         # Cross-correlation maximum (time alignment)
         if len(true_audio) > 1 and len(pred_audio) > 1:
-            xcorr = correlate(true_audio, pred_audio, mode='full')
-            metrics["max_xcorr"] = float(np.max(np.abs(xcorr)) / (np.linalg.norm(true_audio) * np.linalg.norm(pred_audio)))
+            xcorr = correlate(true_audio, pred_audio, mode="full")
+            metrics["max_xcorr"] = float(
+                np.max(np.abs(xcorr)) / (np.linalg.norm(true_audio) * np.linalg.norm(pred_audio))
+            )
         else:
             metrics["max_xcorr"] = 0.0
-            
+
         return metrics
-    
-    def evaluate_sample(self, sample_idx: int, plot: bool = True, save_audio: bool = False, 
-                       output_dir: Optional[str] = None) -> Dict[str, Any]:
+
+    def evaluate_sample(
+        self,
+        sample_idx: int,
+        plot: bool = True,
+        save_audio: bool = False,
+        output_dir: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Evaluate a single sample with complete analysis.
-        
+
         Args:
             sample_idx: Index of sample to evaluate
             plot: Whether to create visualization plots
             save_audio: Whether to save audio files
             output_dir: Directory to save outputs
-            
+
         Returns:
             Dictionary containing all evaluation results
         """
         log.info(f"Evaluating sample {sample_idx}")
-        
+
         # Run inference
         predicted_params, true_params, input_spec = self.run_inference(sample_idx)
-        
+
         # Synthesize audio
         true_audio = self.synthesize_audio(true_params)
         pred_audio = self.synthesize_audio(predicted_params)
-        
+
         # Compute metrics
         audio_metrics = self.compute_audio_metrics(true_audio, pred_audio)
-        
+
         # Parameter errors
         param_errors = {}
         for param_name in true_params:
@@ -775,9 +852,11 @@ class AudioReconstructionEvaluator:
                     "true": true_val,
                     "predicted": pred_val,
                     "absolute_error": abs(pred_val - true_val),
-                    "relative_error": abs(pred_val - true_val) / abs(true_val) if true_val != 0 else float('inf')
+                    "relative_error": (
+                        abs(pred_val - true_val) / abs(true_val) if true_val != 0 else float("inf")
+                    ),
                 }
-        
+
         results = {
             "sample_idx": sample_idx,
             "predicted_params": predicted_params,
@@ -786,101 +865,103 @@ class AudioReconstructionEvaluator:
             "audio_metrics": audio_metrics,
             "true_audio": true_audio,
             "pred_audio": pred_audio,
-            "input_spectrogram": input_spec.numpy()
+            "input_spectrogram": input_spec.numpy(),
         }
-        
+
         if plot:
             self.plot_comparison(results)
-        
+
         if save_audio and output_dir:
             self.save_audio_files(results, output_dir)
-        
+
         return results
-    
+
     def plot_comparison(self, results: Dict[str, Any]) -> None:
         """
         Create comprehensive visualization of evaluation results.
-        
+
         Args:
             results: Evaluation results from evaluate_sample()
         """
         fig = plt.figure(figsize=(16, 12))
-        
+
         # Store results for click handlers
         self._current_results = results
-        
+
         # Get data
         true_audio = results["true_audio"]
         pred_audio = results["pred_audio"]
         input_spec = results["input_spectrogram"]
-        
+
         # Remove channel dimension and normalize for plotting
         if len(input_spec.shape) == 3:
             if input_spec.shape[0] == 1:  # (1, H, W) format - channels first
                 input_spec = input_spec[0, :, :]  # Remove channel dimension: (1, H, W) -> (H, W)
-            else:  # (H, W, 1) format - channels last  
+            else:  # (H, W, 1) format - channels last
                 input_spec = input_spec[:, :, 0]  # Remove channel dimension: (H, W, 1) -> (H, W)
-        
+
         # Keep input spectrogram in floating-point format to match true spectrogram
         # Both should be displayed with the same scale for proper comparison
         # No conversion needed - input_spec is already in proper float format
-        
+
         # Time axis
         t = np.arange(len(true_audio)) / self.sample_rate
-        
+
         # 1. Input spectrogram (from dataset)
         plt.subplot(3, 3, 1)
-        plt.imshow(input_spec, aspect='auto', origin='lower', cmap='viridis')
+        plt.imshow(input_spec, aspect="auto", origin="lower", cmap="viridis")
         plt.title(f"Input Spectrogram (Sample {results['sample_idx']})")
         plt.xlabel("Time")
         plt.ylabel("Frequency")
-        
+
         # 2. True audio waveform
         plt.subplot(3, 3, 2)
-        plt.plot(t, true_audio, 'b-', alpha=0.7, label='True')
+        plt.plot(t, true_audio, "b-", alpha=0.7, label="True")
         plt.title("True Audio Waveform")
         plt.xlabel("Time (s)")
         plt.ylabel("Amplitude")
         plt.grid(True, alpha=0.3)
-        
+
         # 3. Predicted audio waveform
         plt.subplot(3, 3, 3)
-        plt.plot(t, pred_audio, 'r-', alpha=0.7, label='Predicted')
+        plt.plot(t, pred_audio, "r-", alpha=0.7, label="Predicted")
         plt.title("Predicted Audio Waveform")
         plt.xlabel("Time (s)")
         plt.ylabel("Amplitude")
         plt.grid(True, alpha=0.3)
-        
+
         # 4. Waveform overlay
         plt.subplot(3, 3, 4)
-        plt.plot(t, true_audio, 'b-', alpha=0.7, label='True')
-        plt.plot(t, pred_audio, 'r--', alpha=0.7, label='Predicted')
+        plt.plot(t, true_audio, "b-", alpha=0.7, label="True")
+        plt.plot(t, pred_audio, "r--", alpha=0.7, label="Predicted")
         plt.title("Waveform Comparison")
         plt.xlabel("Time (s)")
         plt.ylabel("Amplitude")
         plt.legend()
         plt.grid(True, alpha=0.3)
-        
+
         # 5. True audio spectrogram (re-synthesized)
         plt.subplot(3, 3, 5)
         # Use the same parameters that were used for original dataset generation
-        true_spec, _, _ = self.spec_processor.audio_to_spectrogram(results["true_params"], true_audio)
-        
+        true_spec, _, _ = self.spec_processor.audio_to_spectrogram(
+            results["true_params"], true_audio
+        )
+
         # The spectrograms should now match since we're using the same parameters and processing
-        
-        plt.imshow(true_spec, aspect='auto', origin='lower', cmap='viridis')
+
+        plt.imshow(true_spec, aspect="auto", origin="lower", cmap="viridis")
         plt.title("True Synthesis Spectrogram")
         plt.xlabel("Time")
         plt.ylabel("Frequency")
-        
+
         # 6. Predicted audio spectrogram
         plt.subplot(3, 3, 6)
         pred_spec, _, _ = self.spec_processor.audio_to_spectrogram({}, pred_audio)
-        plt.imshow(pred_spec, aspect='auto', origin='lower', cmap='viridis')
+        plt.imshow(pred_spec, aspect="auto", origin="lower", cmap="viridis")
         plt.title("Predicted Synthesis Spectrogram")
         plt.xlabel("Time")
         plt.ylabel("Frequency")
-        
+
         # 7. Parameter comparison (normalized 0-1)
         plt.subplot(3, 3, 7)
         param_names = list(results["param_errors"].keys())
@@ -899,8 +980,9 @@ class AudioReconstructionEvaluator:
 
         x = np.arange(len(param_names))
         width = 0.35
-        bars_true = plt.bar(x - width/2, norm_true_vals, width, label='True', alpha=0.7)
-        bars_pred = plt.bar(x + width/2, norm_pred_vals, width, label='Predicted', alpha=0.7)
+        bars_true = plt.bar(x - width / 2, norm_true_vals, width, label="True", alpha=0.7)
+        bars_pred = plt.bar(x + width / 2, norm_pred_vals, width, label="Predicted", alpha=0.7)
+
         # Add natural-value labels on top of bars
         def _fmt(v: float) -> str:
             av = abs(v)
@@ -911,106 +993,138 @@ class AudioReconstructionEvaluator:
             if av >= 10:
                 return f"{v:.1f}"
             return f"{v:.3f}"
+
         true_vals_nat = [results["param_errors"][p]["true"] for p in param_names]
         pred_vals_nat = [results["param_errors"][p]["predicted"] for p in param_names]
         for i, (bt, bp) in enumerate(zip(bars_true, bars_pred)):
-            plt.text(bt.get_x() + bt.get_width()/2, bt.get_height() + 0.02,
-                     _fmt(true_vals_nat[i]), ha='center', va='bottom', fontsize=8, color='tab:blue')
-            plt.text(bp.get_x() + bp.get_width()/2, bp.get_height() + 0.02,
-                     _fmt(pred_vals_nat[i]), ha='center', va='bottom', fontsize=8, color='tab:orange')
+            plt.text(
+                bt.get_x() + bt.get_width() / 2,
+                bt.get_height() + 0.02,
+                _fmt(true_vals_nat[i]),
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                color="tab:blue",
+            )
+            plt.text(
+                bp.get_x() + bp.get_width() / 2,
+                bp.get_height() + 0.02,
+                _fmt(pred_vals_nat[i]),
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                color="tab:orange",
+            )
         plt.ylim(0, 1.1)
-        plt.xlabel('Parameters')
-        plt.ylabel('Normalized Value [0,1]')
-        plt.title('Parameter Comparison (Normalized)')
+        plt.xlabel("Parameters")
+        plt.ylabel("Normalized Value [0,1]")
+        plt.title("Parameter Comparison (Normalized)")
         plt.xticks(x, param_names, rotation=45)
         plt.legend()
-        
+
         # 8. Audio metrics
         plt.subplot(3, 3, 8)
         metrics = results["audio_metrics"]
         metric_names = list(metrics.keys())
         metric_vals = list(metrics.values())
-        
+
         # Filter out infinite values for plotting
-        finite_metrics = [(name, val) for name, val in zip(metric_names, metric_vals) 
-                         if np.isfinite(val)]
+        finite_metrics = [
+            (name, val) for name, val in zip(metric_names, metric_vals) if np.isfinite(val)
+        ]
         if finite_metrics:
             names, vals = zip(*finite_metrics)
             plt.bar(names, vals)
-            plt.title('Audio Quality Metrics')
+            plt.title("Audio Quality Metrics")
             plt.xticks(rotation=45)
         else:
-            plt.text(0.5, 0.5, 'No finite metrics', ha='center', va='center', transform=plt.gca().transAxes)
-            plt.title('Audio Quality Metrics')
-        
+            plt.text(
+                0.5,
+                0.5,
+                "No finite metrics",
+                ha="center",
+                va="center",
+                transform=plt.gca().transAxes,
+            )
+            plt.title("Audio Quality Metrics")
+
         # 9. Error difference waveform
         plt.subplot(3, 3, 9)
         min_len = min(len(true_audio), len(pred_audio))
         error = true_audio[:min_len] - pred_audio[:min_len]
-        plt.plot(t[:min_len], error, 'g-', alpha=0.7)
+        plt.plot(t[:min_len], error, "g-", alpha=0.7)
         plt.title("Prediction Error (True - Predicted)")
         plt.xlabel("Time (s)")
         plt.ylabel("Error")
         plt.grid(True, alpha=0.3)
-        
+
         # Add click event handlers for audio playback
         def on_click(event):
             if event.inaxes is None:
                 return
-                
+
             # Get the subplot that was clicked
             ax = event.inaxes
             title = ax.get_title().lower()
-            
+
             try:
                 if IPYTHON_AVAILABLE:
                     from IPython.display import display
+
                     sample_rate = self.sample_rate
-                    
+
                     # Determine which audio to play based on the clicked plot
-                    if 'true' in title and 'waveform' in title:
+                    if "true" in title and "waveform" in title:
                         audio = results["true_audio"]
                         print(f"🎵 Playing true audio waveform (Sample {results['sample_idx']})")
-                    elif 'predicted' in title and 'waveform' in title:
-                        audio = results["pred_audio"] 
-                        print(f"🎵 Playing predicted audio waveform (Sample {results['sample_idx']})")
-                    elif 'true' in title and 'spectrogram' in title:
-                        audio = results["true_audio"]
-                        print(f"🎵 Playing true audio from spectrogram (Sample {results['sample_idx']})")
-                    elif 'predicted' in title and 'spectrogram' in title:
+                    elif "predicted" in title and "waveform" in title:
                         audio = results["pred_audio"]
-                        print(f"🎵 Playing predicted audio from spectrogram (Sample {results['sample_idx']})")
-                    elif 'comparison' in title:
+                        print(
+                            f"🎵 Playing predicted audio waveform (Sample {results['sample_idx']})"
+                        )
+                    elif "true" in title and "spectrogram" in title:
+                        audio = results["true_audio"]
+                        print(
+                            f"🎵 Playing true audio from spectrogram (Sample {results['sample_idx']})"
+                        )
+                    elif "predicted" in title and "spectrogram" in title:
+                        audio = results["pred_audio"]
+                        print(
+                            f"🎵 Playing predicted audio from spectrogram (Sample {results['sample_idx']})"
+                        )
+                    elif "comparison" in title:
                         # For comparison plot, play true audio
                         audio = results["true_audio"]
-                        print(f"🎵 Playing true audio from comparison (Sample {results['sample_idx']})")
+                        print(
+                            f"🎵 Playing true audio from comparison (Sample {results['sample_idx']})"
+                        )
                     else:
                         print(f"💡 Click on waveform or spectrogram plots to play audio")
                         return
-                        
+
                     display(ipd.Audio(audio, rate=sample_rate))
                 else:
                     print(f"🎵 Audio playback requires IPython/Jupyter environment")
                     print(f"💡 Tip: Run in Jupyter notebook for audio playback")
             except Exception as e:
                 print(f"⚠️  Error playing audio: {e}")
-        
+
         # Connect the click event
-        fig.canvas.mpl_connect('button_press_event', on_click)
-        
+        fig.canvas.mpl_connect("button_press_event", on_click)
+
         plt.tight_layout()
         plt.show()
-        
+
         # Add usage instructions
         print(f"💡 Click on waveform or spectrogram plots to play audio!")
         print(f"   - True audio plots (blue): Play original audio")
         print(f"   - Predicted audio plots (red): Play reconstructed audio")
-        
+
         # Print summary
         print(f"\n{'='*60}")
         print(f"EVALUATION SUMMARY - Sample {results['sample_idx']}")
         print(f"{'='*60}")
-        
+
         print("\nParameter Comparison:")
         for param_name, error_info in results["param_errors"].items():
             print(f"  {param_name}:")
@@ -1018,18 +1132,18 @@ class AudioReconstructionEvaluator:
             print(f"    Predicted: {error_info['predicted']:.4f}")
             print(f"    Absolute Error: {error_info['absolute_error']:.4f}")
             print(f"    Relative Error: {error_info['relative_error']*100:.2f}%")
-        
+
         print(f"\nAudio Quality Metrics:")
         for metric_name, value in results["audio_metrics"].items():
             if np.isfinite(value):
                 print(f"  {metric_name}: {value:.6f}")
             else:
                 print(f"  {metric_name}: {value}")
-    
+
     def save_audio_files(self, results: Dict[str, Any], output_dir: str) -> None:
         """
         Save true and predicted audio files.
-        
+
         Args:
             results: Evaluation results
             output_dir: Directory to save files
@@ -1039,15 +1153,15 @@ class AudioReconstructionEvaluator:
         except ImportError:
             log.warning("soundfile not available, saving as numpy arrays instead")
             import numpy as np
-        
+
         os.makedirs(output_dir, exist_ok=True)
-        
+
         sample_idx = results["sample_idx"]
-        
+
         # Save audio files
         true_path = os.path.join(output_dir, f"sample_{sample_idx}_true")
         pred_path = os.path.join(output_dir, f"sample_{sample_idx}_pred")
-        
+
         try:
             # Try to save as WAV if soundfile is available
             sf.write(true_path + ".wav", results["true_audio"], self.sample_rate)
@@ -1056,50 +1170,51 @@ class AudioReconstructionEvaluator:
             # Fallback to numpy arrays
             np.save(true_path + ".npy", results["true_audio"])
             np.save(pred_path + ".npy", results["pred_audio"])
-        
+
         # Save metadata
         metadata = {
             "sample_idx": sample_idx,
             "predicted_params": results["predicted_params"],
             "true_params": results["true_params"],
             "param_errors": results["param_errors"],
-            "audio_metrics": results["audio_metrics"]
+            "audio_metrics": results["audio_metrics"],
         }
-        
+
         metadata_path = os.path.join(output_dir, f"sample_{sample_idx}_metadata.json")
-        with open(metadata_path, 'w') as f:
+        with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
-        
+
         log.info(f"Saved audio files to {output_dir}")
 
 
 class InteractiveAudioEvaluator:
     """Interactive widget for browsing and evaluating multiple samples."""
-    
+
     def __init__(self, evaluator: AudioReconstructionEvaluator):
         """
         Initialize interactive evaluator.
-        
+
         Args:
             evaluator: AudioReconstructionEvaluator instance
         """
         self.evaluator = evaluator
         self.current_sample = 0
         self.current_results = None
-        
+
         # Create interactive widget
         self.create_widget()
-    
+
     def create_widget(self):
         """Create the interactive matplotlib widget."""
         # Create figure and explicit layout: 2x3 plot grid on top, control strip below
         self.fig = plt.figure(figsize=(18, 10))
-        outer_gs = self.fig.add_gridspec(nrows=3, ncols=3,
-                                         height_ratios=[1.0, 1.0, 0.18],
-                                         hspace=0.35, wspace=0.3)
+        outer_gs = self.fig.add_gridspec(
+            nrows=3, ncols=3, height_ratios=[1.0, 1.0, 0.18], hspace=0.35, wspace=0.3
+        )
 
         # Axes matrix for the six plots
         import numpy as _np
+
         self.axes = _np.empty((2, 3), dtype=object)
         for r in range(2):
             for c in range(3):
@@ -1125,24 +1240,23 @@ class InteractiveAudioEvaluator:
 
         # Create interactive widgets
         self.sample_slider = Slider(
-            ax_slider, 'Sample', 0, len(self.evaluator.test_dataset) - 1,
-            valinit=0, valfmt='%d'
+            ax_slider, "Sample", 0, len(self.evaluator.test_dataset) - 1, valinit=0, valfmt="%d"
         )
         self.sample_slider.on_changed(self.update_sample)
-        
-        self.btn_prev = Button(ax_prev, 'Prev')
-        self.btn_next = Button(ax_next, 'Next')
-        self.btn_play_true = Button(ax_play_true, 'Play True')
-        self.btn_play_pred = Button(ax_play_pred, 'Play Pred')
-        
+
+        self.btn_prev = Button(ax_prev, "Prev")
+        self.btn_next = Button(ax_next, "Next")
+        self.btn_play_true = Button(ax_play_true, "Play True")
+        self.btn_play_pred = Button(ax_play_pred, "Play Pred")
+
         self.btn_prev.on_clicked(self.prev_sample)
         self.btn_next.on_clicked(self.next_sample)
         self.btn_play_true.on_clicked(self.play_true_audio)
         self.btn_play_pred.on_clicked(self.play_pred_audio)
-        
+
         # Add keyboard navigation
-        self.fig.canvas.mpl_connect('key_press_event', self.on_key_press)
-        
+        self.fig.canvas.mpl_connect("key_press_event", self.on_key_press)
+
         # Initial update
         self.update_display()
 
@@ -1153,7 +1267,7 @@ class InteractiveAudioEvaluator:
             raise
         except Exception as e:
             print(f"Prediction diversity check failed: {e}")
-        
+
         # Print usage instructions
         print("🎵 Interactive Audio Evaluator")
         print("💡 Navigation:")
@@ -1161,21 +1275,21 @@ class InteractiveAudioEvaluator:
         print("   • Click 'Prev'/'Next' buttons: Navigate between samples")
         print("   • Use slider: Jump to specific sample")
         print("   • Click 'Play True'/'Play Pred': Play audio for current sample")
-    
+
     def on_key_press(self, event):
         """Handle keyboard navigation events."""
-        if event.key == 'left':
+        if event.key == "left":
             # Left arrow key - go to previous sample
             self.prev_sample(None)
-        elif event.key == 'right':
+        elif event.key == "right":
             # Right arrow key - go to next sample
             self.next_sample(None)
-    
+
     def update_sample(self, val):
         """Update current sample from slider."""
         self.current_sample = int(self.sample_slider.val)
         self.update_display()
-    
+
     def prev_sample(self, event):
         """Go to previous sample."""
         old_sample = self.current_sample
@@ -1183,7 +1297,7 @@ class InteractiveAudioEvaluator:
         print(f"Prev: {old_sample} -> {self.current_sample}")
         self.sample_slider.set_val(self.current_sample)
         # Note: slider.set_val() automatically triggers update_display() via on_changed callback
-    
+
     def next_sample(self, event):
         """Go to next sample."""
         old_sample = self.current_sample
@@ -1192,79 +1306,85 @@ class InteractiveAudioEvaluator:
         self.sample_slider.set_val(self.current_sample)
         # Note: slider.set_val() automatically triggers update_display() via on_changed callback
         # So we don't need to call update_display() again here
-    
+
     def update_display(self):
         """Update all plots for current sample."""
         print(f"🔄 Updating display for sample {self.current_sample}")
-        
+
         # Clear all axes
         for ax in self.axes.flat:
             ax.clear()
-        
+
         # Evaluate current sample
-        self.current_results = self.evaluator.evaluate_sample(
-            self.current_sample, plot=False
-        )
-        
+        self.current_results = self.evaluator.evaluate_sample(self.current_sample, plot=False)
+
         # Debug: Print some identifying info about this sample
         if self.current_results:
-            print(f"   Sample {self.current_sample} - True audio range: [{self.current_results['true_audio'].min():.3f}, {self.current_results['true_audio'].max():.3f}]")
-            print(f"   Sample {self.current_sample} - Pred audio range: [{self.current_results['pred_audio'].min():.3f}, {self.current_results['pred_audio'].max():.3f}]")
-            
+            print(
+                f"   Sample {self.current_sample} - True audio range: [{self.current_results['true_audio'].min():.3f}, {self.current_results['true_audio'].max():.3f}]"
+            )
+            print(
+                f"   Sample {self.current_sample} - Pred audio range: [{self.current_results['pred_audio'].min():.3f}, {self.current_results['pred_audio'].max():.3f}]"
+            )
+
             # Print parameter values to check if they're actually changing
-            true_params = self.current_results['true_params']
-            pred_params = self.current_results['predicted_params']
-            
+            true_params = self.current_results["true_params"]
+            pred_params = self.current_results["predicted_params"]
+
             # Just show a few key parameters to see if they vary
-            key_params = ['note_number', 'filter_cutoff', 'filter_resonance']
+            key_params = ["note_number", "filter_cutoff", "filter_resonance"]
             for param in key_params:
                 if param in true_params and param in pred_params:
-                    print(f"   {param}: true={true_params[param]:.3f}, pred={pred_params[param]:.3f}")
-                    
+                    print(
+                        f"   {param}: true={true_params[param]:.3f}, pred={pred_params[param]:.3f}"
+                    )
+
             # Also print ALL true params for a couple samples to see the full picture
             if self.current_sample < 3:
                 print(f"   All true params for sample {self.current_sample}: {true_params}")
                 print(f"   All pred params for sample {self.current_sample}: {pred_params}")
-        
+
         # Get data
         true_audio = self.current_results["true_audio"]
         pred_audio = self.current_results["pred_audio"]
         input_spec = self.current_results["input_spectrogram"]
-        
-        # Remove channel dimension and normalize for plotting  
+
+        # Remove channel dimension and normalize for plotting
         if len(input_spec.shape) == 3:
             if input_spec.shape[0] == 1:  # (1, H, W) format - channels first
                 input_spec = input_spec[0, :, :]  # Remove channel dimension: (1, H, W) -> (H, W)
-            else:  # (H, W, 1) format - channels last  
+            else:  # (H, W, 1) format - channels last
                 input_spec = input_spec[:, :, 0]  # Remove channel dimension: (H, W, 1) -> (H, W)
-        
+
         # Keep input spectrogram in floating-point format to match true spectrogram
         # No conversion needed - input_spec is already in proper float format
-        
+
         t = np.arange(len(true_audio)) / self.evaluator.sample_rate
-        
+
         # Plot input spectrogram
-        self.axes[0, 0].imshow(input_spec, aspect='auto', origin='lower', cmap='viridis')
+        self.axes[0, 0].imshow(input_spec, aspect="auto", origin="lower", cmap="viridis")
         self.axes[0, 0].set_title(f"Input Spectrogram (Sample {self.current_sample})")
-        
+
         # Plot waveforms
-        self.axes[0, 1].plot(t, true_audio, 'b-', alpha=0.7, label='True')
-        self.axes[0, 1].plot(t, pred_audio, 'r--', alpha=0.7, label='Predicted')
+        self.axes[0, 1].plot(t, true_audio, "b-", alpha=0.7, label="True")
+        self.axes[0, 1].plot(t, pred_audio, "r--", alpha=0.7, label="Predicted")
         self.axes[0, 1].set_title("Audio Waveforms")
         self.axes[0, 1].legend()
         self.axes[0, 1].grid(True, alpha=0.3)
-        
+
         # Plot spectrograms
         true_params = self.current_results["true_params"]
-        true_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram(true_params, true_audio)
+        true_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram(
+            true_params, true_audio
+        )
         pred_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram({}, pred_audio)
-        
-        self.axes[0, 2].imshow(true_spec, aspect='auto', origin='lower', cmap='viridis')
+
+        self.axes[0, 2].imshow(true_spec, aspect="auto", origin="lower", cmap="viridis")
         self.axes[0, 2].set_title("True Audio Spectrogram")
-        
-        self.axes[1, 0].imshow(pred_spec, aspect='auto', origin='lower', cmap='viridis')
+
+        self.axes[1, 0].imshow(pred_spec, aspect="auto", origin="lower", cmap="viridis")
         self.axes[1, 0].set_title("Predicted Audio Spectrogram")
-        
+
         # Plot parameters (normalized to 0-1) with natural-value labels
         param_names = list(self.current_results["param_errors"].keys())
         if param_names:
@@ -1296,56 +1416,75 @@ class InteractiveAudioEvaluator:
 
             x = np.arange(len(param_names))
             width = 0.35
-            bars_true = self.axes[1, 1].bar(x - width/2, norm_true, width, label='True', alpha=0.7)
-            bars_pred = self.axes[1, 1].bar(x + width/2, norm_pred, width, label='Predicted', alpha=0.7)
+            bars_true = self.axes[1, 1].bar(
+                x - width / 2, norm_true, width, label="True", alpha=0.7
+            )
+            bars_pred = self.axes[1, 1].bar(
+                x + width / 2, norm_pred, width, label="Predicted", alpha=0.7
+            )
 
             # Add labels with natural values on top of each bar
             for i, (bt, bp) in enumerate(zip(bars_true, bars_pred)):
-                self.axes[1, 1].text(bt.get_x() + bt.get_width()/2, bt.get_height() + 0.02,
-                                      _fmt(true_vals[i]), ha='center', va='bottom', fontsize=8, color='tab:blue')
-                self.axes[1, 1].text(bp.get_x() + bp.get_width()/2, bp.get_height() + 0.02,
-                                      _fmt(pred_vals[i]), ha='center', va='bottom', fontsize=8, color='tab:orange')
+                self.axes[1, 1].text(
+                    bt.get_x() + bt.get_width() / 2,
+                    bt.get_height() + 0.02,
+                    _fmt(true_vals[i]),
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                    color="tab:blue",
+                )
+                self.axes[1, 1].text(
+                    bp.get_x() + bp.get_width() / 2,
+                    bp.get_height() + 0.02,
+                    _fmt(pred_vals[i]),
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                    color="tab:orange",
+                )
 
             self.axes[1, 1].set_ylim(0, 1.1)
-            self.axes[1, 1].set_ylabel('Normalized Value [0,1]')
+            self.axes[1, 1].set_ylabel("Normalized Value [0,1]")
             self.axes[1, 1].set_xticks(x)
             self.axes[1, 1].set_xticklabels(param_names, rotation=45)
-            self.axes[1, 1].set_title('Parameters (Normalized)')
+            self.axes[1, 1].set_title("Parameters (Normalized)")
             self.axes[1, 1].legend()
-        
+
         # Plot metrics
         metrics = self.current_results["audio_metrics"]
         finite_metrics = {k: v for k, v in metrics.items() if np.isfinite(v)}
         if finite_metrics:
             self.axes[1, 2].bar(finite_metrics.keys(), finite_metrics.values())
-            self.axes[1, 2].set_title('Audio Metrics')
-            self.axes[1, 2].tick_params(axis='x', rotation=45)
-        
+            self.axes[1, 2].set_title("Audio Metrics")
+            self.axes[1, 2].tick_params(axis="x", rotation=45)
+
         plt.tight_layout()
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
         # Force figure to update in interactive backends
         plt.pause(0.01)
-    
+
     def play_true_audio(self, event):
         """Play true audio with multiple playback options."""
         if not self.current_results:
             print("⚠️  No audio data available")
             return
-            
+
         try:
             sample_rate = self.evaluator.sample_rate
             audio = self.current_results["true_audio"]
             sample_idx = self.current_results["sample_idx"]
-            
+
             print(f"🎵 Playing true audio (Sample {sample_idx})")
-            
+
             # Try multiple playback options
             success = False
-            
+
             # Option 1: Use sounddevice for direct playback (best for Mac command line)
             try:
                 import sounddevice as sd
+
                 sd.play(audio, sample_rate)
                 sd.wait()  # Wait until playback is finished
                 success = True
@@ -1354,16 +1493,18 @@ class InteractiveAudioEvaluator:
                 print("   sounddevice not available")
             except Exception as e:
                 print(f"   sounddevice playback failed: {e}")
-            
+
             # Option 2: Jupyter/IPython display (only if sounddevice failed)
             if not success and IPYTHON_AVAILABLE:
                 try:
                     from IPython.display import display
+
                     # Only use IPython if we're actually in a Jupyter environment
                     try:
                         # Check if we're in IPython without calling get_ipython directly
                         import sys
-                        if 'IPython' in sys.modules:
+
+                        if "IPython" in sys.modules:
                             display(ipd.Audio(audio, rate=sample_rate))
                             success = True
                             print(f"   ✓ Displayed via Jupyter")
@@ -1372,22 +1513,23 @@ class InteractiveAudioEvaluator:
                         pass
                 except Exception as e:
                     print(f"   Jupyter playback failed: {e}")
-            
+
             # Option 3: Save to temporary file and use system player
             if not success:
                 try:
-                    import tempfile
-                    import subprocess
                     import platform
-                    
+                    import subprocess
+                    import tempfile
+
                     # Create temporary wav file
-                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                         tmp_path = tmp_file.name
-                    
+
                     try:
                         import soundfile as sf
+
                         sf.write(tmp_path, audio, sample_rate)
-                        
+
                         # Try to play with system command
                         system = platform.system()
                         if system == "Darwin":  # macOS
@@ -1396,51 +1538,54 @@ class InteractiveAudioEvaluator:
                             subprocess.run(["aplay", tmp_path], check=True)
                         elif system == "Windows":
                             subprocess.run(["start", tmp_path], shell=True, check=True)
-                        
+
                         success = True
                         print(f"   ✓ Played via system audio player")
-                        
+
                     except Exception as e:
                         print(f"   System player failed: {e}")
                     finally:
                         # Clean up temp file after a delay
                         try:
-                            import os, time
+                            import os
+                            import time
+
                             time.sleep(2)  # Wait for playback to start
                             os.unlink(tmp_path)
                         except:
                             pass
-                            
+
                 except Exception as e:
                     print(f"   Temp file playback failed: {e}")
-            
+
             if not success:
                 print("   ⚠️  No audio playback method available")
                 print("   💡 Try installing: pip install sounddevice")
                 print("   💡 Or run in Jupyter notebook for web audio")
-                
+
         except Exception as e:
             print(f"⚠️  Error playing true audio: {e}")
-    
+
     def play_pred_audio(self, event):
         """Play predicted audio with multiple playback options."""
         if not self.current_results:
             print("⚠️  No audio data available")
             return
-            
+
         try:
             sample_rate = self.evaluator.sample_rate
             audio = self.current_results["pred_audio"]
             sample_idx = self.current_results["sample_idx"]
-            
+
             print(f"🎵 Playing predicted audio (Sample {sample_idx})")
-            
+
             # Try multiple playback options
             success = False
-            
+
             # Option 1: Use sounddevice for direct playback (best for Mac command line)
             try:
                 import sounddevice as sd
+
                 sd.play(audio, sample_rate)
                 sd.wait()  # Wait until playback is finished
                 success = True
@@ -1449,16 +1594,18 @@ class InteractiveAudioEvaluator:
                 print("   sounddevice not available")
             except Exception as e:
                 print(f"   sounddevice playback failed: {e}")
-            
+
             # Option 2: Jupyter/IPython display (only if sounddevice failed)
             if not success and IPYTHON_AVAILABLE:
                 try:
                     from IPython.display import display
+
                     # Only use IPython if we're actually in a Jupyter environment
                     try:
                         # Check if we're in IPython without calling get_ipython directly
                         import sys
-                        if 'IPython' in sys.modules:
+
+                        if "IPython" in sys.modules:
                             display(ipd.Audio(audio, rate=sample_rate))
                             success = True
                             print(f"   ✓ Displayed via Jupyter")
@@ -1467,22 +1614,23 @@ class InteractiveAudioEvaluator:
                         pass
                 except Exception as e:
                     print(f"   Jupyter playback failed: {e}")
-            
+
             # Option 3: Save to temporary file and use system player
             if not success:
                 try:
-                    import tempfile
-                    import subprocess
                     import platform
-                    
+                    import subprocess
+                    import tempfile
+
                     # Create temporary wav file
-                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                         tmp_path = tmp_file.name
-                    
+
                     try:
                         import soundfile as sf
+
                         sf.write(tmp_path, audio, sample_rate)
-                        
+
                         # Try to play with system command
                         system = platform.system()
                         if system == "Darwin":  # macOS
@@ -1491,29 +1639,31 @@ class InteractiveAudioEvaluator:
                             subprocess.run(["aplay", tmp_path], check=True)
                         elif system == "Windows":
                             subprocess.run(["start", tmp_path], shell=True, check=True)
-                        
+
                         success = True
                         print(f"   ✓ Played via system audio player")
-                        
+
                     except Exception as e:
                         print(f"   System player failed: {e}")
                     finally:
                         # Clean up temp file after a delay
                         try:
-                            import os, time
+                            import os
+                            import time
+
                             time.sleep(2)  # Wait for playback to start
                             os.unlink(tmp_path)
                         except:
                             pass
-                            
+
                 except Exception as e:
                     print(f"   Temp file playback failed: {e}")
-            
+
             if not success:
                 print("   ⚠️  No audio playback method available")
                 print("   💡 Try installing: pip install sounddevice")
                 print("   💡 Or run in Jupyter notebook for web audio")
-                
+
         except Exception as e:
             print(f"⚠️  Error playing predicted audio: {e}")
 
@@ -1576,13 +1726,13 @@ def _determine_device() -> str:
 def _setup_datamodule(cfg: DictConfig, ckpt_path: str) -> LightningDataModule:
     """Setup and configure the datamodule for evaluation."""
     # Load checkpoint to extract dataset metadata
-    checkpoint = torch.load(ckpt_path, map_location='cpu', weights_only=False)
-    vimh_data = checkpoint.get('VIMHDataModule', {})
-    dataset_metadata = vimh_data.get('dataset_metadata', {})
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    vimh_data = checkpoint.get("VIMHDataModule", {})
+    dataset_metadata = vimh_data.get("dataset_metadata", {})
 
     # Configure datamodule to use the same dataset that was used for training
-    if dataset_metadata and 'dataset_name' in dataset_metadata:
-        trained_dataset_name = dataset_metadata['dataset_name']
+    if dataset_metadata and "dataset_name" in dataset_metadata:
+        trained_dataset_name = dataset_metadata["dataset_name"]
         log.info(f"Training used dataset: {trained_dataset_name}")
 
         potential_data_dir = f"data/{trained_dataset_name}"
@@ -1590,12 +1740,15 @@ def _setup_datamodule(cfg: DictConfig, ckpt_path: str) -> LightningDataModule:
             log.info(f"Using training dataset directory: {potential_data_dir}")
             cfg.data.data_dir = potential_data_dir
         else:
-            log.warning(f"Training dataset directory {potential_data_dir} not found, using config default")
+            log.warning(
+                f"Training dataset directory {potential_data_dir} not found, using config default"
+            )
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
 
     # Use identity transforms for spectrograms
     from torchvision.transforms import transforms
+
     identity_transform = transforms.Compose([])
 
     datamodule: LightningDataModule = hydra.utils.instantiate(
@@ -1606,8 +1759,10 @@ def _setup_datamodule(cfg: DictConfig, ckpt_path: str) -> LightningDataModule:
     )
 
     # Inject saved metadata if available
-    if dataset_metadata and 'parameter_names' in dataset_metadata:
-        log.info(f"Found saved dataset metadata with parameters: {dataset_metadata['parameter_names']}")
+    if dataset_metadata and "parameter_names" in dataset_metadata:
+        log.info(
+            f"Found saved dataset metadata with parameters: {dataset_metadata['parameter_names']}"
+        )
         datamodule._saved_dataset_metadata = dataset_metadata
         log.info("Injected saved metadata into datamodule")
 
@@ -1616,17 +1771,18 @@ def _setup_datamodule(cfg: DictConfig, ckpt_path: str) -> LightningDataModule:
     return datamodule
 
 
-def _load_model_from_checkpoint(ckpt_path: str, datamodule: LightningDataModule, device: str) -> LightningModule:
+def _load_model_from_checkpoint(
+    ckpt_path: str, datamodule: LightningDataModule, device: str
+) -> LightningModule:
     """Load model from checkpoint with proper architecture reconstruction."""
     log.info(f"Loading model from checkpoint: {ckpt_path}")
 
     # Try Lightning's built-in checkpoint loading first
     try:
         from src.models.vimh_lit_module import VIMHLitModule
+
         model: LightningModule = VIMHLitModule.load_from_checkpoint(
-            ckpt_path,
-            map_location=device,
-            strict=False
+            ckpt_path, map_location=device, strict=False
         )
         log.info("Successfully loaded model using Lightning's built-in method")
         return model
@@ -1638,23 +1794,25 @@ def _load_model_from_checkpoint(ckpt_path: str, datamodule: LightningDataModule,
     return _reconstruct_model_manually(ckpt_path, datamodule, device)
 
 
-def _reconstruct_model_manually(ckpt_path: str, datamodule: LightningDataModule, device: str) -> LightningModule:
+def _reconstruct_model_manually(
+    ckpt_path: str, datamodule: LightningDataModule, device: str
+) -> LightningModule:
     """Manually reconstruct model when Lightning's method fails."""
     # Get heads configuration from datamodule
-    if not hasattr(datamodule, 'data_train') or datamodule.data_train is None:
+    if not hasattr(datamodule, "data_train") or datamodule.data_train is None:
         raise CheckpointError("Cannot reconstruct model: datamodule not properly configured")
 
     heads_config = datamodule.data_train.get_heads_config()
     log.info(f"Retrieved heads config: {list(heads_config.keys())}")
 
     # Get dataset metadata for architecture inference
-    dataset_metadata = getattr(datamodule, '_saved_dataset_metadata', {})
+    dataset_metadata = getattr(datamodule, "_saved_dataset_metadata", {})
 
     # Use the new architecture reconstructor
     reconstructor_config = {
-        'default_dropout': 0.5,
-        'default_patch_size': 4,
-        'default_embed_dim': 64
+        "default_dropout": 0.5,
+        "default_patch_size": 4,
+        "default_embed_dim": 64,
     }
     reconstructor = CheckpointArchitectureReconstructor(reconstructor_config)
 
@@ -1665,24 +1823,25 @@ def _reconstruct_model_manually(ckpt_path: str, datamodule: LightningDataModule,
         log.info(f"Successfully reconstructed {arch_config.architecture_type} model")
 
         # Load checkpoint for hyperparameters
-        checkpoint = torch.load(ckpt_path, map_location='cpu', weights_only=False)
-        hyper_parameters = checkpoint.get('hyper_parameters', {})
+        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        hyper_parameters = checkpoint.get("hyper_parameters", {})
 
         # Create the complete model
-        from src.models.vimh_lit_module import VIMHLitModule
         from torch.nn import CrossEntropyLoss
+
+        from src.models.vimh_lit_module import VIMHLitModule
 
         criteria = {head_name: CrossEntropyLoss() for head_name in heads_config.keys()}
 
         model = VIMHLitModule(
             net=net,
-            optimizer=hyper_parameters.get('optimizer'),
+            optimizer=hyper_parameters.get("optimizer"),
             scheduler=None,
-            loss_weights=hyper_parameters.get('loss_weights', {}),
-            compile=hyper_parameters.get('compile', False),
+            loss_weights=hyper_parameters.get("loss_weights", {}),
+            compile=hyper_parameters.get("compile", False),
             criteria=criteria,
             auto_configure_from_dataset=False,
-            output_mode=hyper_parameters.get('output_mode', 'classification')
+            output_mode=hyper_parameters.get("output_mode", "classification"),
         )
 
         # Load compatible weights
@@ -1695,7 +1854,9 @@ def _reconstruct_model_manually(ckpt_path: str, datamodule: LightningDataModule,
         raise CheckpointError(f"Could not reconstruct model from checkpoint: {e}")
 
 
-def _load_compatible_weights(model: LightningModule, checkpoint_state_dict: Dict[str, torch.Tensor]) -> None:
+def _load_compatible_weights(
+    model: LightningModule, checkpoint_state_dict: Dict[str, torch.Tensor]
+) -> None:
     """Load only compatible weights from checkpoint state dict."""
     model_state_dict = model.state_dict()
 
@@ -1729,7 +1890,9 @@ def _load_compatible_weights(model: LightningModule, checkpoint_state_dict: Dict
         raise CheckpointError("No compatible weights found in checkpoint")
 
 
-def _run_evaluation(cfg: DictConfig, evaluator: AudioReconstructionEvaluator) -> Tuple[Dict[str, Any], Optional[None]]:
+def _run_evaluation(
+    cfg: DictConfig, evaluator: AudioReconstructionEvaluator
+) -> Tuple[Dict[str, Any], Optional[None]]:
     """Run the actual evaluation based on configuration."""
     num_samples = cfg.get("num_samples", 5)
     interactive = cfg.get("interactive", False)
@@ -1745,8 +1908,9 @@ def _run_evaluation(cfg: DictConfig, evaluator: AudioReconstructionEvaluator) ->
         return _run_batch_evaluation(evaluator, num_samples, save_audio, output_dir)
 
 
-def _run_batch_evaluation(evaluator: AudioReconstructionEvaluator, num_samples: int,
-                         save_audio: bool, output_dir: str) -> Tuple[Dict[str, Any], Optional[None]]:
+def _run_batch_evaluation(
+    evaluator: AudioReconstructionEvaluator, num_samples: int, save_audio: bool, output_dir: str
+) -> Tuple[Dict[str, Any], Optional[None]]:
     """Run batch evaluation on multiple samples."""
     log.info(f"Evaluating {num_samples} samples...")
     results = []
@@ -1768,7 +1932,7 @@ def _run_batch_evaluation(evaluator: AudioReconstructionEvaluator, num_samples: 
     return {
         "individual_results": results,
         "aggregate_metrics": aggregate_metrics,
-        "num_samples_evaluated": len(results)
+        "num_samples_evaluated": len(results),
     }, None
 
 
@@ -1792,13 +1956,13 @@ def _compute_aggregate_metrics(results: List[Dict[str, Any]]) -> Dict[str, float
 @hydra.main(version_base="1.3", config_path="../configs", config_name="audio_eval")
 def main(cfg: DictConfig) -> None:
     """Main entry point for audio reconstruction evaluation."""
-    
+
     # Show usage info
     if cfg.get("ckpt_path") is None:
         log.info("🎵 Audio Reconstruction Evaluation")
         log.info("Auto-discovering latest checkpoint...")
         log.info("💡 Tip: Run with ckpt_path=path/to/checkpoint.ckpt to use specific checkpoint")
-    
+
     extras(cfg)
     evaluate_audio_reconstruction(cfg)
 

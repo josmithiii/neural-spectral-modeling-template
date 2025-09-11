@@ -53,7 +53,9 @@ def get_default_channel_labels(channels: int) -> List[str]:
         return [f"Ch{i}" for i in range(channels)]
 
 
-def extract_temporal_envelope(spectrogram: np.ndarray, kernel_size: int = 5, eps: float = 1e-10) -> np.ndarray:
+def extract_temporal_envelope(
+    spectrogram: np.ndarray, kernel_size: int = 5, eps: float = 1e-10
+) -> np.ndarray:
     """
     Extract temporal envelope (energy evolution over time).
 
@@ -83,9 +85,9 @@ def extract_temporal_envelope(spectrogram: np.ndarray, kernel_size: int = 5, eps
         # Apply smoothing to each channel separately
         smoothed_channels = []
         for c in range(C):
-            channel_energy = temporal_energy[:, c:c+1, :, :]  # [1, 1, 1, W]
+            channel_energy = temporal_energy[:, c : c + 1, :, :]  # [1, 1, 1, W]
             kernel = torch.ones(1, 1, 1, kernel_size, device=spec_tensor.device) / kernel_size
-            smoothed = F.conv2d(channel_energy, kernel, padding=(0, kernel_size//2))
+            smoothed = F.conv2d(channel_energy, kernel, padding=(0, kernel_size // 2))
             smoothed_channels.append(smoothed)
         temporal_energy = torch.cat(smoothed_channels, dim=1)
 
@@ -98,7 +100,9 @@ def extract_temporal_envelope(spectrogram: np.ndarray, kernel_size: int = 5, eps
     return result
 
 
-def extract_spectral_envelope(spectrogram: np.ndarray, kernel_size: int = 7, eps: float = 1e-10) -> np.ndarray:
+def extract_spectral_envelope(
+    spectrogram: np.ndarray, kernel_size: int = 7, eps: float = 1e-10
+) -> np.ndarray:
     """
     Extract spectral envelope (energy distribution over frequency).
 
@@ -128,9 +132,9 @@ def extract_spectral_envelope(spectrogram: np.ndarray, kernel_size: int = 7, eps
         # Apply smoothing to each channel separately
         smoothed_channels = []
         for c in range(C):
-            channel_profile = spectral_profile[:, c:c+1, :, :]  # [1, 1, H, 1]
+            channel_profile = spectral_profile[:, c : c + 1, :, :]  # [1, 1, H, 1]
             kernel = torch.ones(1, 1, kernel_size, 1, device=spec_tensor.device) / kernel_size
-            smoothed = F.conv2d(channel_profile, kernel, padding=(kernel_size//2, 0))
+            smoothed = F.conv2d(channel_profile, kernel, padding=(kernel_size // 2, 0))
             smoothed_channels.append(smoothed)
         spectral_profile = torch.cat(smoothed_channels, dim=1)
 
@@ -148,7 +152,7 @@ def add_envelope_channels(
     add_temporal_envelope: bool,
     add_spectral_envelope: bool,
     normalize: bool,
-    eps: float = 1e-10
+    eps: float = 1e-10,
 ) -> np.ndarray:
     """
     Add envelope channels to spectrogram and optionally apply normalization.
@@ -250,9 +254,7 @@ def add_envelope_channels(
 
 
 def calculate_total_channels(
-    base_channels: int,
-    add_temporal_envelope: bool,
-    add_spectral_envelope: bool
+    base_channels: int, add_temporal_envelope: bool, add_spectral_envelope: bool
 ) -> int:
     """Calculate total number of channels after adding envelopes."""
     if add_temporal_envelope or add_spectral_envelope:
@@ -272,7 +274,7 @@ def generate_channel_labels(
     base_labels: List[str],
     add_temporal_envelope: bool,
     add_spectral_envelope: bool,
-    normalize: bool = False
+    normalize: bool = False,
 ) -> List[str]:
     """Generate channel labels including envelope channels."""
     if add_temporal_envelope or add_spectral_envelope:
@@ -403,25 +405,23 @@ def generate_sample_batch(
                     add_temporal_envelope,
                     add_spectral_envelope,
                     normalize,
-                    eps
+                    eps,
                 )
 
                 # Convert back to uint8 after floating-point envelope operations
                 spec_min = final_spectrogram.min()
                 spec_max = final_spectrogram.max()
                 if spec_max > spec_min:
-                    final_spectrogram = ((final_spectrogram - spec_min) / (spec_max - spec_min) * 255.0).astype(np.uint8)
+                    final_spectrogram = (
+                        (final_spectrogram - spec_min) / (spec_max - spec_min) * 255.0
+                    ).astype(np.uint8)
                 else:
                     final_spectrogram = np.full_like(final_spectrogram, 128, dtype=np.uint8)
             else:
                 # Standard multi-channel replication
                 final_spectrogram = prepare_channels(spectrogram, channels)
                 final_spectrogram = add_envelope_channels(
-                    final_spectrogram,
-                    add_temporal_envelope,
-                    add_spectral_envelope,
-                    normalize,
-                    eps
+                    final_spectrogram, add_temporal_envelope, add_spectral_envelope, normalize, eps
                 )
 
             spectrograms.append(final_spectrogram)
@@ -463,7 +463,9 @@ def save_vimh_dataset(
     if channel_labels is None:
         channel_labels = get_default_channel_labels(channels)
     elif len(channel_labels) != channels:
-        raise ValueError(f"Channel labels length {len(channel_labels)} doesn't match channels {channels}")
+        raise ValueError(
+            f"Channel labels length {len(channel_labels)} doesn't match channels {channels}"
+        )
 
     # Use configured dimensions
     logger.info(f"VIMH dimensions: {height}x{width}x{channels}")
@@ -621,7 +623,9 @@ def save_vimh_dataset(
     for param_name, param_info in params_config.items():
         parameter_mappings[param_name] = {
             "min": param_info["min_value"],
-            "step": param_info.get("step", (param_info["max_value"] - param_info["min_value"]) / 16),
+            "step": param_info.get(
+                "step", (param_info["max_value"] - param_info["min_value"]) / 16
+            ),
             "max": param_info["max_value"],
             "description": f"simple parameter: {param_name}",
         }
@@ -734,11 +738,27 @@ def main(cfg: DictConfig) -> None:
     # Parse command line arguments for --pickle flag from original argv
     original_argv = getattr(sys, "_original_argv", sys.argv)
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--pickle", "-p", action="store_true", help="Write out dataset in pickle format")
-    parser.add_argument("--shuffle", "-s", action="store_true", help="Shuffle generated samples to randomize order")
-    parser.add_argument("--temporal-envelope", action="store_true", help="Add temporal envelope channels (energy evolution over time)")
-    parser.add_argument("--spectral-envelope", action="store_true", help="Add spectral envelope channels (energy distribution over frequency)")
-    parser.add_argument("--normalize", action="store_true", help="Apply spectral normalization (divide by envelopes, requires envelope flags)")
+    parser.add_argument(
+        "--pickle", "-p", action="store_true", help="Write out dataset in pickle format"
+    )
+    parser.add_argument(
+        "--shuffle", "-s", action="store_true", help="Shuffle generated samples to randomize order"
+    )
+    parser.add_argument(
+        "--temporal-envelope",
+        action="store_true",
+        help="Add temporal envelope channels (energy evolution over time)",
+    )
+    parser.add_argument(
+        "--spectral-envelope",
+        action="store_true",
+        help="Add spectral envelope channels (energy distribution over frequency)",
+    )
+    parser.add_argument(
+        "--normalize",
+        action="store_true",
+        help="Apply spectral normalization (divide by envelopes, requires envelope flags)",
+    )
     args, unknown = parser.parse_known_args(original_argv)
 
     logger.info("🚀 Starting SimpleSawSynth dataset generation")
@@ -759,7 +779,9 @@ def main(cfg: DictConfig) -> None:
     if args.normalize:
         logger.info("🎯 Spectral normalization enabled")
         if not (args.temporal_envelope or args.spectral_envelope):
-            logger.error("❌ Normalization requires at least one envelope type (--temporal-envelope or --spectral-envelope)")
+            logger.error(
+                "❌ Normalization requires at least one envelope type (--temporal-envelope or --spectral-envelope)"
+            )
             sys.exit(1)
 
     try:
@@ -899,10 +921,7 @@ def main(cfg: DictConfig) -> None:
         # Generate channel labels including envelopes
         base_labels = get_default_channel_labels(base_channels)
         final_channel_labels = generate_channel_labels(
-            base_labels,
-            args.temporal_envelope,
-            args.spectral_envelope,
-            args.normalize
+            base_labels, args.temporal_envelope, args.spectral_envelope, args.normalize
         )
 
         save_vimh_dataset(
@@ -944,8 +963,13 @@ if __name__ == "__main__":
     # Store original argv and filter out custom flags so Hydra doesn't see them
     sys._original_argv = sys.argv[:]
     custom_flags = [
-        "--pickle", "-p", "--shuffle", "-s",
-        "--temporal-envelope", "--spectral-envelope", "--normalize"
+        "--pickle",
+        "-p",
+        "--shuffle",
+        "-s",
+        "--temporal-envelope",
+        "--spectral-envelope",
+        "--normalize",
     ]
     filtered_argv = []
     for arg in sys.argv:

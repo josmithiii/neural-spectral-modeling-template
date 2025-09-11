@@ -1,6 +1,7 @@
+from typing import Dict, Optional
+
 import torch
 from torch import nn
-from typing import Dict, Optional
 
 
 class SimpleMLP(nn.Module):
@@ -31,9 +32,9 @@ class SimpleMLP(nn.Module):
         # Backward compatibility: convert old single-head config to multihead
         if heads_config is None:
             if output_size is not None:
-                heads_config = {'digit': output_size}
+                heads_config = {"digit": output_size}
             else:
-                heads_config = {'digit': 10}  # Default MNIST
+                heads_config = {"digit": 10}  # Default MNIST
 
         self.heads_config = heads_config
         self.is_multihead = len(heads_config) > 1
@@ -75,7 +76,7 @@ class SimpleMLP(nn.Module):
             return {head_name: head(features) for head_name, head in self.heads.items()}
 
         # Single head case: return tensor directly (backward compatibility)
-        return self.heads['digit'](features)
+        return self.heads["digit"](features)
 
 
 if __name__ == "__main__":

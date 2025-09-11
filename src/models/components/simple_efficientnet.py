@@ -1,7 +1,8 @@
-import torch
-from torch import nn
 import math
 from typing import Dict, Optional
+
+import torch
+from torch import nn
 
 
 class SwishActivation(nn.Module):
@@ -151,9 +152,9 @@ class SimpleEfficientNet(nn.Module):
         # Backward compatibility: convert old single-head config to multihead
         if heads_config is None:
             if num_classes is not None:
-                heads_config = {'digit': num_classes}
+                heads_config = {"digit": num_classes}
             else:
-                heads_config = {'digit': 10}  # Default MNIST
+                heads_config = {"digit": 10}  # Default MNIST
 
         self.heads_config = heads_config
         self.is_multihead = len(heads_config) > 1
@@ -169,10 +170,10 @@ class SimpleEfficientNet(nn.Module):
         # MBConv blocks configuration for simplified B0
         # Format: (expand_ratio, channels, num_blocks, stride, kernel_size)
         block_configs = [
-            (1, 16, 1, 1, 3),   # Stage 1
-            (6, 24, 2, 2, 3),   # Stage 2
-            (6, 40, 2, 2, 5),   # Stage 3
-            (6, 80, 3, 2, 3),   # Stage 4
+            (1, 16, 1, 1, 3),  # Stage 1
+            (6, 24, 2, 2, 3),  # Stage 2
+            (6, 40, 2, 2, 5),  # Stage 3
+            (6, 80, 3, 2, 3),  # Stage 4
             (6, 112, 3, 1, 5),  # Stage 5
             (6, 192, 4, 2, 5),  # Stage 6
             (6, 320, 1, 1, 3),  # Stage 7
@@ -214,10 +215,12 @@ class SimpleEfficientNet(nn.Module):
 
         # Classification heads
         if self.is_multihead:
-            self.heads = nn.ModuleDict({
-                head_name: nn.Linear(head_channels, num_classes)
-                for head_name, num_classes in heads_config.items()
-            })
+            self.heads = nn.ModuleDict(
+                {
+                    head_name: nn.Linear(head_channels, num_classes)
+                    for head_name, num_classes in heads_config.items()
+                }
+            )
         else:
             # Single head (backward compatibility)
             head_name, num_classes = next(iter(heads_config.items()))
@@ -245,10 +248,7 @@ class SimpleEfficientNet(nn.Module):
         features = self.feature_extractor(x)
 
         if self.is_multihead:
-            return {
-                head_name: head(features)
-                for head_name, head in self.heads.items()
-            }
+            return {head_name: head(features) for head_name, head in self.heads.items()}
         else:
             # Single head output (backward compatibility)
             return self.classifier(features)
@@ -269,7 +269,7 @@ if __name__ == "__main__":
 
     # Test multihead mode
     print("\nTesting multihead mode:")
-    model_multi = SimpleEfficientNet(heads_config={'digit': 10, 'thickness': 5, 'smoothness': 3})
+    model_multi = SimpleEfficientNet(heads_config={"digit": 10, "thickness": 5, "smoothness": 3})
     output_multi = model_multi(x)
     print(f"Multihead output type: {type(output_multi)}")
     for head_name, logits in output_multi.items():

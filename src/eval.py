@@ -1,3 +1,5 @@
+# Disable PyTorch 2.6 weights_only restriction for trusted LOCAL checkpoints
+import os.path
 from typing import Any, Dict, List, Tuple
 
 import hydra
@@ -7,23 +9,35 @@ from lightning import LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
 
-# Disable PyTorch 2.6 weights_only restriction for trusted LOCAL checkpoints
-import os.path
 _original_torch_load = torch.load
-def _patched_torch_load(f, map_location=None, pickle_module=None, weights_only=None, mmap=None, **kwargs):
+
+
+def _patched_torch_load(
+    f, map_location=None, pickle_module=None, weights_only=None, mmap=None, **kwargs
+):
     # Only allow loading from local files, not URLs
     if isinstance(f, str):
-        if f.startswith(('http://', 'https://', 'ftp://', 'ftps://')):
+        if f.startswith(("http://", "https://", "ftp://", "ftps://")):
             raise ValueError(f"Remote checkpoint loading not allowed for security: {f}")
         if not os.path.isfile(f):
             raise FileNotFoundError(f"Checkpoint file not found: {f}")
     # Force weights_only=False for trusted local research checkpoints
-    return _original_torch_load(f, map_location=map_location, pickle_module=pickle_module, weights_only=False, mmap=mmap, **kwargs)
+    return _original_torch_load(
+        f,
+        map_location=map_location,
+        pickle_module=pickle_module,
+        weights_only=False,
+        mmap=mmap,
+        **kwargs,
+    )
+
+
 torch.load = _patched_torch_load
 
 # Also patch Lightning's internal checkpoint loading
 try:
     from lightning.fabric.utilities import cloud_io
+
     cloud_io._load = _patched_torch_load
 except ImportError:
     pass

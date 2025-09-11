@@ -17,31 +17,34 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-import torch
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+import torch.nn.functional as F
 from lightning import Trainer
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
 from rich.console import Console
-from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 # Add project root to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.data.vimh_datamodule import VIMHDataModule
-from src.models.vimh_lit_module import VIMHLitModule
 from src.models.components.simple_cnn import SimpleCNN
+from src.models.vimh_lit_module import VIMHLitModule
 
 console = Console()
 
-def visualize_batch(batch: Tuple[torch.Tensor, Dict[str, torch.Tensor]],
-                   num_samples: int = 4,
-                   save_path: Optional[str] = None) -> None:
+
+def visualize_batch(
+    batch: Tuple[torch.Tensor, Dict[str, torch.Tensor]],
+    num_samples: int = 4,
+    save_path: Optional[str] = None,
+) -> None:
     """Visualize a batch of VIMH data with labels.
 
     Args:
@@ -63,7 +66,7 @@ def visualize_batch(batch: Tuple[torch.Tensor, Dict[str, torch.Tensor]],
         # Display image
         image = images[i]
         if image.size(0) == 1:  # Grayscale
-            ax.imshow(image.squeeze(), cmap='gray')
+            ax.imshow(image.squeeze(), cmap="gray")
         else:  # RGB
             ax.imshow(image.permute(1, 2, 0))
 
@@ -74,17 +77,19 @@ def visualize_batch(batch: Tuple[torch.Tensor, Dict[str, torch.Tensor]],
             title_parts.append(f"{head_name}: {value}")
 
         ax.set_title(f"Sample {i+1}\n" + "\n".join(title_parts), fontsize=10)
-        ax.axis('off')
+        ax.axis("off")
 
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         console.print(f"Visualization saved to {save_path}")
     else:
         plt.show()
 
-def plot_parameter_distributions(datamodule: VIMHDataModule,
-                               save_path: Optional[str] = None) -> None:
+
+def plot_parameter_distributions(
+    datamodule: VIMHDataModule, save_path: Optional[str] = None
+) -> None:
     """Plot distribution of parameter values in dataset.
 
     Args:
@@ -109,18 +114,19 @@ def plot_parameter_distributions(datamodule: VIMHDataModule,
         axes = [axes]
 
     for idx, (head_name, values) in enumerate(all_labels.items()):
-        axes[idx].hist(values, bins=50, alpha=0.7, color=f'C{idx}')
-        axes[idx].set_title(f'{head_name} Distribution')
-        axes[idx].set_xlabel('Quantized Value (0-255)')
-        axes[idx].set_ylabel('Frequency')
+        axes[idx].hist(values, bins=50, alpha=0.7, color=f"C{idx}")
+        axes[idx].set_title(f"{head_name} Distribution")
+        axes[idx].set_xlabel("Quantized Value (0-255)")
+        axes[idx].set_ylabel("Frequency")
         axes[idx].grid(True, alpha=0.3)
 
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         console.print(f"Parameter distributions saved to {save_path}")
     else:
         plt.show()
+
 
 def inspect_dataset(datamodule: VIMHDataModule) -> Dict[str, Any]:
     """Inspect VIMH dataset and return comprehensive information.
@@ -144,40 +150,42 @@ def inspect_dataset(datamodule: VIMHDataModule) -> Dict[str, Any]:
 
         # Analyze image properties
         image_stats = {
-            'shape': tuple(images.shape),
-            'dtype': str(images.dtype),
-            'min_value': float(images.min()),
-            'max_value': float(images.max()),
-            'mean': float(images.mean()),
-            'std': float(images.std())
+            "shape": tuple(images.shape),
+            "dtype": str(images.dtype),
+            "min_value": float(images.min()),
+            "max_value": float(images.max()),
+            "mean": float(images.mean()),
+            "std": float(images.std()),
         }
 
         # Analyze label properties
         label_stats = {}
         for head_name, head_values in labels.items():
             label_stats[head_name] = {
-                'min': int(head_values.min()),
-                'max': int(head_values.max()),
-                'unique_values': len(torch.unique(head_values)),
-                'dtype': str(head_values.dtype)
+                "min": int(head_values.min()),
+                "max": int(head_values.max()),
+                "unique_values": len(torch.unique(head_values)),
+                "dtype": str(head_values.dtype),
             }
 
         inspection_results = {
-            'dataset_info': dataset_info,
-            'image_stats': image_stats,
-            'label_stats': label_stats,
-            'num_classes': datamodule.num_classes,
-            'image_shape': datamodule.image_shape,
-            'batch_size': datamodule.hparams.batch_size,
-            'train_size': len(datamodule.data_train),
-            'val_size': len(datamodule.data_val),
-            'test_size': len(datamodule.data_test)
+            "dataset_info": dataset_info,
+            "image_stats": image_stats,
+            "label_stats": label_stats,
+            "num_classes": datamodule.num_classes,
+            "image_shape": datamodule.image_shape,
+            "batch_size": datamodule.hparams.batch_size,
+            "train_size": len(datamodule.data_train),
+            "val_size": len(datamodule.data_val),
+            "test_size": len(datamodule.data_test),
         }
 
         return inspection_results
 
-def create_model_from_dataset(datamodule: VIMHDataModule,
-                            model_type: str = "simple_cnn") -> VIMHLitModule:
+
+def create_model_from_dataset(
+    datamodule: VIMHDataModule, model_type: str = "simple_cnn"
+) -> VIMHLitModule:
     """Create and configure model from dataset properties.
 
     Args:
@@ -189,8 +197,7 @@ def create_model_from_dataset(datamodule: VIMHDataModule,
     """
     if model_type == "simple_cnn":
         net = SimpleCNN(
-            input_channels=datamodule.image_shape[0],
-            heads_config=datamodule.num_classes
+            input_channels=datamodule.image_shape[0], heads_config=datamodule.num_classes
         )
     else:
         raise ValueError(f"Unknown model type: {model_type}")
@@ -202,15 +209,15 @@ def create_model_from_dataset(datamodule: VIMHDataModule,
         scheduler=lambda optimizer: torch.optim.lr_scheduler.StepLR(
             optimizer, step_size=10, gamma=0.1
         ),
-        auto_configure_from_dataset=True
+        auto_configure_from_dataset=True,
     )
 
     return model
 
-def train_model(model: VIMHLitModule,
-                datamodule: VIMHDataModule,
-                max_epochs: int = 50,
-                demo_mode: bool = False) -> Trainer:
+
+def train_model(
+    model: VIMHLitModule, datamodule: VIMHDataModule, max_epochs: int = 50, demo_mode: bool = False
+) -> Trainer:
     """Train the model using PyTorch Lightning.
 
     Args:
@@ -232,14 +239,9 @@ def train_model(model: VIMHLitModule,
             monitor="val/acc_best",
             mode="max",
             save_top_k=1,
-            filename="best-{epoch:02d}-{val/acc_best:.3f}"
+            filename="best-{epoch:02d}-{val/acc_best:.3f}",
         ),
-        EarlyStopping(
-            monitor="val/acc_best",
-            mode="max",
-            patience=10,
-            verbose=True
-        )
+        EarlyStopping(monitor="val/acc_best", mode="max", patience=10, verbose=True),
     ]
 
     # Setup logger
@@ -254,7 +256,7 @@ def train_model(model: VIMHLitModule,
         devices=1,
         log_every_n_steps=10,
         val_check_interval=1.0,
-        enable_progress_bar=True
+        enable_progress_bar=True,
     )
 
     # Train model
@@ -263,9 +265,10 @@ def train_model(model: VIMHLitModule,
 
     return trainer
 
-def analyze_performance(model: VIMHLitModule,
-                       datamodule: VIMHDataModule,
-                       trainer: Trainer) -> Dict[str, Any]:
+
+def analyze_performance(
+    model: VIMHLitModule, datamodule: VIMHDataModule, trainer: Trainer
+) -> Dict[str, Any]:
     """Analyze model performance across different heads.
 
     Args:
@@ -283,28 +286,31 @@ def analyze_performance(model: VIMHLitModule,
 
     # Get per-head performance from the test results
     performance_analysis = {
-        'test_results': test_results[0],
-        'model_summary': {
-            'total_params': sum(p.numel() for p in model.parameters()),
-            'trainable_params': sum(p.numel() for p in model.parameters() if p.requires_grad),
-            'model_size_mb': sum(p.numel() * p.element_size() for p in model.parameters()) / 1024 / 1024
-        }
+        "test_results": test_results[0],
+        "model_summary": {
+            "total_params": sum(p.numel() for p in model.parameters()),
+            "trainable_params": sum(p.numel() for p in model.parameters() if p.requires_grad),
+            "model_size_mb": sum(p.numel() * p.element_size() for p in model.parameters())
+            / 1024
+            / 1024,
+        },
     }
 
     # Extract per-head accuracies
     head_accuracies = {}
     for key, value in test_results[0].items():
-        if key.startswith('test/') and key.endswith('_acc'):
-            head_name = key.replace('test/', '').replace('_acc', '')
+        if key.startswith("test/") and key.endswith("_acc"):
+            head_name = key.replace("test/", "").replace("_acc", "")
             head_accuracies[head_name] = float(value)
 
-    performance_analysis['head_accuracies'] = head_accuracies
+    performance_analysis["head_accuracies"] = head_accuracies
 
     return performance_analysis
 
-def generate_confusion_matrices(model: VIMHLitModule,
-                              datamodule: VIMHDataModule,
-                              save_path: Optional[str] = None) -> None:
+
+def generate_confusion_matrices(
+    model: VIMHLitModule, datamodule: VIMHDataModule, save_path: Optional[str] = None
+) -> None:
     """Generate confusion matrices for each head.
 
     Args:
@@ -346,16 +352,16 @@ def generate_confusion_matrices(model: VIMHLitModule,
 
     for idx, head_name in enumerate(all_predictions.keys()):
         try:
-            from sklearn.metrics import confusion_matrix
             import seaborn as sns
+            from sklearn.metrics import confusion_matrix
 
             cm = confusion_matrix(all_targets[head_name], all_predictions[head_name])
 
             # Normalize confusion matrix
-            cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
 
             # Plot with seaborn
-            sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Blues', ax=axes[idx])
+            sns.heatmap(cm_normalized, annot=True, fmt=".2f", cmap="Blues", ax=axes[idx])
 
         except ImportError:
             # Fallback to matplotlib if sklearn/seaborn not available
@@ -372,22 +378,24 @@ def generate_confusion_matrices(model: VIMHLitModule,
             cm_normalized = cm / cm.sum(axis=1)[:, np.newaxis]
 
             # Plot with matplotlib
-            im = axes[idx].imshow(cm_normalized, cmap='Blues')
+            im = axes[idx].imshow(cm_normalized, cmap="Blues")
             axes[idx].figure.colorbar(im, ax=axes[idx])
 
-        axes[idx].set_title(f'{head_name} Confusion Matrix')
-        axes[idx].set_xlabel('Predicted')
-        axes[idx].set_ylabel('Actual')
+        axes[idx].set_title(f"{head_name} Confusion Matrix")
+        axes[idx].set_xlabel("Predicted")
+        axes[idx].set_ylabel("Actual")
 
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         console.print(f"Confusion matrices saved to {save_path}")
     else:
         plt.show()
 
-def display_results_table(inspection_results: Dict[str, Any],
-                         performance_analysis: Dict[str, Any]) -> None:
+
+def display_results_table(
+    inspection_results: Dict[str, Any], performance_analysis: Dict[str, Any]
+) -> None:
     """Display comprehensive results in a formatted table.
 
     Args:
@@ -399,14 +407,16 @@ def display_results_table(inspection_results: Dict[str, Any],
     table.add_column("Property", style="cyan")
     table.add_column("Value", style="magenta")
 
-    table.add_row("Dataset Name", inspection_results['dataset_info'].get('dataset_name', 'Unknown'))
-    table.add_row("Image Shape", str(inspection_results['image_shape']))
-    table.add_row("Train Samples", str(inspection_results['train_size']))
-    table.add_row("Val Samples", str(inspection_results['val_size']))
-    table.add_row("Test Samples", str(inspection_results['test_size']))
-    table.add_row("Batch Size", str(inspection_results['batch_size']))
+    table.add_row(
+        "Dataset Name", inspection_results["dataset_info"].get("dataset_name", "Unknown")
+    )
+    table.add_row("Image Shape", str(inspection_results["image_shape"]))
+    table.add_row("Train Samples", str(inspection_results["train_size"]))
+    table.add_row("Val Samples", str(inspection_results["val_size"]))
+    table.add_row("Test Samples", str(inspection_results["test_size"]))
+    table.add_row("Batch Size", str(inspection_results["batch_size"]))
 
-    for head_name, num_classes in inspection_results['num_classes'].items():
+    for head_name, num_classes in inspection_results["num_classes"].items():
         table.add_row(f"{head_name} Classes", str(num_classes))
 
     console.print(table)
@@ -416,35 +426,40 @@ def display_results_table(inspection_results: Dict[str, Any],
     perf_table.add_column("Metric", style="cyan")
     perf_table.add_column("Value", style="magenta")
 
-    perf_table.add_row("Total Parameters", f"{performance_analysis['model_summary']['total_params']:,}")
-    perf_table.add_row("Model Size (MB)", f"{performance_analysis['model_summary']['model_size_mb']:.2f}")
+    perf_table.add_row(
+        "Total Parameters", f"{performance_analysis['model_summary']['total_params']:,}"
+    )
+    perf_table.add_row(
+        "Model Size (MB)", f"{performance_analysis['model_summary']['model_size_mb']:.2f}"
+    )
     perf_table.add_row("Test Loss", f"{performance_analysis['test_results']['test/loss']:.4f}")
 
-    for head_name, accuracy in performance_analysis['head_accuracies'].items():
+    for head_name, accuracy in performance_analysis["head_accuracies"].items():
         perf_table.add_row(f"{head_name} Accuracy", f"{accuracy:.4f}")
 
     console.print(perf_table)
 
+
 def main():
     """Main training function."""
     parser = argparse.ArgumentParser(description="VIMH Training Example")
-    parser.add_argument("--data-dir", type=str,
-                       default="data/vimh-32x32x3_8000Hz_1p0s_16384dss_resonarium_2p",
-                       help="Path to VIMH dataset directory")
-    parser.add_argument("--max-epochs", type=int, default=100,
-                       help="Maximum number of training epochs")
-    parser.add_argument("--batch-size", type=int, default=128,
-                       help="Batch size for training")
-    parser.add_argument("--demo", action="store_true",
-                       help="Run in demo mode with fewer epochs")
-    parser.add_argument("--analyze-only", action="store_true",
-                       help="Only analyze existing model")
-    parser.add_argument("--checkpoint", type=str,
-                       help="Path to model checkpoint for analysis")
-    parser.add_argument("--export-results", type=str,
-                       help="Export results to JSON file")
-    parser.add_argument("--save-plots", action="store_true",
-                       help="Save plots to files instead of showing")
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default="data/vimh-32x32x3_8000Hz_1p0s_16384dss_resonarium_2p",
+        help="Path to VIMH dataset directory",
+    )
+    parser.add_argument(
+        "--max-epochs", type=int, default=100, help="Maximum number of training epochs"
+    )
+    parser.add_argument("--batch-size", type=int, default=128, help="Batch size for training")
+    parser.add_argument("--demo", action="store_true", help="Run in demo mode with fewer epochs")
+    parser.add_argument("--analyze-only", action="store_true", help="Only analyze existing model")
+    parser.add_argument("--checkpoint", type=str, help="Path to model checkpoint for analysis")
+    parser.add_argument("--export-results", type=str, help="Export results to JSON file")
+    parser.add_argument(
+        "--save-plots", action="store_true", help="Save plots to files instead of showing"
+    )
 
     args = parser.parse_args()
 
@@ -464,7 +479,7 @@ def main():
     datamodule = VIMHDataModule(
         data_dir=args.data_dir,
         batch_size=args.batch_size,
-        num_workers=0  # Avoid multiprocessing issues
+        num_workers=0,  # Avoid multiprocessing issues
     )
 
     # Inspect dataset
@@ -505,22 +520,23 @@ def main():
     # Export results if requested
     if args.export_results:
         export_data = {
-            'dataset_info': inspection_results,
-            'performance': performance_analysis,
-            'config': {
-                'data_dir': args.data_dir,
-                'max_epochs': args.max_epochs,
-                'batch_size': args.batch_size,
-                'demo_mode': args.demo
-            }
+            "dataset_info": inspection_results,
+            "performance": performance_analysis,
+            "config": {
+                "data_dir": args.data_dir,
+                "max_epochs": args.max_epochs,
+                "batch_size": args.batch_size,
+                "demo_mode": args.demo,
+            },
         }
 
-        with open(args.export_results, 'w') as f:
+        with open(args.export_results, "w") as f:
             json.dump(export_data, f, indent=2)
 
         console.print(f"[green]Results exported to {args.export_results}[/green]")
 
     console.print("[green]✅ Training example completed![/green]")
+
 
 if __name__ == "__main__":
     main()

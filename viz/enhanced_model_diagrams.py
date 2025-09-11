@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 """Enhanced model diagram generation with both text and graphical output."""
 
-import torch
-import torch.nn as nn
-from torchviz import make_dot
-from pathlib import Path
-import sys
-import os
-import hydra
-from hydra import compose, initialize_config_dir
-from hydra.core.global_hydra import GlobalHydra
-from omegaconf import DictConfig
 import argparse
+import os
+import sys
+from pathlib import Path
+
+import hydra
 
 # Set up project root and imports
 import rootutils
+import torch
+import torch.nn as nn
+from hydra import compose, initialize_config_dir
+from hydra.core.global_hydra import GlobalHydra
+from omegaconf import DictConfig
+from torchviz import make_dot
+
 root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from src.models.components.simple_cnn import SimpleCNN
+
 
 def create_text_summary(model, input_shape=(1, 1, 28, 28), model_name="Model"):
     """Create a text summary of the model architecture."""
@@ -48,12 +51,12 @@ def create_text_summary(model, input_shape=(1, 1, 28, 28), model_name="Model"):
         print(f"Input: {x.shape}")
 
         # Conv layers
-        if hasattr(model, 'conv_layers'):
+        if hasattr(model, "conv_layers"):
             conv_out = model.conv_layers(x)
             print(f"After conv layers: {conv_out.shape}")
 
         # Shared features
-        if hasattr(model, 'shared_features'):
+        if hasattr(model, "shared_features"):
             shared_out = model.shared_features(conv_out)
             print(f"After shared features: {shared_out.shape}")
 
@@ -66,7 +69,10 @@ def create_text_summary(model, input_shape=(1, 1, 28, 28), model_name="Model"):
         else:
             print(f"Final output: {final_out.shape}")
 
-def create_graphical_diagram(model, input_shape=(1, 1, 28, 28), model_name="model", output_dir="diagrams"):
+
+def create_graphical_diagram(
+    model, input_shape=(1, 1, 28, 28), model_name="model", output_dir="diagrams"
+):
     """Create a graphical diagram using torchviz."""
     print(f"\nGenerating graphical diagram for {model_name}...")
 
@@ -84,21 +90,23 @@ def create_graphical_diagram(model, input_shape=(1, 1, 28, 28), model_name="mode
     if isinstance(y, dict):
         # For multihead, visualize the first head
         first_head = next(iter(y.values()))
-        dot = make_dot(first_head, params=dict(model.named_parameters()), show_attrs=True, show_saved=True)
-        dot.graph_attr['label'] = f'{model_name} (Multihead - First Head)'
+        dot = make_dot(
+            first_head, params=dict(model.named_parameters()), show_attrs=True, show_saved=True
+        )
+        dot.graph_attr["label"] = f"{model_name} (Multihead - First Head)"
     else:
         dot = make_dot(y, params=dict(model.named_parameters()), show_attrs=True, show_saved=True)
-        dot.graph_attr['label'] = f'{model_name} Architecture'
+        dot.graph_attr["label"] = f"{model_name} Architecture"
 
     # Customize appearance
-    dot.graph_attr['rankdir'] = 'TB'  # Top to bottom
-    dot.graph_attr['size'] = '12,16'
-    dot.graph_attr['dpi'] = '300'
+    dot.graph_attr["rankdir"] = "TB"  # Top to bottom
+    dot.graph_attr["size"] = "12,16"
+    dot.graph_attr["dpi"] = "300"
 
     # Save the diagram
     filename = f"{model_name.lower().replace(' ', '_')}_graph"
-    dot.render(output_path / filename, format='png', cleanup=True)
-    dot.render(output_path / filename, format='pdf', cleanup=True)
+    dot.render(output_path / filename, format="png", cleanup=True)
+    dot.render(output_path / filename, format="pdf", cleanup=True)
 
     print(f"Saved graphical diagrams:")
     print(f"  PNG: {output_path / filename}.png")
@@ -106,13 +114,15 @@ def create_graphical_diagram(model, input_shape=(1, 1, 28, 28), model_name="mode
 
     return dot
 
+
 def create_ascii_diagram_cnn():
     """Create an ASCII diagram for CNN architecture."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("CNN Architecture Flow Diagram")
-    print("="*80)
+    print("=" * 80)
 
-    print("""
+    print(
+        """
     Input (1×28×28) MNIST Image
            │
            ▼
@@ -151,7 +161,9 @@ def create_ascii_diagram_cnn():
            │
            ▼
         Output (10,) Class Logits
-    """)
+    """
+    )
+
 
 def generate_from_config(config_name: str, output_dir: str = "diagrams"):
     """Generate diagrams from a Hydra config file."""
@@ -171,23 +183,23 @@ def generate_from_config(config_name: str, output_dir: str = "diagrams"):
 
             # Extract dynamic input parameters from model config
             net_config = cfg.model.net
-            
+
             # Determine input channels (CNN uses input_channels, ViT uses n_channels)
-            if hasattr(net_config, 'input_channels'):
+            if hasattr(net_config, "input_channels"):
                 input_channels = net_config.input_channels
-            elif hasattr(net_config, 'n_channels'):
+            elif hasattr(net_config, "n_channels"):
                 input_channels = net_config.n_channels
             else:
                 input_channels = 1  # fallback
-            
+
             # Determine input size (CNN uses input_size, ViT uses image_size)
-            if hasattr(net_config, 'input_size'):
+            if hasattr(net_config, "input_size"):
                 input_size = net_config.input_size
-            elif hasattr(net_config, 'image_size'):
+            elif hasattr(net_config, "image_size"):
                 input_size = net_config.image_size
             else:
                 input_size = 32  # fallback to VIMH default
-            
+
             # Create dynamic input shape (batch_size=1, channels, height, width)
             input_shape = (1, input_channels, input_size, input_size)
             print(f"Using input shape: {input_shape}")
@@ -198,20 +210,30 @@ def generate_from_config(config_name: str, output_dir: str = "diagrams"):
             # Generate both text and graphical diagrams
             create_text_summary(model, input_shape=input_shape, model_name=f"Model: {config_name}")
             create_ascii_diagram_cnn()
-            create_graphical_diagram(model, input_shape=input_shape, model_name=config_name, output_dir=output_dir)
+            create_graphical_diagram(
+                model, input_shape=input_shape, model_name=config_name, output_dir=output_dir
+            )
 
     except Exception as e:
         print(f"Error loading config {config_name}: {e}")
         sys.exit(1)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Generate model architecture diagrams")
-    parser.add_argument("--config", "-c", default=None,
-                       help="Model config name (default: generate for all configs)")
-    parser.add_argument("--output", "-o", default="diagrams",
-                       help="Output directory for diagrams (default: diagrams)")
-    parser.add_argument("--list-configs", action="store_true",
-                       help="List available model configs")
+    parser.add_argument(
+        "--config",
+        "-c",
+        default=None,
+        help="Model config name (default: generate for all configs)",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        default="diagrams",
+        help="Output directory for diagrams (default: diagrams)",
+    )
+    parser.add_argument("--list-configs", action="store_true", help="List available model configs")
 
     args = parser.parse_args()
 
@@ -231,12 +253,12 @@ def main():
         if not config_path.exists():
             print("No configs/model directory found")
             sys.exit(1)
-        
+
         config_files = list(config_path.glob("*.yaml"))
         if not config_files:
             print("No model config files found in configs/model/")
             sys.exit(1)
-        
+
         print(f"Generating diagrams for all {len(config_files)} model configs...")
         for i, config_file in enumerate(config_files, 1):
             config_name = config_file.stem
@@ -252,7 +274,8 @@ def main():
     print(f"\n{'='*80}")
     print("Model diagram generation complete!")
     print(f"Check the '{args.output}' directory for graphical outputs")
-    print("="*80)
+    print("=" * 80)
+
 
 if __name__ == "__main__":
     main()

@@ -13,11 +13,11 @@ def load_vimh_metadata(data_dir: str) -> Dict:
     :raises FileNotFoundError: If metadata file doesn't exist
     :raises json.JSONDecodeError: If metadata file is malformed
     """
-    metadata_file = Path(data_dir) / 'vimh_dataset_info.json'
+    metadata_file = Path(data_dir) / "vimh_dataset_info.json"
     if not metadata_file.exists():
         raise FileNotFoundError(f"VIMH metadata file not found: {metadata_file}")
 
-    with open(metadata_file, 'r') as f:
+    with open(metadata_file) as f:
         metadata = json.load(f)
 
     return metadata
@@ -30,7 +30,7 @@ def get_parameter_names_from_metadata(data_dir: str) -> List[str]:
     :return: List of parameter names
     """
     metadata = load_vimh_metadata(data_dir)
-    return metadata.get('parameter_names', [])
+    return metadata.get("parameter_names", [])
 
 
 def get_image_dimensions_from_metadata(data_dir: str) -> Tuple[int, int, int]:
@@ -40,9 +40,9 @@ def get_image_dimensions_from_metadata(data_dir: str) -> Tuple[int, int, int]:
     :return: Tuple of (height, width, channels)
     """
     metadata = load_vimh_metadata(data_dir)
-    height = metadata.get('height', 32)
-    width = metadata.get('width', 32)
-    channels = metadata.get('channels', 3)
+    height = metadata.get("height", 32)
+    width = metadata.get("width", 32)
+    channels = metadata.get("channels", 3)
     return height, width, channels
 
 
@@ -55,14 +55,14 @@ def get_parameter_ranges_from_metadata(data_dir: str) -> Dict[str, Tuple[float, 
     metadata = load_vimh_metadata(data_dir)
     parameter_ranges = {}
 
-    if 'parameter_names' in metadata and 'parameter_mappings' in metadata:
-        param_names = metadata['parameter_names']
-        param_mappings = metadata['parameter_mappings']
+    if "parameter_names" in metadata and "parameter_mappings" in metadata:
+        param_names = metadata["parameter_names"]
+        param_mappings = metadata["parameter_mappings"]
 
         for param_name in param_names:
             if param_name in param_mappings:
                 mapping = param_mappings[param_name]
-                parameter_ranges[param_name] = (mapping['min'], mapping['max'])
+                parameter_ranges[param_name] = (mapping["min"], mapping["max"])
 
     return parameter_ranges
 
@@ -76,30 +76,34 @@ def get_heads_config_from_metadata(data_dir: str) -> Dict[str, int]:
     metadata = load_vimh_metadata(data_dir)
     heads_config = {}
 
-    if 'parameter_names' in metadata:
-        param_names = metadata['parameter_names']
+    if "parameter_names" in metadata:
+        param_names = metadata["parameter_names"]
 
-        if 'parameter_mappings' not in metadata:
+        if "parameter_mappings" not in metadata:
             raise ValueError("VIMH metadata missing 'parameter_mappings'")
 
-        param_mappings = metadata['parameter_mappings']
+        param_mappings = metadata["parameter_mappings"]
         for param_name in param_names:
             if param_name not in param_mappings:
                 raise ValueError(f"Parameter '{param_name}' not found in parameter_mappings")
             info = param_mappings[param_name]
-            if not all(k in info for k in ('min', 'max', 'step')):
+            if not all(k in info for k in ("min", "max", "step")):
                 raise ValueError(f"Parameter '{param_name}' missing min/max/step in metadata")
-            step = float(info['step'])
+            step = float(info["step"])
             if step <= 0:
                 raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
-            num = (float(info['max']) - float(info['min'])) / step
+            num = (float(info["max"]) - float(info["min"])) / step
             steps = int(round(num))
             if abs(num - steps) > 1e-3:
-                print(f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}")
+                print(
+                    f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}"
+                )
             computed = steps + 1
             # If metadata supplies num_classes, verify consistency
-            if 'num_classes' in info and int(info['num_classes']) != computed:
-                print(f"Warning: parameter '{param_name}' num_classes={info['num_classes']} differs from computed {computed}; using computed")
+            if "num_classes" in info and int(info["num_classes"]) != computed:
+                print(
+                    f"Warning: parameter '{param_name}' num_classes={info['num_classes']} differs from computed {computed}; using computed"
+                )
             heads_config[param_name] = computed
 
     return heads_config

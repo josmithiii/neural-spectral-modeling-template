@@ -1,9 +1,10 @@
 """Callback for tracking gradient statistics across batches and epochs."""
 
-import lightning as L
-import torch
-import numpy as np
 from typing import Any, Dict, Optional
+
+import lightning as L
+import numpy as np
+import torch
 
 
 class GradientStatsCallback(L.Callback):
@@ -56,7 +57,7 @@ class GradientStatsCallback(L.Callback):
 
                 if self.track_layer_gradients:
                     # Track per-layer statistics
-                    layer_name = name.split('.')[0]  # Get top-level module name
+                    layer_name = name.split(".")[0]  # Get top-level module name
                     if layer_name not in layer_stats:
                         layer_stats[layer_name] = []
                     layer_stats[layer_name].append(grad_norm)
@@ -98,17 +99,22 @@ class GradientStatsCallback(L.Callback):
             if self.track_layer_gradients:
                 for layer_name, layer_grads in layer_stats.items():
                     layer_mean = np.mean(layer_grads)
-                    pl_module.log(f"grad_stats/layer_{layer_name}_mean", layer_mean, on_step=True, on_epoch=False)
+                    pl_module.log(
+                        f"grad_stats/layer_{layer_name}_mean",
+                        layer_mean,
+                        on_step=True,
+                        on_epoch=False,
+                    )
 
             # Log gradient histogram to tensorboard
-            if self.log_histogram and hasattr(pl_module.logger, 'experiment'):
+            if self.log_histogram and hasattr(pl_module.logger, "experiment"):
                 try:
                     # For TensorBoardLogger
-                    if hasattr(pl_module.logger.experiment, 'add_histogram'):
+                    if hasattr(pl_module.logger.experiment, "add_histogram"):
                         pl_module.logger.experiment.add_histogram(
                             "gradients/all_params",
                             np.array(grad_values),
-                            global_step=trainer.global_step
+                            global_step=trainer.global_step,
                         )
                 except Exception:
                     # Silently continue if histogram logging fails
@@ -126,7 +132,9 @@ class GradientStatsCallback(L.Callback):
 
         pl_module.log("grad_stats/epoch_mean", epoch_grad_mean, on_step=False, on_epoch=True)
         pl_module.log("grad_stats/epoch_std", epoch_grad_std, on_step=False, on_epoch=True)
-        pl_module.log("grad_stats/epoch_stability", epoch_grad_stability, on_step=False, on_epoch=True)
+        pl_module.log(
+            "grad_stats/epoch_stability", epoch_grad_stability, on_step=False, on_epoch=True
+        )
 
         # Reset for next epoch
         self.gradient_norms = []

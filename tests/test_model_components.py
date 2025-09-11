@@ -1,12 +1,13 @@
-import pytest
-import torch
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+import torch
+
+from src.models.components.simple_cnn import SimpleCNN
 from src.models.components.simple_dense_net import SimpleDenseNet
 from src.models.components.simple_efficientnet import SimpleEfficientNet
-from src.models.components.simple_cnn import SimpleCNN
 
 
 @pytest.mark.parametrize("batch_size", [2, 4])  # Skip batch_size=1 due to BatchNorm
@@ -23,15 +24,15 @@ def test_simple_dense_net_forward_pass(batch_size: int) -> None:
     assert not torch.isnan(output).any()
 
     # Test multihead mode
-    model_multi = SimpleDenseNet(heads_config={'digit': 10, 'thickness': 5})
+    model_multi = SimpleDenseNet(heads_config={"digit": 10, "thickness": 5})
     model_multi.eval()  # Set to eval mode to avoid BatchNorm issues
     output_multi = model_multi(x)
 
     assert isinstance(output_multi, dict)
-    assert 'digit' in output_multi
-    assert 'thickness' in output_multi
-    assert output_multi['digit'].shape == (batch_size, 10)
-    assert output_multi['thickness'].shape == (batch_size, 5)
+    assert "digit" in output_multi
+    assert "thickness" in output_multi
+    assert output_multi["digit"].shape == (batch_size, 10)
+    assert output_multi["thickness"].shape == (batch_size, 5)
 
 
 @pytest.mark.parametrize("batch_size", [2, 4])  # Skip batch_size=1 due to BatchNorm
@@ -48,26 +49,22 @@ def test_simple_efficientnet_forward_pass(batch_size: int) -> None:
     assert not torch.isnan(output).any()
 
     # Test multihead mode
-    model_multi = SimpleEfficientNet(heads_config={'digit': 10, 'thickness': 5})
+    model_multi = SimpleEfficientNet(heads_config={"digit": 10, "thickness": 5})
     model_multi.eval()  # Set to eval mode to avoid BatchNorm issues
     output_multi = model_multi(x)
 
     assert isinstance(output_multi, dict)
-    assert 'digit' in output_multi
-    assert 'thickness' in output_multi
-    assert output_multi['digit'].shape == (batch_size, 10)
-    assert output_multi['thickness'].shape == (batch_size, 5)
+    assert "digit" in output_multi
+    assert "thickness" in output_multi
+    assert output_multi["digit"].shape == (batch_size, 10)
+    assert output_multi["thickness"].shape == (batch_size, 5)
 
 
 def test_simple_dense_net_parameter_counts() -> None:
     """Test parameter counts for SimpleDenseNet models."""
     # Single head model
     model_single = SimpleDenseNet(
-        input_size=784,
-        lin1_size=64,
-        lin2_size=128,
-        lin3_size=64,
-        output_size=10
+        input_size=784, lin1_size=64, lin2_size=128, lin3_size=64, output_size=10
     )
     single_params = sum(p.numel() for p in model_single.parameters())
 
@@ -77,7 +74,7 @@ def test_simple_dense_net_parameter_counts() -> None:
         lin1_size=64,
         lin2_size=128,
         lin3_size=64,
-        heads_config={'digit': 10, 'thickness': 5}
+        heads_config={"digit": 10, "thickness": 5},
     )
     multi_params = sum(p.numel() for p in model_multi.parameters())
 
@@ -96,7 +93,7 @@ def test_simple_efficientnet_parameter_counts() -> None:
     single_params = sum(p.numel() for p in model_single.parameters())
 
     # Multihead model
-    model_multi = SimpleEfficientNet(heads_config={'digit': 10, 'thickness': 5})
+    model_multi = SimpleEfficientNet(heads_config={"digit": 10, "thickness": 5})
     multi_params = sum(p.numel() for p in model_multi.parameters())
 
     # Multihead should have more parameters due to additional head
@@ -112,11 +109,11 @@ def test_backward_compatibility_simple_dense_net() -> None:
     # Test old-style initialization
     model_old = SimpleDenseNet(output_size=10)
     assert not model_old.is_multihead
-    assert 'digit' in model_old.heads_config
-    assert model_old.heads_config['digit'] == 10
+    assert "digit" in model_old.heads_config
+    assert model_old.heads_config["digit"] == 10
 
     # Test new-style single head
-    model_new = SimpleDenseNet(heads_config={'digit': 10})
+    model_new = SimpleDenseNet(heads_config={"digit": 10})
     assert not model_new.is_multihead
 
     # Both should produce same output shape
@@ -134,11 +131,11 @@ def test_backward_compatibility_simple_efficientnet() -> None:
     # Test old-style initialization
     model_old = SimpleEfficientNet(num_classes=10)
     assert not model_old.is_multihead
-    assert 'digit' in model_old.heads_config
-    assert model_old.heads_config['digit'] == 10
+    assert "digit" in model_old.heads_config
+    assert model_old.heads_config["digit"] == 10
 
     # Test new-style single head
-    model_new = SimpleEfficientNet(heads_config={'digit': 10})
+    model_new = SimpleEfficientNet(heads_config={"digit": 10})
     assert not model_new.is_multihead
 
     # Both should produce same output shape
@@ -184,8 +181,8 @@ def test_gradient_flow_simple_efficientnet() -> None:
 def test_multihead_consistency() -> None:
     """Test that multihead models are consistent with single-head models."""
     # Create multihead models with same architecture as single head
-    dense_multi = SimpleDenseNet(heads_config={'digit': 10})
-    efficientnet_multi = SimpleEfficientNet(heads_config={'digit': 10})
+    dense_multi = SimpleDenseNet(heads_config={"digit": 10})
+    efficientnet_multi = SimpleEfficientNet(heads_config={"digit": 10})
 
     dense_single = SimpleDenseNet(output_size=10)
     efficientnet_single = SimpleEfficientNet(num_classes=10)
@@ -214,10 +211,12 @@ def test_multihead_consistency() -> None:
 def test_simple_dense_net_main_execution() -> None:
     """Test that SimpleDenseNet __main__ block executes without errors."""
     # Test the actual __main__ execution by running the file directly
-    result = subprocess.run([
-        sys.executable,
-        "src/models/components/simple_dense_net.py"
-    ], capture_output=True, text=True, cwd=Path(__file__).parent.parent)
+    result = subprocess.run(
+        [sys.executable, "src/models/components/simple_dense_net.py"],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).parent.parent,
+    )
 
     assert result.returncode == 0, f"SimpleDenseNet main execution failed: {result.stderr}"
 
@@ -225,10 +224,12 @@ def test_simple_dense_net_main_execution() -> None:
 def test_simple_efficientnet_main_execution() -> None:
     """Test that SimpleEfficientNet __main__ block executes without errors."""
     # Test the actual __main__ execution by running the file directly
-    result = subprocess.run([
-        sys.executable,
-        "src/models/components/simple_efficientnet.py"
-    ], capture_output=True, text=True, cwd=Path(__file__).parent.parent)
+    result = subprocess.run(
+        [sys.executable, "src/models/components/simple_efficientnet.py"],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).parent.parent,
+    )
 
     assert result.returncode == 0, f"SimpleEfficientNet main execution failed: {result.stderr}"
     assert "Testing single head mode" in result.stdout

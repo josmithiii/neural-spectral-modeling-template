@@ -2,14 +2,14 @@ import pytest
 import torch
 
 from src.models.components.convnext_v2 import (
-    ConvNeXtV2,
-    Block,
-    LayerNorm,
     GRN,
-    convnext_v2_mnist_tiny,
-    convnext_v2_mnist_small,
+    Block,
+    ConvNeXtV2,
+    LayerNorm,
     convnext_v2_mnist_base,
     convnext_v2_mnist_large,
+    convnext_v2_mnist_small,
+    convnext_v2_mnist_tiny,
 )
 
 
@@ -50,25 +50,29 @@ def test_convnext_parameter_counts() -> None:
     }
 
     expected_ranges = {
-        "tiny": (15_000, 25_000),    # ~18K params (ConvNeXt is inherently parameter-heavy)
-        "small": (65_000, 85_000),   # ~73K params
+        "tiny": (15_000, 25_000),  # ~18K params (ConvNeXt is inherently parameter-heavy)
+        "small": (65_000, 85_000),  # ~73K params
         "base": (250_000, 350_000),  # ~288K params
-        "large": (650_000, 800_000), # ~725K params
+        "large": (650_000, 800_000),  # ~725K params
     }
 
     for name, model in models.items():
         param_count = sum(p.numel() for p in model.parameters())
         min_params, max_params = expected_ranges[name]
-        assert min_params <= param_count <= max_params, \
-            f"{name} model has {param_count} parameters, expected {min_params}-{max_params}"
+        assert (
+            min_params <= param_count <= max_params
+        ), f"{name} model has {param_count} parameters, expected {min_params}-{max_params}"
 
 
-@pytest.mark.parametrize("model_fn", [
-    convnext_v2_mnist_tiny,
-    convnext_v2_mnist_small,
-    convnext_v2_mnist_base,
-    convnext_v2_mnist_large,
-])
+@pytest.mark.parametrize(
+    "model_fn",
+    [
+        convnext_v2_mnist_tiny,
+        convnext_v2_mnist_small,
+        convnext_v2_mnist_base,
+        convnext_v2_mnist_large,
+    ],
+)
 def test_convnext_different_sizes(model_fn) -> None:
     """Test various ConvNeXt-V2 configurations and their outputs.
 

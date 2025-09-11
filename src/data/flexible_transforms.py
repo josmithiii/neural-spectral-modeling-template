@@ -1,7 +1,8 @@
 """Flexible transforms that adapt to variable number of channels."""
 
-import torch
 from typing import Tuple, Union
+
+import torch
 
 
 class FlexibleNormalize:
@@ -17,7 +18,7 @@ class FlexibleNormalize:
         base_mean: Union[float, Tuple[float, ...]] = (0.4914, 0.4822, 0.4465),
         base_std: Union[float, Tuple[float, ...]] = (0.2023, 0.1994, 0.2010),
         feature_mean: float = 0.5,
-        feature_std: float = 0.5
+        feature_std: float = 0.5,
     ):
         """
         Initialize flexible normalization.
@@ -56,8 +57,12 @@ class FlexibleNormalize:
 
         if num_channels <= base_channels:
             # Use base normalization for all channels
-            mean = torch.tensor(self.base_mean[:num_channels], device=tensor.device, dtype=tensor.dtype)
-            std = torch.tensor(self.base_std[:num_channels], device=tensor.device, dtype=tensor.dtype)
+            mean = torch.tensor(
+                self.base_mean[:num_channels], device=tensor.device, dtype=tensor.dtype
+            )
+            std = torch.tensor(
+                self.base_std[:num_channels], device=tensor.device, dtype=tensor.dtype
+            )
         else:
             # Use base normalization for first channels, feature normalization for extra
             extra_channels = num_channels - base_channels
@@ -107,7 +112,7 @@ class ChannelAwareCompose:
     def __call__(self, tensor):
         """Apply transforms based on channel count."""
         # Determine number of channels
-        if hasattr(tensor, 'shape'):
+        if hasattr(tensor, "shape"):
             num_channels = tensor.shape[0]
         else:
             # PIL Image case
@@ -121,7 +126,7 @@ class ChannelAwareCompose:
             try:
                 tensor = transform(tensor)
                 # Update channel count after transform (e.g., ToTensor changes shape)
-                if hasattr(tensor, 'shape'):
+                if hasattr(tensor, "shape"):
                     num_channels = tensor.shape[0]
             except Exception as e:
                 # Skip transforms that can't handle the tensor type/shape
@@ -130,10 +135,10 @@ class ChannelAwareCompose:
         return tensor
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + '('
+        format_string = self.__class__.__name__ + "("
         for t, max_ch in self.transforms:
-            format_string += f'\n    {t} (max_channels={max_ch})'
-        format_string += '\n)'
+            format_string += f"\n    {t} (max_channels={max_ch})"
+        format_string += "\n)"
         return format_string
 
 
@@ -172,12 +177,10 @@ def create_flexible_transforms(height: int = 32, width: int = 32, training: bool
             (transforms.RandomHorizontalFlip(), 3),
             (transforms.RandomRotation(15), 3),
             (transforms.ToTensor(), 3),
-            (FlexibleNormalize(base_mean, base_std), None)  # Always apply
+            (FlexibleNormalize(base_mean, base_std), None),  # Always apply
         ]
     else:
-        transform_list = [
-            (FlexibleNormalize(base_mean, base_std), None)  # Always apply
-        ]
+        transform_list = [(FlexibleNormalize(base_mean, base_std), None)]  # Always apply
 
     return ChannelAwareCompose(transform_list)
 

@@ -1,10 +1,11 @@
 """Custom callback for grouped metric display."""
 
 from typing import Any, Dict, Optional
+
+import torch
 from lightning.pytorch.callbacks import Callback
 from rich.console import Console
 from rich.table import Table
-import torch
 
 
 class GroupedMetricsDisplayCallback(Callback):
@@ -22,28 +23,26 @@ class GroupedMetricsDisplayCallback(Callback):
         """Display grouped test metrics table after test epoch ends."""
         self._display_grouped_metrics(trainer)
 
-
     def _display_grouped_metrics(self, trainer) -> None:
         """Display grouped test metrics table."""
         # Get the test metrics
         metrics = trainer.logged_metrics
-        test_metrics = {k: v for k, v in metrics.items() if k.startswith('test/')}
+        test_metrics = {k: v for k, v in metrics.items() if k.startswith("test/")}
 
         if not test_metrics:
             return
-
 
         # Group metrics by parameter
         parameter_groups = {}
         for metric_name, value in test_metrics.items():
             # Remove 'test/' prefix
-            clean_name = metric_name.replace('test/', '')
+            clean_name = metric_name.replace("test/", "")
 
             # Extract parameter name (before _acc)
-            if '_acc' in clean_name:
-                param_name = clean_name.split('_acc')[0]
-            elif clean_name == 'loss':
-                param_name = 'loss'
+            if "_acc" in clean_name:
+                param_name = clean_name.split("_acc")[0]
+            elif clean_name == "loss":
+                param_name = "loss"
             else:
                 param_name = clean_name
 
@@ -57,14 +56,13 @@ class GroupedMetricsDisplayCallback(Callback):
             title_style="bold magenta",
             show_header=True,
             header_style="bold magenta",
-            border_style="bright_blue"
+            border_style="bright_blue",
         )
         table.add_column("Test metric", style="cyan", no_wrap=True)
         table.add_column("DataLoader 0", justify="center", style="green")
 
         # Get all parameter names sorted
         all_params = sorted(parameter_groups.keys())
-
 
         for i, param_name in enumerate(all_params):
             # Add metrics for this parameter

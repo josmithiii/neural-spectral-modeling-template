@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
 """Simple model diagram generation using PyTorch's torchviz."""
 
-import torch
-import torch.nn as nn
-from pathlib import Path
-import sys
-import os
-import hydra
-from hydra import compose, initialize_config_dir
-from hydra.core.global_hydra import GlobalHydra
-from omegaconf import DictConfig
 import argparse
+import os
+import sys
+from pathlib import Path
+
+import hydra
 
 # Set up project root and imports
 import rootutils
+import torch
+import torch.nn as nn
+from hydra import compose, initialize_config_dir
+from hydra.core.global_hydra import GlobalHydra
+from omegaconf import DictConfig
+
 root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from src.models.components.simple_cnn import SimpleCNN
+
 
 def create_model_summary(model, input_shape=(1, 1, 28, 28), model_name="Model"):
     """Create a text summary of the model architecture."""
@@ -47,12 +50,12 @@ def create_model_summary(model, input_shape=(1, 1, 28, 28), model_name="Model"):
         print(f"Input: {x.shape}")
 
         # Conv layers
-        if hasattr(model, 'conv_layers'):
+        if hasattr(model, "conv_layers"):
             conv_out = model.conv_layers(x)
             print(f"After conv layers: {conv_out.shape}")
 
         # Shared features
-        if hasattr(model, 'shared_features'):
+        if hasattr(model, "shared_features"):
             shared_out = model.shared_features(conv_out)
             print(f"After shared features: {shared_out.shape}")
 
@@ -65,13 +68,15 @@ def create_model_summary(model, input_shape=(1, 1, 28, 28), model_name="Model"):
         else:
             print(f"Final output: {final_out.shape}")
 
+
 def create_ascii_diagram():
     """Create an ASCII diagram of the model architecture."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("ASCII Architecture Diagram")
-    print("="*80)
+    print("=" * 80)
 
-    print("""
+    print(
+        """
     Input (1x28x28)
            │
            ▼
@@ -106,7 +111,9 @@ def create_ascii_diagram():
            │
            ▼
         Output (10,)
-    """)
+    """
+    )
+
 
 def generate_from_config(config_name: str):
     """Generate diagrams from a Hydra config file."""
@@ -129,11 +136,13 @@ def generate_from_config(config_name: str):
 
             # Determine input shape based on config
             input_shape = (1, 1, 28, 28)  # Default for MNIST
-            if 'cifar' in config_name.lower():
+            if "cifar" in config_name.lower():
                 input_shape = (1, 3, 32, 32)  # CIFAR input shape
 
             # Generate summary and diagram
-            create_model_summary(model, input_shape=input_shape, model_name=f"Model: {config_name}")
+            create_model_summary(
+                model, input_shape=input_shape, model_name=f"Model: {config_name}"
+            )
             create_ascii_diagram()
 
     except Exception as e:
@@ -147,18 +156,19 @@ def generate_from_config(config_name: str):
             conv2_channels=6,
             fc_hidden=25,
             output_size=10,
-            dropout=0.25
+            dropout=0.25,
         )
 
         create_model_summary(model, model_name=f"SimpleCNN (fallback for {config_name})")
         create_ascii_diagram()
 
+
 def main():
     parser = argparse.ArgumentParser(description="Generate model architecture diagrams")
-    parser.add_argument("--config", "-c", default="mnist_cnn_8k",
-                       help="Model config name (default: mnist_cnn_8k)")
-    parser.add_argument("--list-configs", action="store_true",
-                       help="List available model configs")
+    parser.add_argument(
+        "--config", "-c", default="mnist_cnn_8k", help="Model config name (default: mnist_cnn_8k)"
+    )
+    parser.add_argument("--list-configs", action="store_true", help="List available model configs")
 
     args = parser.parse_args()
 
@@ -174,9 +184,10 @@ def main():
 
     generate_from_config(args.config)
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Model diagram generation complete!")
-    print("="*80)
+    print("=" * 80)
+
 
 if __name__ == "__main__":
     main()

@@ -1,12 +1,13 @@
-import torch
-import numpy as np
 from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import torch
 import torch.nn.functional as F
 
 
-def extract_decay_time_features(temporal_envelope: torch.Tensor,
-                               sample_rate: float = 8000.0,
-                               frame_hop: float = 0.01) -> torch.Tensor:
+def extract_decay_time_features(
+    temporal_envelope: torch.Tensor, sample_rate: float = 8000.0, frame_hop: float = 0.01
+) -> torch.Tensor:
     """
     Extract decay time scalar features from temporal envelope.
 
@@ -45,7 +46,9 @@ def extract_decay_time_features(temporal_envelope: torch.Tensor,
 
     # Convert to numpy array first to avoid performance warning
     batch_features_array = np.array(batch_features)
-    return torch.tensor(batch_features_array, dtype=temporal_envelope.dtype, device=temporal_envelope.device)
+    return torch.tensor(
+        batch_features_array, dtype=temporal_envelope.dtype, device=temporal_envelope.device
+    )
 
 
 def _estimate_decay_time(profile: np.ndarray, times: np.ndarray) -> float:
@@ -92,8 +95,9 @@ def _estimate_decay_time(profile: np.ndarray, times: np.ndarray) -> float:
         return -1.0  # Fitting failed
 
 
-def compute_temporal_envelope_from_spectrogram(spectrogram: torch.Tensor,
-                                              kernel_size: int = 5) -> torch.Tensor:
+def compute_temporal_envelope_from_spectrogram(
+    spectrogram: torch.Tensor, kernel_size: int = 5
+) -> torch.Tensor:
     """
     Compute temporal envelope from raw spectrogram.
 
@@ -122,9 +126,9 @@ def compute_temporal_envelope_from_spectrogram(spectrogram: torch.Tensor,
         # Apply smoothing to each channel separately
         smoothed_channels = []
         for c in range(C):
-            channel_energy = temporal_energy[:, c:c+1, :, :]  # [B, 1, 1, W]
+            channel_energy = temporal_energy[:, c : c + 1, :, :]  # [B, 1, 1, W]
             kernel = torch.ones(1, 1, 1, kernel_size, device=spectrogram.device) / kernel_size
-            smoothed = F.conv2d(channel_energy, kernel, padding=(0, kernel_size//2))
+            smoothed = F.conv2d(channel_energy, kernel, padding=(0, kernel_size // 2))
             smoothed_channels.append(smoothed)
         temporal_energy = torch.cat(smoothed_channels, dim=1)
 
@@ -134,8 +138,9 @@ def compute_temporal_envelope_from_spectrogram(spectrogram: torch.Tensor,
     return temporal_envelope
 
 
-def extract_auxiliary_features(data: Dict[str, torch.Tensor],
-                             feature_types: List[str] = ["decay_time"]) -> torch.Tensor:
+def extract_auxiliary_features(
+    data: Dict[str, torch.Tensor], feature_types: List[str] = ["decay_time"]
+) -> torch.Tensor:
     """
     Extract auxiliary scalar features from VIMH data dict.
 

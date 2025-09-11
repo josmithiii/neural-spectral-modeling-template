@@ -1,12 +1,14 @@
 # From 4o conversation https://chatgpt.com/c/687b5125-0568-800f-affc-0ae9e6b69c9a
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
+
 
 class SoftTargetLoss(nn.Module):
-    def __init__(self, num_classes, mode='triangular', width=1, sigma=1.0):
+    def __init__(self, num_classes, mode="triangular", width=1, sigma=1.0):
         """
         Soft target loss function for classification tasks with ordinal structure.
 
@@ -24,7 +26,7 @@ class SoftTargetLoss(nn.Module):
         self.mode = mode
         self.width = width
         self.sigma = sigma
-        assert mode in {'triangular', 'gaussian', 'log-triangular'}
+        assert mode in {"triangular", "gaussian", "log-triangular"}
 
     def forward(self, logits, targets):
         """
@@ -42,20 +44,21 @@ class SoftTargetLoss(nn.Module):
         for i in range(B):
             c = targets[i].item()
             support = range(max(0, c - self.width), min(C, c + self.width + 1))
-            if self.mode == 'triangular':
+            if self.mode == "triangular":
                 for j in support:
                     soft_targets[i, j] = self.width + 1 - abs(j - c)
-            elif self.mode == 'log-triangular':
+            elif self.mode == "log-triangular":
                 for j in support:
                     soft_targets[i, j] = math.exp(-(abs(j - c)))
-            elif self.mode == 'gaussian':
+            elif self.mode == "gaussian":
                 for j in support:
                     soft_targets[i, j] = math.exp(-0.5 * ((j - c) / self.sigma) ** 2)
 
         soft_targets = soft_targets / soft_targets.sum(dim=1, keepdim=True)  # normalize
 
         log_probs = F.log_softmax(logits, dim=1)
-        return F.kl_div(log_probs, soft_targets, reduction='batchmean')
+        return F.kl_div(log_probs, soft_targets, reduction="batchmean")
+
 
 # Example Usage:
 

@@ -16,7 +16,7 @@ def test_vimh_datamodule(batch_size: int) -> None:
     try:
         dm = VIMHDataModule(batch_size=batch_size)
         dm.setup()
-        
+
         assert dm.data_train and dm.data_val and dm.data_test
         assert dm.train_dataloader() and dm.val_dataloader() and dm.test_dataloader()
 
@@ -24,13 +24,13 @@ def test_vimh_datamodule(batch_size: int) -> None:
         x, y = batch
         assert len(x) == batch_size
         assert x.dtype == torch.float32
-        
+
         # VIMH uses multihead outputs
         if isinstance(y, dict):
             for head_name, head_targets in y.items():
                 assert len(head_targets) == batch_size
         else:
             assert len(y) == batch_size
-            
+
     except Exception:
         pytest.skip("VIMH dataset not available - skipping datamodule test")
