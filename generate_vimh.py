@@ -491,7 +491,8 @@ def save_vimh_dataset(
         # Add each parameter (id, value) pair
         for param_idx, param_value in enumerate(label_vector):
             # Quantize normalized value [0,1] to [0,QUANTIZATION_LEVELS]
-            quantized_value = int(param_value * QUANTIZATION_LEVELS)
+            # Use round() instead of int() to avoid bias toward lower values
+            quantized_value = round(param_value * QUANTIZATION_LEVELS)
             quantized_value = max(0, min(QUANTIZATION_LEVELS, quantized_value))
             label_data += struct.pack("BB", param_idx, quantized_value)
 

@@ -15,9 +15,12 @@ Examples:
 
 import argparse
 import json
+import struct
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
+
+import numpy as np
 
 
 def find_latest_dataset() -> Path:
@@ -67,6 +70,126 @@ def format_parameter_info(
         value = param_data.get("value", "N/A")
         desc = param_data.get("description", "No description")
         return f"    {param_name}: {value} (fixed)\n      {desc}"
+
+
+def extract_parameter_values(
+    binary_file: Path, param_names: List[str], param_mappings: Dict[str, Any]
+) -> Tuple[List[List[float]], List[str]]:
+    """Extract parameter values from VIMH binary file.
+
+    Returns:
+        param_values: List of parameter value lists (one per sample)
+        denormalized_param_names: List of parameter names with denormalized ranges
+    """
+    if not binary_file.exists():
+        raise FileNotFoundError(f"Binary file not found: {binary_file}")
+
+    QUANTIZATION_LEVELS = 255
+    param_values = []
+
+    with open(binary_file, "rb") as f:
+        while True:
+            # Read metadata: height, width, channels (6 bytes)
+            metadata_bytes = f.read(6)
+            if len(metadata_bytes) < 6:
+                break  # End of file
+
+            height, width, channels = struct.unpack("<HHH", metadata_bytes)
+
+            # Read scale factors (8 bytes)
+            scale_bytes = f.read(8)
+            if len(scale_bytes) < 8:
+                break
+            spec_min, spec_max = struct.unpack("<ff", scale_bytes)
+
+            # Read number of parameters (1 byte)
+            num_params_bytes = f.read(1)
+            if len(num_params_bytes) < 1:
+                break
+            num_params = struct.unpack("B", num_params_bytes)[0]
+
+            # Read parameter pairs (2 bytes each: param_id, quantized_value)
+            sample_params = []
+            for _ in range(num_params):
+                param_pair_bytes = f.read(2)
+                if len(param_pair_bytes) < 2:
+                    break
+                param_id, quantized_value = struct.unpack("BB", param_pair_bytes)
+
+                # Denormalize from quantized value back to original range
+                if param_id < len(param_names):
+                    param_name = param_names[param_id]
+                    if param_name in param_mappings:
+                        param_info = param_mappings[param_name]
+                        min_val = param_info.get("min", 0.0)
+                        max_val = param_info.get("max", 1.0)
+
+                        # Convert quantized [0, QUANTIZATION_LEVELS] back to normalized [0, 1]
+                        normalized = quantized_value / QUANTIZATION_LEVELS
+                        # Denormalize to original parameter range
+                        denormalized = min_val + normalized * (max_val - min_val)
+                        sample_params.append(denormalized)
+                    else:
+                        sample_params.append(quantized_value / QUANTIZATION_LEVELS)
+                else:
+                    sample_params.append(quantized_value / QUANTIZATION_LEVELS)
+
+            param_values.append(sample_params)
+
+            # Skip image data
+            image_size = height * width * channels
+            f.seek(image_size, 1)  # Skip forward by image_size bytes
+
+    return param_values, param_names
+
+
+def analyze_parameter_distributions(
+    param_values: List[List[float]], param_names: List[str], param_mappings: Dict[str, Any]
+) -> None:
+    """Analyze and print parameter distribution statistics."""
+    if not param_values or not param_names:
+        print("No parameter values to analyze")
+        return
+
+    print("Parameter Distribution Analysis:")
+    print("=" * 50)
+
+    # Convert to numpy array for easier analysis
+    param_array = np.array(param_values)
+
+    for i, param_name in enumerate(param_names):
+        if i >= param_array.shape[1]:
+            continue
+
+        values = param_array[:, i]
+        param_info = param_mappings.get(param_name, {})
+        min_expected = param_info.get("min", 0.0)
+        max_expected = param_info.get("max", 1.0)
+
+        print(f"\n{param_name}:")
+        print(f"  Expected range: [{min_expected:.3f}, {max_expected:.3f}]")
+        print(f"  Actual range:   [{values.min():.3f}, {values.max():.3f}]")
+        print(f"  Mean: {values.mean():.3f}")
+        print(f"  Std:  {values.std():.3f}")
+        print(f"  Median: {np.median(values):.3f}")
+
+        # Check for uniform distribution by looking at histogram
+        hist, bin_edges = np.histogram(values, bins=10)
+        expected_per_bin = len(values) / 10
+
+        # Chi-square-like test for uniformity (simplified)
+        chi_stat = np.sum((hist - expected_per_bin) ** 2 / expected_per_bin)
+        print(f"  Uniformity test (chi-square like): {chi_stat:.2f}")
+        print(f"    (Lower values indicate more uniform distribution)")
+
+        # Show histogram bins
+        print("  Histogram (10 bins):")
+        for j, (count, left_edge, right_edge) in enumerate(
+            zip(hist, bin_edges[:-1], bin_edges[1:])
+        ):
+            bar_width = int(count * 40 / max(hist))  # Scale to 40 chars max
+            bar = "█" * bar_width
+            print(f"    [{left_edge:.3f}-{right_edge:.3f}]: {count:3d} {bar}")
 
 
 def print_dataset_metadata(metadata: Dict[str, Any], dataset_path: Path) -> None:
@@ -194,6 +317,13 @@ def main():
         help="Path to VIMH dataset directory (defaults to latest in ./data/vimh-*)",
     )
 
+    parser.add_argument(
+        "-p",
+        "--parameters",
+        action="store_true",
+        help="Analyze parameter value distributions from binary files",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -212,6 +342,32 @@ def main():
 
         metadata = load_dataset_metadata(dataset_path)
         print_dataset_metadata(metadata, dataset_path)
+
+        # Analyze parameter distributions if requested
+        if args.parameters:
+            print("\n" + "=" * 60)
+            param_names = metadata.get("parameter_names", [])
+            param_mappings = metadata.get("parameter_mappings", {})
+
+            if not param_names:
+                print("No varying parameters found in dataset")
+            else:
+                # Analyze both train and test files
+                for split in ["train", "test"]:
+                    binary_file = dataset_path / split
+                    if binary_file.exists():
+                        print(f"\n{split.upper()} SET:")
+                        try:
+                            param_values, _ = extract_parameter_values(
+                                binary_file, param_names, param_mappings
+                            )
+                            analyze_parameter_distributions(
+                                param_values, param_names, param_mappings
+                            )
+                        except Exception as e:
+                            print(f"Error analyzing {split} parameters: {e}")
+                    else:
+                        print(f"\n{split.upper()} SET: file not found")
 
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
