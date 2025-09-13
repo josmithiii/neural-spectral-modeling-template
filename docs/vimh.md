@@ -218,6 +218,8 @@ make vdl    # large dataset metadata
 #### Output Example
 
 ```
+> make vds
+python vimhd.py
 VIMH Dataset: vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
 ============================================================
 Format: VIMH v2.1
@@ -236,9 +238,9 @@ Parameter names: log10_decay_time, filter_cutoff
 
 Parameter Details:
   Varying:
-    log10_decay_time: -2.0 to 0.3 (step: 0.1), classes: N/A
+    log10_decay_time: -2.0 to 0.3 (step: 0.1), classes: 24
       simple parameter: log10_decay_time
-    filter_cutoff: 200.0 to 2000.0 (step: 100.0), classes: N/A
+    filter_cutoff: 200.0 to 2000.0 (step: 100.0), classes: 19
       simple parameter: filter_cutoff
   Fixed:
     note_number: 43.35 (fixed)
@@ -325,5 +327,3 @@ VIMH was originally inspired by CIFAR-100 but extends it significantly:
 - **VIMH**: Variable image dimensions, 0-255 continuous parameters with self-describing metadata
 - **HDF5**: Alternative format, but VIMH is more compact and self-describing
 - **TFRecord**: Similar concept, but VIMH uses simpler binary format
-
-The format maintains some conceptual CIFAR-100 compatibility for 32x32x3 images while enabling much broader applications through its generalized, self-describing design.
