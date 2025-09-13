@@ -95,6 +95,22 @@ class VIMHViewer:
 
         return spectrogram, param_info
 
+    def get_varying_params_only(self, info: Dict[str, Any]) -> Dict[str, float]:
+        """Extract only the varying parameters (exclude fixed ones) for concise display."""
+        varying_params = {}
+        actual_values = info.get("actual_values", {})
+
+        for param_name, param_info in info["parameters"].items():
+            min_val = param_info["min"]
+            max_val = param_info["max"]
+
+            # Only include parameters that actually vary
+            if min_val != max_val:
+                actual_val = actual_values.get(param_name, min_val)
+                varying_params[param_name] = actual_val
+
+        return varying_params
+
     def decode_actual_values(self, labels_dict: Dict[str, int]) -> Dict[str, float]:
         """Decode actual parameter values from labels dictionary."""
         params = {}
@@ -271,12 +287,12 @@ class VIMHViewer:
 
         self.ax_3d.set_zlabel("Magnitude")
 
-        # Update title with sample info
-        labels = info["vimh_labels"]
-        if isinstance(labels, dict):
-            labels_str = " ".join(f"{k}={v:.3f}" for k, v in labels.items())
+        # Update title with sample info - show only varying parameters for concise display
+        varying_params = self.get_varying_params_only(info)
+        if varying_params:
+            labels_str = " ".join(f"{k}={v:.3f}" for k, v in varying_params.items())
         else:
-            labels_str = " ".join(map(str, labels))
+            labels_str = "No varying parameters"
         if len(labels_str) > 50:
             labels_str = labels_str[:50] + "..."
         # Get spectrogram type for dynamic title
@@ -290,7 +306,7 @@ class VIMHViewer:
             else f"Ch{self.channel}"
         )
 
-        title = f"Sample {self.current_idx + 1}/{self.total_samples}, Channel {self.channel} ({channel_label})\nVIMH Parameter Labels: [{labels_str}]"
+        title = f"Sample {self.current_idx + 1}/{self.total_samples}, Channel {self.channel} ({channel_label})\nVarying Parameters: [{labels_str}]"
         self.fig_3d.suptitle(
             f"Waterfall Plot - {spec_name} Spectral Slices Over Time\n{title}", fontsize=12, y=0.95
         )
@@ -418,15 +434,15 @@ class VIMHViewer:
         self.ax_audio.set_ylabel("Time Frame")
         self.ax_audio.set_zlabel("Amplitude")
 
-        # Update title with sample info
-        labels = info["vimh_labels"]
-        if isinstance(labels, dict):
-            labels_str = " ".join(f"{k}={v:.3f}" for k, v in labels.items())
+        # Update title with sample info - show only varying parameters for concise display
+        varying_params = self.get_varying_params_only(info)
+        if varying_params:
+            labels_str = " ".join(f"{k}={v:.3f}" for k, v in varying_params.items())
         else:
-            labels_str = " ".join(map(str, labels))
+            labels_str = "No varying parameters"
         if len(labels_str) > 50:
             labels_str = labels_str[:50] + "..."
-        title = f"Sample {self.current_idx + 1}/{self.total_samples}\nVIMH Parameter Labels: [{labels_str}]"
+        title = f"Sample {self.current_idx + 1}/{self.total_samples}\nVarying Parameters: [{labels_str}]"
         self.fig_audio.suptitle(
             f"Audio Waveform Waterfall - Raw Audio Frames\n{title}", fontsize=12, y=0.95
         )
