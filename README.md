@@ -48,7 +48,17 @@ adds CIFAR and VIMH support to that.) The CIFAR and MNIST support can
 be dropped here because VIMH can support those image resolutions,
 channel depths, and metadata, as special cases.
 
-For documentation, see [docs/index.md](docs/index.md).
+### 📚 Docs
+
+- Overview: [docs/index.md](docs/index.md)
+- Features: [docs/features.md](docs/features.md)
+- Quick Reference: [docs/quickref.md](docs/quickref.md)
+- Tutorial: [docs/tutorial_sequence.md](docs/tutorial_sequence.md)
+- VIMH Format: [docs/vimh.md](docs/vimh.md)
+- VIMH Losses: [docs/vimh_loss_functions.md](docs/vimh_loss_functions.md)
+- Architectures: [docs/architectures.md](docs/architectures.md)
+- Configuration: [docs/configuration.md](docs/configuration.md)
+- Audio Evaluation: [docs/audio_eval.md](docs/audio_eval.md)
 
 ### 🚀 Quick Start
 
