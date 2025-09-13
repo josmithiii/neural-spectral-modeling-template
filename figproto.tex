@@ -64,7 +64,7 @@
 
   % Conv1 + BatchNorm + ReLU + MaxPool (64 channels)
   \def\conv1height{3.2}
-  \begin{scope}[shift={(1*\xshift,0)}]
+  \begin{scope}[shift={(1*\xshift,0.4)}]
     \filldraw[fill=red!20, draw=black, line width=0.5pt]
       (0,0) -- (\layerwidth,0) --
       (\layerwidth+\layerdepth*0.7,-\layerdepth*0.3) --
@@ -84,7 +84,7 @@
 
   % Conv2 + BatchNorm + ReLU + MaxPool (128 channels)
   \def\conv2height{2.4}
-  \begin{scope}[shift={(2*\xshift,0)}]
+  \begin{scope}[shift={(2*\xshift,0.8)}]
     \filldraw[fill=orange!20, draw=black, line width=0.5pt]
       (0,0) -- (\layerwidth,0) --
       (\layerwidth+\layerdepth*0.7,-\layerdepth*0.3) --
@@ -104,7 +104,7 @@
 
   % AdaptiveAvgPool
   \def\poolheight{1.6}
-  \begin{scope}[shift={(3*\xshift,0)}]
+  \begin{scope}[shift={(3*\xshift,1.2)}]
     \filldraw[fill=green!20, draw=black, line width=0.5pt]
       (0,0) -- (\layerwidth,0) --
       (\layerwidth+\layerdepth*0.7,-\layerdepth*0.3) --
@@ -124,7 +124,7 @@
 
   % Flatten + Linear (FC Hidden: 512)
   \def\fcheight{2.0}
-  \begin{scope}[shift={(4*\xshift,0)}]
+  \begin{scope}[shift={(4*\xshift,1.0)}]
     \filldraw[fill=purple!20, draw=black, line width=0.5pt]
       (0,0) -- (\layerwidth,0) --
       (\layerwidth+\layerdepth*0.7,-\layerdepth*0.3) --
@@ -144,7 +144,7 @@
 
   % Output heads (regression with sigmoid)
   \def\outheight{1.2}
-  \begin{scope}[shift={(5*\xshift,0)}]
+  \begin{scope}[shift={(5*\xshift,1.4)}]
     \filldraw[fill=yellow!20, draw=black, line width=0.5pt]
       (0,0) -- (\layerwidth,0) --
       (\layerwidth+\layerdepth*0.7,-\layerdepth*0.3) --
@@ -162,12 +162,12 @@
     \node[below] at (\layerwidth+\layerdepth*0.35,-\layerdepth*0.3-0.6) {\tiny Linear+Sigmoid};
   \end{scope}
 
-  % Add arrows between layers
+  % Add arrows between layers - horizontal along center line
   \foreach \i in {0,1,2,3,4} {
     \pgfmathtruncatemacro{\nexti}{\i+1}
     \draw[->, thick, gray!70]
-      (\i*\xshift+\layerwidth+\layerdepth*0.7+0.1, 1.5-\layerdepth*0.3) --
-      (\nexti*\xshift-0.1, 1.5);
+      (\i*\xshift+\layerwidth+\layerdepth*0.7+0.1, 2.0) --
+      (\nexti*\xshift-0.1, 2.0);
   }
 
 \end{tikzpicture}
