@@ -92,6 +92,12 @@ make vds    # or: python vimhd.py path/to/small-example-dataset
 make vdl    # or: python vimhd.py path/to/larger-example-dataset
             # or: python vimhd.py path/to/any-dataset
 
+# Analyze parameter distributions (NEW!)
+make vpr    # or: python vimhd.py -p  # analyze latest dataset parameters
+make vps    # or: python vimhd.py -p path/to/small-example-dataset
+make vpl    # or: python vimhd.py -p path/to/larger-example-dataset
+            # Shows histograms, statistics, and uniformity tests
+
 # ===== TRAINING EXPERIMENTS =====
 
 # Quick example experiment

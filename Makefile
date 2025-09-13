@@ -56,6 +56,17 @@ vds vimh-dump-small: ## Dump the metadata of the small example SawSynth dataset 
 vdl vimh-dump-large: ## Dump the metadata of the larger example VIMH dataset with SawSynth (16k samples)
 	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
 
+# ANALYZE VIMH PARAMETER DISTRIBUTIONS "vp"
+
+vpr vp vimh-params-recent: ## Analyze parameter distributions in the most recent VIMH dataset
+	python vimhd.py -p
+
+vps vimh-params-small: ## Analyze parameter distributions in the small example SawSynth dataset (256 samples)
+	python vimhd.py -p ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+
+vpl vimh-params-large: ## Analyze parameter distributions in the larger example VIMH dataset (16k samples)
+	python vimhd.py -p ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+
 # DISPLAY VIMH DATASETS "dd"
 
 ddr display-dataset-recent: ## Display the most recently created dataset (default)

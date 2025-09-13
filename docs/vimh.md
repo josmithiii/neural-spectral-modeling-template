@@ -276,6 +276,79 @@ File sizes: train: 0.2 MB, test: 0.1 MB
 - **Spectrogram details**: Displays STFT/mel spectrogram configuration when available
 - **Error handling**: Clear error messages for missing files or invalid JSON
 
+### Parameter Distribution Analysis (`-p` flag)
+
+The `vimhd.py` utility includes powerful parameter distribution analysis capabilities via the `-p` flag. This extracts actual parameter values from VIMH binary files and provides detailed statistical analysis:
+
+```bash
+# Analyze parameter distributions in the most recent dataset
+python vimhd.py -p
+
+# Analyze distributions in a specific dataset
+python vimhd.py -p data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+
+# Using make targets
+make vpr    # recent dataset parameter analysis
+make vps    # small dataset parameter analysis
+make vpl    # large dataset parameter analysis
+```
+
+#### Analysis Output Example
+
+```
+Parameter Distribution Analysis:
+==================================================
+
+log10_decay_time:
+  Expected range: [-1.000, 0.300]
+  Actual range:   [-0.995, 0.295]
+  Mean: -0.366
+  Std:  0.372
+  Median: -0.342
+  Uniformity test (chi-square like): 12.67
+    (Lower values indicate more uniform distribution)
+  Histogram (10 bins):
+    [-0.995--0.866]:  29 ████████████████████████████████████████
+    [-0.866--0.737]:  13 █████████████████
+    [-0.737--0.608]:  23 ███████████████████████████████
+    [-0.608--0.479]:  18 ████████████████████████
+    [-0.479--0.350]:  18 ████████████████████████
+    [-0.350--0.221]:  22 ██████████████████████████████
+    [-0.221--0.092]:  28 ██████████████████████████████████████
+    [-0.092-0.037]:  16 ██████████████████████
+    [0.037-0.166]:  22 ██████████████████████████████
+    [0.166-0.295]:  15 ████████████████████
+
+filter_cutoff:
+  Expected range: [1000.000, 4000.000]
+  Actual range:   [1000.000, 3988.235]
+  Mean: 2456.401
+  Std:  821.375
+  Median: 2470.588
+  Uniformity test (chi-square like): 10.51
+    (Lower values indicate more uniform distribution)
+  Histogram (10 bins):
+    [1000.000-1298.824]:  24 ███████████████████████████████████
+    [1298.824-1597.647]:  16 ███████████████████████
+    [1597.647-1896.471]:  17 █████████████████████████
+    [1896.471-2195.294]:  21 ███████████████████████████████
+    [2195.294-2494.118]:  27 ████████████████████████████████████████
+    [2494.118-2792.941]:  25 █████████████████████████████████████
+    [2792.941-3091.765]:  21 ███████████████████████████████
+    [3091.765-3390.588]:  15 ██████████████████████
+    [3390.588-3689.412]:  25 █████████████████████████████████████
+    [3689.412-3988.235]:  13 ███████████████████
+```
+
+#### Analysis Features
+
+- **Distribution visualization**: ASCII histograms for quick visual assessment
+- **Statistical measures**: Mean, standard deviation, median, min/max ranges
+- **Uniformity testing**: Chi-square-like metric to detect sampling bias
+- **Split analysis**: Separate analysis for train and test sets
+- **Binary format parsing**: Direct extraction from VIMH binary files without loading images
+- **Quantization awareness**: Properly handles parameter quantization and denormalization
+
 ## File Reading/Writing
 
 ### Python Usage

@@ -57,13 +57,13 @@ synthesizer:
       default: 1.0
       description: "Enable Moog VCF filter"
 
-    # Base cutoff frequency (starting point for envelope)
-    filter_cutoff:
-      min_value: 80.0 # Very low - let envelope do the work
-      step: 40.0
-      max_value: 400.0 # Still quite low
-      default: 150.0
-      description: "Base filter cutoff frequency in Hz"
+    # Log10 of base cutoff frequency (starting point for envelope)
+    log10_filter_cutoff_hz:
+      min_value: 1.903 # log10(80) = 1.903 - Very low, let envelope do the work
+      step: 0.1
+      max_value: 2.602 # log10(400) = 2.602 - Still quite low
+      default: 2.176 # log10(150) = 2.176
+      description: "Log10 of base filter cutoff frequency in Hz"
 
     # Filter resonance
     filter_resonance:

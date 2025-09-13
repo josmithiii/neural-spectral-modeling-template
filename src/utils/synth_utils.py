@@ -500,7 +500,8 @@ class SimpleSawSynth:
 
             # Filter parameters (optional)
             filter_enabled = params.get("filter_enabled", False)
-            base_cutoff = params.get("filter_cutoff", 1000.0)  # Hz
+            log10_cutoff = params.get("log10_filter_cutoff_hz", 3.0)  # log10(Hz)
+            base_cutoff = 10**log10_cutoff  # Convert back to Hz
             base_resonance = params.get("filter_resonance", 0.0)  # 0-1
 
             # Envelope parameters for filter modulation (optional)

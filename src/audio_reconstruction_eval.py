@@ -1332,7 +1332,7 @@ class InteractiveAudioEvaluator:
             pred_params = self.current_results["predicted_params"]
 
             # Just show a few key parameters to see if they vary
-            key_params = ["note_number", "filter_cutoff", "filter_resonance"]
+            key_params = ["note_number", "log10_filter_cutoff_hz", "filter_resonance"]
             for param in key_params:
                 if param in true_params and param in pred_params:
                     print(
