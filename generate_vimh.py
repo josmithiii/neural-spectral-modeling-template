@@ -795,6 +795,9 @@ def main(cfg: DictConfig) -> None:
         duration = cfg.dataset.duration
         batch_size = cfg.generate.batch_size
         pre_emphasis_coeff = cfg.generate.pre_emphasis_coefficient
+        dataset_name = cfg.dataset.get(
+            "name", "simple"
+        )  # Custom dataset name or default to "simple"
 
         # Extract output dimensions
         height = cfg.generate.height
@@ -841,8 +844,8 @@ def main(cfg: DictConfig) -> None:
         elif args.spectral_envelope:
             envelope_suffix = "_spectral"
 
-        dataset_name = f"{prefix}-{height}x{width}x{total_channels}_{sample_rate}Hz_{duration_str}_{dataset_size}dss_simple_{len(varying_params)}p{envelope_suffix}{shuffle_suffix}"
-        output_dir = os.path.join(cfg.generate.output_dir, dataset_name)
+        dataset_dir_name = f"{prefix}-{height}x{width}x{total_channels}_{sample_rate}Hz_{duration_str}_{dataset_size}dss_{dataset_name}_{len(varying_params)}p{envelope_suffix}{shuffle_suffix}"
+        output_dir = os.path.join(cfg.generate.output_dir, dataset_dir_name)
 
         # Create synthesizer
         synth = SimpleSawSynth(sample_rate=sample_rate)

@@ -46,8 +46,8 @@ sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-re
 sdma synth-dataset-moog-all: sdmb sdme sdmr ## Generate all Moog VCF datasets: basic, envelope, resonance
 
 sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Crybaby wah envelope sweeps (512 samples)
-	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_9p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_9p"; \
+	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_crybaby_wah_9p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_crybaby_wah_9p"; \
 	else \
 		python generate_vimh.py --config-name=synth/generate_wah_envelope; \
 	fi
