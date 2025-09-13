@@ -164,6 +164,7 @@ c clean: ## Clean all generated files except logs and datasets
 	rm -f .coverage
 	rm -rf ./diagrams/
 	rm -rf ./outputs/
+	rm -rf ./audio_eval_results/
 
 cd clean-data: ## Clean data files
 	rm -rf data/*
