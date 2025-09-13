@@ -128,7 +128,7 @@ repos:
       - id: prettier
         name: "prettier (FORMATTING CHECK - WILL FAIL IF FILES NEED FORMATTING)"
         types: [yaml, markdown]
-        exclude: "environment.yaml"
+        # exclude: none needed anymore
         # Formats Markdown (GFM-friendly) and YAML consistently
         verbose: true
 

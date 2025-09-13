@@ -43,7 +43,7 @@
 
 - Checkpoints: loading remote URLs is blocked; use local files only.
 - Config: prefer Hydra overrides (e.g., `trainer.max_epochs=3`) instead of editing YAML.
-- Env: see `.env.example`, `requirements.txt`, and `environment.yaml`; `rootutils` sets `PROJECT_ROOT` for stable paths.
+- Env: see `pyproject.toml`; `rootutils` sets `PROJECT_ROOT` for stable paths.
 
 ## YAML & Hydra Conventions
 
