@@ -45,6 +45,14 @@ sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-re
 
 sdma synth-dataset-moog-all: sdmb sdme sdmr ## Generate all Moog VCF datasets: basic, envelope, resonance
 
+sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Crybaby wah envelope sweeps (512 samples)
+	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_9p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_9p"; \
+	else \
+		python generate_vimh.py --config-name=synth/generate_wah_envelope; \
+	fi
+	ls ./data/
+
 # DUMP VIMH DATASET METADATA "vd"
 
 vdr vd vimh-dump-recent: ## Dump the metadata of the most recent VIMH dataset in ./data/
@@ -149,6 +157,9 @@ emer exp-moog-envelope-regression: sdme ## Train CNN on Moog envelope sweep data
 
 emr exp-moog-resonance: sdmr ## Train CNN on high-resonance Moog dataset (8 params)
 	time python src/train.py experiment=moog_cnn_resonance
+
+ewe exp-wah-envelope: sdwe ## Train CNN on Crybaby wah envelope sweep dataset
+	time python src/train.py experiment=crybaby_cnn_envelope
 
 emall: emall-gen emb eme emr ## Generate datasets and train CNNs on all Moog VCF experiments
 

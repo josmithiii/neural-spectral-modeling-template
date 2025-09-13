@@ -9,7 +9,7 @@ dataset:
 
 # Generation parameters
 generate:
-  batch_size: 8 # Processing batch size
+  batch_size: 256 # Processing batch size
   output_dir: "data" # Base output directory
   pre_emphasis_coefficient: 0.0 # Pre-emphasis filter coefficient (disabled for flat spectrum test)
   taper: false # Taper breath pressure at note ends

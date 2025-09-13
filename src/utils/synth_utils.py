@@ -334,6 +334,82 @@ def check_params(params: Dict[str, float], *required_params: str) -> None:
             logger.warning(f"Parameter '{param_name}' not found in params")
 
 
+class WahPedal:
+    """Crybaby wah pedal effect based on Faust implementation."""
+
+    def __init__(self, sample_rate: int):
+        self.sample_rate = sample_rate
+        self.PI = np.pi
+        self.reset()
+
+    def reset(self):
+        """Reset filter state."""
+        self.w1, self.w2 = 0.0, 0.0  # Direct Form II state variables
+
+    def fastpow2(self, x: float) -> float:
+        """Fast 2^x approximation - matches Faust pow(2.0,x)"""
+        return np.power(2.0, x)
+
+    def crybaby_coeffs(self, wah: float) -> Tuple[float, float, float]:
+        """Compute biquad coefficients for crybaby wah effect"""
+        # From the Faust code
+        Q = self.fastpow2(2.0 * (1.0 - wah) + 1.0)  # Resonance quality factor
+        fr = 450.0 * self.fastpow2(2.3 * wah)  # Resonance tuning
+        g = 0.1 * self.fastpow2(2.0 * wah)  # gain
+
+        # Biquad fit using z = exp(s T) ~ 1 + sT for low frequencies
+        frn = fr / self.sample_rate  # Normalized pole frequency (cycles per sample)
+        R = 1 - self.PI * frn / Q  # pole radius
+        theta = 2 * self.PI * frn  # pole angle
+        a1 = -2.0 * R * np.cos(theta)  # biquad coeff
+        a2 = R * R  # biquad coeff
+
+        return g, a1, a2
+
+    def process_sample(self, x_n: float, g: float, a1: float, a2: float) -> float:
+        """Process single sample through tf2(1,-1,0,a1s,a2s) with gain g"""
+        # tf2(1,-1,0,a1s,a2s) implementation
+        # H(z) = (1 - z^-1) / (1 - a1*z^-1 - a2*z^-2)
+
+        # Direct Form II: w[n] = x[n] - a1*w[n-1] - a2*w[n-2]
+        w0 = g * x_n - a1 * self.w1 - a2 * self.w2
+        y_n = w0 - self.w1  # Apply numerator: 1 - z^-1
+
+        # Update state
+        self.w2 = self.w1
+        self.w1 = w0
+
+        return y_n
+
+    def process(self, audio: np.ndarray, wah: np.ndarray) -> np.ndarray:
+        """Process audio through wah pedal effect.
+
+        Args:
+            audio: Input audio signal
+            wah: Wah pedal position 0-1 (can be array for time-varying)
+        """
+        output = np.zeros_like(audio, dtype=np.float64)
+
+        # Convert to per-sample arrays if needed
+        if np.isscalar(wah):
+            wah = np.full_like(audio, wah)
+
+        # Reset state for clean start
+        self.reset()
+
+        for i, (sample, wah_pos) in enumerate(zip(audio, wah)):
+            # Clamp wah position
+            wah_pos = np.clip(wah_pos, 0.0, 0.999)
+
+            # Get coefficients for this wah position
+            g, a1, a2 = self.crybaby_coeffs(wah_pos)
+
+            # Process sample
+            output[i] = self.process_sample(sample, g, a1, a2)
+
+        return output.astype(np.float32)
+
+
 class MoogVCF:
     """Moog-style 4-pole ladder filter with resonance control."""
 
@@ -474,13 +550,14 @@ class ADSREnvelope:
 
 
 class SimpleSawSynth:
-    """Simple exponentially decaying sawtooth synthesizer with Moog VCF."""
+    """Simple exponentially decaying sawtooth synthesizer with Moog VCF and Wah Pedal."""
 
     def __init__(self, sample_rate: int = 8000):
         if sample_rate <= 0:
             raise ValueError(f"Sample rate must be positive, got {sample_rate}")
         self.sample_rate = sample_rate
         self.vcf = MoogVCF(sample_rate)
+        self.wah = WahPedal(sample_rate)
         self.adsr = ADSREnvelope(sample_rate)
 
     def generate_audio(self, params: Dict[str, float]) -> np.ndarray:
@@ -500,16 +577,28 @@ class SimpleSawSynth:
 
             # Filter parameters (optional)
             filter_enabled = params.get("filter_enabled", False)
+            # Auto-detect filter type based on presence of wah_position parameter
+            if "wah_position" in params:
+                filter_type = "wah"
+            else:
+                filter_type = params.get("filter_type", "moog")  # "moog" or "wah"
+
+            # Moog VCF parameters
             log10_cutoff = params.get("log10_filter_cutoff_hz", 3.0)  # log10(Hz)
             base_cutoff = 10**log10_cutoff  # Convert back to Hz
             base_resonance = params.get("filter_resonance", 0.0)  # 0-1
+
+            # Wah pedal parameters
+            wah_position = params.get("wah_position", 0.5)  # 0-1 wah pedal angle
 
             # Envelope parameters for filter modulation (optional)
             env_attack = params.get("filter_env_attack", 0.01)  # seconds
             env_decay = params.get("filter_env_decay", 0.1)  # seconds
             env_sustain = params.get("filter_env_sustain", 0.3)  # 0-1
             env_release = params.get("filter_env_release", 0.2)  # seconds
-            env_amount = params.get("filter_env_amount", 0.0)  # Filter envelope depth (octaves)
+            env_amount = params.get(
+                "filter_env_amount", 0.0
+            )  # Filter envelope depth (octaves or wah range)
 
             # Validate parameters
             if duration <= 0:
@@ -544,27 +633,51 @@ class SimpleSawSynth:
             # Generate audio (before filtering)
             audio = amplitude * sawtooth * decay_envelope
 
-            # Apply Moog VCF if enabled
+            # Apply filtering if enabled
             if filter_enabled:
-                # Reset filter state for clean start
-                self.vcf.reset()
+                if filter_type == "moog":
+                    # Reset filter state for clean start
+                    self.vcf.reset()
 
-                # Generate filter envelope if modulation is enabled
-                if env_amount != 0.0:
-                    filter_envelope = self.adsr.generate(
-                        duration, env_attack, env_decay, env_sustain, env_release
-                    )
-                    # Convert envelope amount from octaves to frequency multiplier
-                    freq_multiplier = 2.0 ** (env_amount * filter_envelope)
-                    cutoff_freq = base_cutoff * freq_multiplier
+                    # Generate filter envelope if modulation is enabled
+                    if env_amount != 0.0:
+                        filter_envelope = self.adsr.generate(
+                            duration, env_attack, env_decay, env_sustain, env_release
+                        )
+                        # Convert envelope amount from octaves to frequency multiplier
+                        freq_multiplier = 2.0 ** (env_amount * filter_envelope)
+                        cutoff_freq = base_cutoff * freq_multiplier
+                    else:
+                        cutoff_freq = base_cutoff
+
+                    # Apply resonance envelope if desired (could be controlled separately)
+                    resonance = base_resonance
+
+                    # Filter the audio
+                    audio = self.vcf.process(audio, cutoff_freq, resonance)
+
+                elif filter_type == "wah":
+                    # Reset wah state for clean start
+                    self.wah.reset()
+
+                    # Generate wah envelope if modulation is enabled
+                    if env_amount != 0.0:
+                        wah_envelope = self.adsr.generate(
+                            duration, env_attack, env_decay, env_sustain, env_release
+                        )
+                        # Scale envelope to wah range (env_amount controls sweep range)
+                        wah_sweep = wah_position + env_amount * wah_envelope
+                        wah_sweep = np.clip(wah_sweep, 0.0, 0.999)
+                    else:
+                        wah_sweep = wah_position
+
+                    # Filter the audio
+                    audio = self.wah.process(audio, wah_sweep)
+
                 else:
-                    cutoff_freq = base_cutoff
-
-                # Apply resonance envelope if desired (could be controlled separately)
-                resonance = base_resonance
-
-                # Filter the audio
-                audio = self.vcf.process(audio, cutoff_freq, resonance)
+                    raise ValueError(
+                        f"Unknown filter type: {filter_type}. Must be 'moog' or 'wah'."
+                    )
 
             return audio.astype(np.float32)
 
