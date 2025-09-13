@@ -310,29 +310,27 @@ custom_dataset = MyCustomDataset(
 
 ## 🚀 Integration with Lightning Framework
 
-The architecture integrates seamlessly with PyTorch Lightning:
+The architecture integrates with PyTorch Lightning via the VIMH DataModule:
 
 ```python
-from src.data.multihead_datamodule import CIFAR100MHDataModule
+from src.data.vimh_datamodule import VIMHDataModule
 
-# Lightning DataModule automatically uses appropriate dataset type
-dm = CIFAR100MHDataModule(
-    data_dir="path/to/cifar100mh",
-    batch_size=32,
-    num_workers=4
+dm = VIMHDataModule(
+    data_dir="data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p",
+    batch_size=64,
+    num_workers=0,
 )
 
-# Auto-configures from dataset metadata
 dm.setup()
-heads_config = dm.heads_config  # Automatically detected
+heads_config = dm.get_heads_config()  # Derived from VIMH metadata
 ```
 
 ## 📚 Related Documentation
 
-- [Multihead Classification System](multihead.md) - MNIST multihead implementation
-- [CIFAR-100-MH Format](cifar100mh.md) - Binary format specification
-- [Configuration Guide](README-CONFIGURATION.md) - Hydra configuration patterns
-- [Architecture Overview](README-ARCHITECTURES.md) - Model architectures
+- [VIMH Format](vimh.md) — Binary format and metadata
+- [Configuration Guide](configuration.md) — Hydra patterns for this repo
+- [Architectures](architectures.md) — Available model configs
+- [Losses for VIMH](vimh_loss_functions.md) — Distance‑aware options
 
 ## 🔧 Future Extensions
 

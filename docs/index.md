@@ -1,52 +1,37 @@
-# Lightning-Hydra-Template-Extended Documentation
+# Neural Spectral Modeling Template Documentation
 
-Welcome to the comprehensive documentation for the Lightning-Hydra-Template-Extended project. This documentation is organized to help you quickly find the information you need.
+Welcome. This project focuses on VIMH-based neural spectral modeling: training models to predict audio synthesis parameters from spectrogram-like images. The docs below reflect the current repo (configs, make targets, and code).
 
-## 📚 Documentation Structure
+## Documentation Map
 
-### 🚀 Getting Started
+### Getting Started
 
-- **[features.md](features.md)** - High-level overview and key features summary
-- **[tutorial_sequence.md](tutorial_sequence.md)** - From setup to advanced experiments (using `make` targets)
+- [features.md](features.md) — Key capabilities and what’s included
+- [quickref.md](quickref.md) — One‑page cheat sheet of common tasks
+- [tutorial_sequence.md](tutorial_sequence.md) — Step‑by‑step walkthrough using make targets
 
-### 🏗️ Technical Details
+### Technical Details
 
-- **[architectures.md](architectures.md)** - Detailed architecture documentation, parameter comparisons, and usage guides
-- **[benchmarks.md](benchmarks.md)** - CIFAR benchmark system, expected performance, and automated testing
-- **[multihead.md](multihead.md)** - Multihead classification system, synthetic label generation, and multi-task learning
+- [vimh.md](vimh.md) — VIMH dataset format and metadata
+- [vimh_loss_functions.md](vimh_loss_functions.md) — Distance‑aware losses for quantized parameters
+- [architectures.md](architectures.md) — Supported model configs and options
 
-### 🛠️ Usage and Reference
+### Usage & Configuration
 
-- **[makefile.md](makefile.md)** - Complete make targets reference with abbreviations and workflows
-- **[configuration.md](configuration.md)** - Configuration patterns, experiment system, and best practices
+- [configuration.md](configuration.md) — Hydra config layout and best practices
+- [audio_eval.md](audio_eval.md) — Audio reconstruction evaluation workflow
+- Project README: [../README.md](../README.md)
 
-### 👩‍💻 Development
+## Quick Links
 
-- **[development.md](development.md)** - Development guide, extension patterns, and integration approach
+- Train quickly: `make trq` or `python src/train.py trainer.max_epochs=1`
+- Run an example experiment: `python src/train.py experiment=example`
+- Generate a small dataset: `make sds` then visualize with `make dds`
+- Launch TensorBoard: `make tensorboard` then open http://localhost:6006
 
-### 📋 Main Documentation
+## External References
 
-- **[extensions.md](extensions.md)** - Complete overview of all extensions and capabilities
-- **[../README.md](../README.md)** - Main project README with original template documentation
+- Lightning: https://lightning.ai/docs/pytorch/stable
+- Hydra: https://hydra.cc
 
-## 🎯 Quick Navigation
-
-**I want to...**
-
-- Learn about the extended features → [features.md](features.md)
-- Understand the available architectures → [architectures.md](architectures.md)
-- Run CIFAR benchmarks → [benchmarks.md](benchmarks.md)
-- Use multihead classification → [multihead.md](multihead.md)
-- Find make commands → [makefile.md](makefile.md)
-- Configure experiments → [configuration.md](configuration.md)
-- Extend the template → [development.md](development.md)
-
-## 🔗 External Links
-
-- [Original Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template)
-- [PyTorch Lightning Documentation](https://pytorch-lightning.readthedocs.io/)
-- [Hydra Documentation](https://hydra.cc/)
-
----
-
-_This documentation covers the extended features. For the original template documentation, see [../README.md](../README.md)_
+Note: Older references to CIFAR/MNIST and pages like benchmarks.md or makefile.md have been removed or refocused for this repository.

@@ -1,176 +1,69 @@
-# Lightning-Hydra-Template-Extended Features
+# Project Features
 
 ## Overview
 
-The [Lightning-Hydra-Template-Extended](https://github.com/josmithiii/lightning-hydra-template-extended.git) project extends the original [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) with powerful new capabilities for deep learning research while maintaining full backward compatibility.
+This repository is a practical template for neural spectral modeling built on Lightning + Hydra. It centers on the VIMH dataset format and provides ready‑to‑run experiments, models, losses, and tools for audio‑parameter prediction from images.
 
-## 🎯 Key Features
+## Key Capabilities
 
-### 1. CIFAR Benchmark Suite
+- VIMH dataset support
+  - Variable image size and channels with embedded metadata
+  - Multihead labels for 1–255 quantized continuous parameters
+  - Auto‑configuration of heads and ranges from `vimh_dataset_info.json`
 
-Comprehensive benchmarking capabilities for computer vision research:
+- Distance‑aware loss functions (for quantized targets)
+  - OrdinalRegressionLoss: continuous, distance‑aware predictions
+  - QuantizedRegressionLoss: direct regression on quantized values
+  - WeightedCrossEntropyLoss: classification with distance weighting
 
-- **CIFAR-10**: 10 classes, 32×32 RGB images
-- **CIFAR-100**: 100 fine-grained classes + 20 coarse superclasses
-- **Multiple architectures**: CNN, ConvNeXt, ViT, EfficientNet
-- **Expected performance**: 85-95% (CIFAR-10), 55-75% (CIFAR-100)
+- Ready model configs
+  - CNN families: `cnn_micro`, `cnn_tiny`, `cnn_64k` (+ auxiliary/regression/ordinal variants)
+  - ViT families: `vit_micro`, `vit_tiny`
+  - Auto‑head wiring via `VIMHLitModule` with dataset introspection
 
-### 2. Configurable Loss Functions
+- Dataset generation utilities
+  - `generate_vimh.py` for small/large synthetic sets (Saw + Moog VCF)
+  - Make targets for small (`sds`) and large (`sdl`) datasets and Moog variants
 
-Loss functions are now configurable through Hydra:
+- Evaluation and analysis
+  - Audio reconstruction evaluation (`src/audio_reconstruction_eval.py`)
+  - Model diagram generation (`viz/` make targets)
+  - TensorBoard logging via `make tensorboard`
 
-```yaml
-# Before: hardcoded in code
-self.criterion = torch.nn.CrossEntropyLoss()
+- Developer experience
+  - Hydra config packs under `configs/`
+  - Pytest test suite with fast and slow markers
+  - Pre‑commit formatting and linting via `make format`
 
-# Now: configurable in YAML
-criterion:
-  _target_: torch.nn.CrossEntropyLoss
-```
+## Helpful Make Targets
 
-### 3. Multiple Architecture Support
+- Datasets: `sds`, `sdl`, `sdmb`, `sdme`, `sdmr`, `sdma`
+- Display datasets: `dds`, `ddl`, `ddr`
+- Train: `tr` (defaults), `trq` (quick), `trs` (small), `trl` (large), `ex` (example)
+- Experiments: `emb`, `eme`, `emr`, `emvit*`
+- Diagrams: `td`, `tds`, `tdsa`, `tdv`
+- Eval audio: `ae`
+- Utilities: `lc`, `tensorboard`, `format`, `test`, `test-all`
 
-Easy switching between neural network architectures:
-
-| Architecture           | Parameters | Description                                         |
-| ---------------------- | ---------- | --------------------------------------------------- |
-| **SimpleDenseNet**     | 8K-68K     | Original fully-connected network                    |
-| **SimpleMLP**          | 8K-68K     | MLP without BatchNorm (for batch_size=1)            |
-| **SimpleCNN**          | 8K-3.3M    | Convolutional neural network with auxiliary support |
-| **ConvNeXt-V2**        | 18K-725K   | Modern CNN with Global Response Normalization       |
-| **Vision Transformer** | 38K-821K   | Transformer on image patches                        |
-| **EfficientNet**       | 22K-7M     | Highly efficient CNN architecture                   |
-
-### 4. Multihead Classification
-
-Single models can predict multiple related tasks simultaneously:
-
-- **Primary task**: Digit classification (0-9)
-- **Secondary tasks**: Thickness estimation, smoothness assessment
-- **Benefits**: Shared learning, regularization, efficiency
-
-### 5. Experiment Configuration System
-
-Reproducible research through complete experiment specifications:
-
-- Fixed seeds for reproducibility
-- Version-controlled hyperparameters
-- Single-command execution
-- Standardized baselines
-
-### 6. Enhanced Make Targets
-
-Convenient shortcuts for common tasks:
-
-- **Training**: `make train`, `make trc` (CNN), `make trcn` (ConvNeXt)
-- **Quick tests**: `make tq`, `make tqc`, `make tqcn`
-- **Benchmarks**: `make cb10c` (CIFAR-10), `make cbs` (full suite)
-- **Utilities**: `make lc` (list configs), `make tb` (launch TensorBoard)
-- **Advanced**: `make tg` (gradient tracking), `make ca` (architecture comparison)
-
-### 7. Advanced Training Features
-
-#### Soft Target Support
-
-Reduce quantization artifacts in regression tasks:
-
-```yaml
-# Enable soft targets with Gaussian distribution
-data:
-  target_width: 0.1 # Controls softness (0.0 = hard targets)
-```
-
-#### Auxiliary Feature Support
-
-Combine CNN features with scalar auxiliary inputs:
-
-```python
-# Forward pass with auxiliary features
-output = model(image_tensor, auxiliary_scalar_features)
-```
-
-#### Gradient Statistics Tracking
-
-Monitor gradient flow during training:
+## Common Patterns
 
 ```bash
-# Train with gradient statistics
-make tg  # or python src/train.py callbacks=grouped_progress_bar_with_gradients
+# Quick sanity check (1 epoch)
+python src/train.py trainer.max_epochs=1
+
+# Example experiment (uses VIMH + CNN 64k by default)
+python src/train.py experiment=example
+
+# Choose model/data/trainer explicitly
+python src/train.py model=cnn_64k data=vimh trainer=mps
+
+# Switch loss style (ordinal or regression variants)
+python src/train.py model=cnn_64k_ordinal
+python src/train.py model=cnn_64k_regression
 ```
 
-#### Flexible Data Transforms
+See also:
 
-Handles variable channel images (e.g., RGB + feature channels):
-
-```python
-from src.data.flexible_transforms import FlexibleNormalize, ChannelAwareCompose
-# Automatically adapts to 3, 5, or more channels
-```
-
-## 📊 Expected Performance
-
-### MNIST (Quick Tests - 1 epoch)
-
-| Architecture   | Parameters | Accuracy | Speed     |
-| -------------- | ---------- | -------- | --------- |
-| SimpleDenseNet | 68K        | ~56.6%   | Fast ⚡   |
-| SimpleCNN      | 421K       | ~74.8%   | Medium 🚀 |
-| ConvNeXt-V2    | 73K        | ~68.3%   | Medium 🚀 |
-
-### CIFAR (Full Training)
-
-| Dataset   | Architecture | Expected Accuracy |
-| --------- | ------------ | ----------------- |
-| CIFAR-10  | SimpleCNN    | 85-92%            |
-| CIFAR-10  | ConvNeXt     | 90-95%            |
-| CIFAR-100 | SimpleCNN    | 55-70%            |
-| CIFAR-100 | ConvNeXt     | 70-80%            |
-
-## 🔗 Integration
-
-All original Lightning-Hydra template features remain fully functional:
-
-- Original make targets work unchanged
-- Hydra configuration system enhanced, not replaced
-- Lightning module structure preserved
-- Testing framework compatible
-- Logging and callbacks unchanged
-
-## 📚 Documentation
-
-For detailed information, see:
-
-- **[architectures.md](architectures.md)** - Architecture details and comparisons
-- **[benchmarks.md](benchmarks.md)** - CIFAR benchmark system
-- **[multihead.md](multihead.md)** - Multihead classification
-- **[makefile.md](makefile.md)** - Complete make targets reference
-- **[configuration.md](configuration.md)** - Configuration patterns
-- **[development.md](development.md)** - Development and extension guide
-
-## 🛠️ Common Usage Patterns
-
-### Architecture Exploration
-
-```bash
-# Compare architectures with same hyperparameters
-python src/train.py trainer.max_epochs=10                    # SimpleDenseNet
-python src/train.py model=mnist_cnn trainer.max_epochs=10    # SimpleCNN
-python src/train.py model=mnist_convnext_68k trainer.max_epochs=10  # ConvNeXt
-```
-
-### Custom Configuration
-
-```bash
-# Custom loss function
-python src/train.py model.criterion._target_=torch.nn.NLLLoss
-
-# Custom architecture parameters
-python src/train.py model=mnist_cnn model.net.conv1_channels=64 model.net.dropout=0.5
-
-# Hardware selection
-python src/train.py trainer.accelerator=mps    # Mac Metal Performance Shaders
-python src/train.py trainer.accelerator=gpu    # CUDA GPU
-python src/train.py trainer.accelerator=cpu    # CPU fallback
-```
-
-This extension provides a comprehensive platform for deep learning research with modern architectures, systematic benchmarking, and reproducible experiments. 🚀
+- [vimh.md](vimh.md) for dataset details
+- [vimh_loss_functions.md](vimh_loss_functions.md) for loss design
+- [architectures.md](architectures.md) for available model configs
