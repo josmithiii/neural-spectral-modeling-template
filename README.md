@@ -86,6 +86,12 @@ make ddr    # or: python display_vimh.py
 make dds    # small dataset
 make ddl    # large dataset
 
+# Print dataset metadata
+make vdr    # or: python vimhd.py  # prints latest dataset metadata
+make vds    # or: python vimhd.py path/to/small-example-dataset
+make vdl    # or: python vimhd.py path/to/larger-example-dataset
+            # or: python vimhd.py path/to/any-dataset
+
 # ===== TRAINING EXPERIMENTS =====
 
 # Quick example experiment

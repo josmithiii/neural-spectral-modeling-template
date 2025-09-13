@@ -159,6 +159,10 @@ data/vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p/
 | `display-dataset-recent`   | Display the most recently created dataset (default)                  |
 | `display-dataset-small`    | Display the small example VIMH dataset (256 samples)                 |
 | `display-dataset-large`    | Display the larger example VIMH dataset (16k samples)                |
+|                            |                                                                      |
+| `vimh-dump-recent`         | Display metadata of the most recently created VIMH dataset           |
+| `vimh-dump-small`          | Display metadata of the small example dataset (256 samples)          |
+| `vimh-dump-large`          | Display metadata of the larger example dataset (16k samples)         |
 
 All training-related make targets expect a VIMH dataset in `./data/` created as above.
 
@@ -191,6 +195,84 @@ actual_value = param_min + normalized_value * (param_max - param_min)
 
 - **v2.0**: Added height, width, channels metadata for full generalization
 - **v1.0**: Initial implementation based on CIFAR-100 structure
+
+## Dataset Metadata Utility
+
+### VIMH Metadata Display (`vimhd.py`)
+
+The `vimhd.py` utility provides a comprehensive view of VIMH dataset metadata without loading the actual data:
+
+```bash
+# Display metadata for the most recently created dataset
+python vimhd.py
+
+# Display metadata for a specific dataset
+python vimhd.py data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+
+# Using make targets
+make vdr    # recent dataset metadata
+make vds    # small dataset metadata
+make vdl    # large dataset metadata
+```
+
+#### Output Example
+
+```
+VIMH Dataset: vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+============================================================
+Format: VIMH v2.1
+Output format: binary
+
+Image dimensions: 32×32×1
+Channel labels: Gray
+
+Samples: 204 train, 52 test, 256 total
+
+Audio: 8000 Hz, 1.0s duration
+Synth type: simple
+
+Varying parameters: 2
+Parameter names: log10_decay_time, filter_cutoff
+
+Parameter Details:
+  Varying:
+    log10_decay_time: -2.0 to 0.3 (step: 0.1), classes: N/A
+      simple parameter: log10_decay_time
+    filter_cutoff: 200.0 to 2000.0 (step: 100.0), classes: N/A
+      simple parameter: filter_cutoff
+  Fixed:
+    note_number: 43.35 (fixed)
+      MIDI note number (fixed at 100 Hz)
+    note_velocity: 120.0 (fixed)
+      MIDI velocity (amplitude)
+    filter_enabled: 1.0 (fixed)
+      Enable Moog VCF filter
+
+Spectrogram Configuration:
+  Type: stft
+  Method: efficient_leaf
+  FFT size: 80
+  Window: rectangular (80 samples)
+  Hop length: 80
+  Frequency bins: 32
+  Bins per harmonic: 1.0
+
+Mel Configuration:
+  Freq min: 40.0 Hz
+  Freq max ratio: 0.9
+
+Pre-emphasis coefficient: 0.0
+
+File sizes: train: 0.2 MB, test: 0.1 MB
+```
+
+#### Features
+
+- **Auto-discovery**: Defaults to the most recently created dataset in `./data/vimh-*`
+- **Comprehensive info**: Shows all dataset metadata including parameters, audio settings, and file sizes
+- **Parameter analysis**: Distinguishes between varying and fixed parameters with detailed ranges
+- **Spectrogram details**: Displays STFT/mel spectrogram configuration when available
+- **Error handling**: Clear error messages for missing files or invalid JSON
 
 ## File Reading/Writing
 

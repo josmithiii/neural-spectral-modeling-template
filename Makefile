@@ -45,6 +45,17 @@ sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-re
 
 sdma synth-dataset-moog-all: sdmb sdme sdmr ## Generate all Moog VCF datasets: basic, envelope, resonance
 
+# DUMP VIMH DATASET METADATA "vd"
+
+vdr vd vimh-dump-recent: ## Dump the metadata of the most recent VIMH dataset in ./data/
+	python vimhd.py
+
+vds vimh-dump-small: ## Dump the metadata of the small example SawSynth dataset (256 samples)
+	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+
+vdl vimh-dump-large: ## Dump the metadata of the larger example VIMH dataset with SawSynth (16k samples)
+	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+
 # DISPLAY VIMH DATASETS "dd"
 
 ddr display-dataset-recent: ## Display the most recently created dataset (default)
