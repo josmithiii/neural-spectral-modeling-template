@@ -1,3 +1,72 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neural-spectral-modeling-template"
+version = "0.0.1"
+description = "Neural Spectral Modeling Template - A PyTorch Lightning template for neural spectral analysis of audio data"
+authors = [{name = "Julius O. Smith III", email = ""}]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["pytorch", "lightning", "hydra", "audio", "spectral", "machine-learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    # pytorch
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "lightning>=2.0.0",
+    "torchmetrics>=0.11.4",
+    "numpy<2.0.0",  # Fix compatibility with matplotlib and other dependencies
+
+    # hydra
+    "hydra-core==1.3.2",
+    "hydra-colorlog==1.2.0",
+    "hydra-optuna-sweeper==1.2.0",
+
+    # loggers
+    "tensorboard>=2.15.0",  # required for TensorBoardLogger
+
+    # others
+    "rootutils",       # standardizing the project root setup
+    "pre-commit",      # hooks for applying linters on commit
+    "rich",            # beautiful text formatting in terminal
+    "pytest",          # tests
+    "torchview",       # model visualization
+    "torchviz",        # computational graph visualization
+    "matplotlib",      # for displaying VIMH datasets
+    "ipython",         # for IPython display functionality
+    "pygame",          # for pygame audio functionality
+]
+
+[project.optional-dependencies]
+loggers = [
+    "wandb",
+    "neptune-client",
+    "mlflow",
+    "comet-ml",
+    "aim>=3.16.2",
+]
+
+[project.scripts]
+train_command = "src.train:main"
+eval_command = "src.eval:main"
+
+[project.urls]
+Homepage = "https://github.com/josmithiii/neural-spectral-modeling-template"
+Repository = "https://github.com/josmithiii/neural-spectral-modeling-template.git"
+
 [tool.pytest.ini_options]
 addopts = [
   "--color=yes",
