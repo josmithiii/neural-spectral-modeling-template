@@ -42,10 +42,10 @@ synthesizer:
     # MIDI velocity (0-127, but we use floating point)
     note_velocity:
       # min_value: 10.0     # Really 0 is the min, but this sets our datasample range
-      min_value: 126.0 # TEST
+      min_value: 120.0 # FIXED-VELOCITY TEST
       step: 0.5 # Nominal JND
-      max_value: 127.0 # MIDI velocity max is 127
-      default: 127.0 # Full amplitude
+      max_value: 120.0 # MIDI velocity max is 127
+      default: 120.0 # Full amplitude
       description: "MIDI velocity (amplitude)"
 
     # Log10 of decay time in seconds
