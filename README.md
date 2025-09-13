@@ -22,16 +22,14 @@ _alternate spectral representations_ such as
 - Alternate time-frequency resolutions (spectrograms with different settings),
 - Instantaneous Frequency (time-derivative of the spectral phase)
 - Group Delay (frequency-derivative of the spectral phase),
-- Modulation Spectra (spectrogram of the spectrogram modules),
+- Modulation Spectra (spectrogram of the spectrogram modulus),
 
 and so on.
 
-Some might note that we don't _need_ alternative input
-representations, or even spectrograms, because a large neural network
-can learn to compute them when needed. In principle, the input to the
-network can be an undifferentiated _bit stream_ containing the audio.
-However, such "end-to-end" approaches require much more computation
-and training data, as the examples here will show.
+In principle, we don't _need_ alternative input representations, or
+even spectrograms, because a large neural network can learn to compute
+them as needed.  However, such "end-to-end" approaches require much
+more computation and training data, as examples here will show.
 
 Thus, the purpose of the NSMT spectra-based approach is to facilitate
 _small, accurate, and fast_ neural networks for audio processing and
@@ -41,11 +39,10 @@ the CNNs with conditioning inputs. The examples will illustrate the
 benefits of this choice for selected audio tasks.
 
 The NSMT project uses only the Variable Image Multi-Head (VIMH)
-dataset format from the LHTE. (The LHT supports MNIST datasets, and
-the
-[LHTE](https://github.com/josmithiii/lightning-hydra-template-extended.git).
-adds CIFAR and VIMH support to that.) The CIFAR and MNIST support can
-be dropped here because VIMH can support those image resolutions,
+dataset format from the LHTE. (The LHT supports only MNIST datasets, and
+the [LHTE](https://github.com/josmithiii/lightning-hydra-template-extended.git)
+adds CIFAR and VIMH support to that.) The CIFAR and MNIST support are
+dropped here because VIMH can support those image resolutions,
 channel depths, and metadata, as special cases.
 
 ### 📚 Docs
