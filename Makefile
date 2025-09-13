@@ -4,40 +4,40 @@ h help:  ## Show help
 # SYNTHETIC DATASET MAKE TARGETS "sd"
 
 sds synth-dataset-small: ## Synthesize a small example VIMH dataset with SawSynth (256 samples)
-	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p"; \
+	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p"; \
 	else \
-		python generate_vimh.py --config-name=synth/generate_simple_saw; \
+		python generate_vimh.py --config-name=synth/generate_saw_wah; \
 	fi
 	ls ./data/
 
 sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset with SawSynth (16k samples)
-	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p"; \
+	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p"; \
 	else \
-		time python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384; \
+		time python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384; \
 	fi
 	ls ./data/
 
 sdmb synth-dataset-moog-basic: ## Synthesize VIMH dataset with basic Saw + Moog VCF (256 samples)
-	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_4p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_4p"; \
+	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_4p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_4p"; \
 	else \
 		python generate_vimh.py --config-name=synth/generate_moog_basic; \
 	fi
 	ls ./data/
 
 sdme synth-dataset-moog-envelope: ## Synthesize VIMH dataset with Saw + Moog envelope sweeps (512 samples)
-	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_10p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_10p"; \
+	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_saw_wah_10p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_saw_wah_10p"; \
 	else \
 		python generate_vimh.py --config-name=synth/generate_moog_envelope; \
 	fi
 	ls ./data/
 
 sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-resonance Moog exploration (384 samples)
-	@if [ -f ./data/vimh-48x48x1_8000Hz_1p5s_384dss_simple_8p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-48x48x1_8000Hz_1p5s_384dss_simple_8p"; \
+	@if [ -f ./data/vimh-48x48x1_8000Hz_1p5s_384dss_saw_wah_8p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-48x48x1_8000Hz_1p5s_384dss_saw_wah_8p"; \
 	else \
 		python generate_vimh.py --config-name=synth/generate_moog_resonance; \
 	fi
@@ -46,8 +46,8 @@ sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-re
 sdma synth-dataset-moog-all: sdmb sdme sdmr ## Generate all Moog VCF datasets: basic, envelope, resonance
 
 sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Crybaby wah envelope sweeps (512 samples)
-	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_9p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_simple_9p"; \
+	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_crybaby_wah_9p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_crybaby_wah_9p"; \
 	else \
 		python generate_vimh.py --config-name=synth/generate_wah_envelope; \
 	fi
@@ -59,10 +59,10 @@ vdr vd vimh-dump-recent: ## Dump the metadata of the most recent VIMH dataset in
 	python vimhd.py
 
 vds vimh-dump-small: ## Dump the metadata of the small example SawSynth dataset (256 samples)
-	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
 vdl vimh-dump-large: ## Dump the metadata of the larger example VIMH dataset with SawSynth (16k samples)
-	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # ANALYZE VIMH PARAMETER DISTRIBUTIONS "vp"
 
@@ -70,10 +70,10 @@ vpr vp vimh-params-recent: ## Analyze parameter distributions in the most recent
 	python vimhd.py -p
 
 vps vimh-params-small: ## Analyze parameter distributions in the small example SawSynth dataset (256 samples)
-	python vimhd.py -p ./data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+	python vimhd.py -p ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
 vpl vimh-params-large: ## Analyze parameter distributions in the larger example VIMH dataset (16k samples)
-	python vimhd.py -p ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+	python vimhd.py -p ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # DISPLAY VIMH DATASETS "dd"
 
@@ -256,10 +256,10 @@ trq train-quick: sds ## Train super quickly the default model and dataset (quick
 	python src/train.py trainer.max_epochs=1
 
 trs train-vimh-small: sds ## Train the small example VIMH dataset using the default model (CNN 64k)
-	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
 trl train-vimh-large: sdl ## Train the large example VIMH dataset using the default model (CNN 64k)
-	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p
+	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # UTILITY TARGETS
 

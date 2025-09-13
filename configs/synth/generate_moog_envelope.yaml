@@ -3,6 +3,7 @@
 
 # Dataset parameters
 dataset:
+  name: "moog_envelope" # Custom dataset name for output directory
   size: 512 # More samples for envelope parameter space
   sampling_rate: 8000 # Sample rate in Hz
   duration: 2.0 # Longer duration to hear full envelope
@@ -125,6 +126,6 @@ log_level: DEBUG
 # Hydra configuration
 hydra:
   run:
-    dir: outputs/generate_moog_envelope/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: outputs/generate_${dataset.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
   job:
     chdir: false

@@ -3,6 +3,7 @@
 
 # Dataset parameters
 dataset:
+  name: "moog_resonance" # Custom dataset name for output directory
   size: 384 # Good coverage of resonance parameter space
   sampling_rate: 8000 # Sample rate in Hz
   duration: 1.5 # Duration to hear resonant behavior
@@ -116,6 +117,6 @@ log_level: DEBUG
 # Hydra configuration
 hydra:
   run:
-    dir: outputs/generate_moog_resonance/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: outputs/generate_${dataset.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
   job:
     chdir: false

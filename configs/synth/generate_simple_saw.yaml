@@ -3,6 +3,7 @@
 
 # Dataset parameters
 dataset:
+  name: "simple_saw"
   size: 256 # Number of samples to generate
   sampling_rate: 8000 # Sample rate in Hz
   duration: 1.0 # Duration per sample in seconds
@@ -90,6 +91,6 @@ log_level: DEBUG
 # Hydra configuration
 hydra:
   run:
-    dir: outputs/generate_simple_saw/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: outputs/generate_${dataset.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
   job:
     chdir: false

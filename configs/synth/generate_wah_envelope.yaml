@@ -3,6 +3,7 @@
 
 # Dataset parameters
 dataset:
+  name: "crybaby_wah" # Custom dataset name for output directory
   size: 512 # More samples for envelope parameter space
   sampling_rate: 8000 # Sample rate in Hz
   duration: 2.0 # Longer duration to hear full envelope

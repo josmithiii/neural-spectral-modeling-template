@@ -326,6 +326,7 @@ class ParameterGenerator:
     def __init__(self, params_config: Dict[str, Dict[str, Any]]):
         self.params_config = params_config
         self.varying_params = []
+        self.fixed_params = {}  # For synthesizer-level fixed parameters
 
         for param_name, param_info in params_config.items():
             if param_info["min_value"] != param_info["max_value"]:
@@ -335,6 +336,9 @@ class ParameterGenerator:
         """Generate random parameters and normalized label vector."""
         params = {"duration": duration}
         label_vector = []
+
+        # Add fixed parameters from synthesizer config
+        params.update(self.fixed_params)
 
         for param_name, param_info in self.params_config.items():
             min_val = param_info["min_value"]
@@ -795,6 +799,9 @@ def main(cfg: DictConfig) -> None:
         duration = cfg.dataset.duration
         batch_size = cfg.generate.batch_size
         pre_emphasis_coeff = cfg.generate.pre_emphasis_coefficient
+        dataset_name = cfg.dataset.get(
+            "name", "simple"
+        )  # Custom dataset name or default to "simple"
 
         # Extract output dimensions
         height = cfg.generate.height
@@ -812,6 +819,10 @@ def main(cfg: DictConfig) -> None:
 
         # Create parameter generator
         param_generator = ParameterGenerator(cfg.synthesizer.parameters)
+
+        # Add fixed synthesizer-level parameters if they exist
+        if hasattr(cfg.synthesizer, "filter_type"):
+            param_generator.fixed_params = {"filter_type": cfg.synthesizer.filter_type}
         varying_params = param_generator.varying_params
         vimh_param_generator = None  # Not used in random mode
 
@@ -841,8 +852,8 @@ def main(cfg: DictConfig) -> None:
         elif args.spectral_envelope:
             envelope_suffix = "_spectral"
 
-        dataset_name = f"{prefix}-{height}x{width}x{total_channels}_{sample_rate}Hz_{duration_str}_{dataset_size}dss_simple_{len(varying_params)}p{envelope_suffix}{shuffle_suffix}"
-        output_dir = os.path.join(cfg.generate.output_dir, dataset_name)
+        dataset_dir_name = f"{prefix}-{height}x{width}x{total_channels}_{sample_rate}Hz_{duration_str}_{dataset_size}dss_{dataset_name}_{len(varying_params)}p{envelope_suffix}{shuffle_suffix}"
+        output_dir = os.path.join(cfg.generate.output_dir, dataset_dir_name)
 
         # Create synthesizer
         synth = SimpleSawSynth(sample_rate=sample_rate)

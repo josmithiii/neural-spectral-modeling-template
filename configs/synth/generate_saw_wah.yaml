@@ -1,16 +1,16 @@
 # @package _global_
-# Basic Moog VCF testing configuration
+# SimpleSawSynth dataset generation configuration
 
 # Dataset parameters
 dataset:
-  name: "moog_basic" # Custom dataset name for output directory
+  name: "saw_wah"
   size: 256 # Number of samples to generate
   sampling_rate: 8000 # Sample rate in Hz
   duration: 1.0 # Duration per sample in seconds
 
 # Generation parameters
 generate:
-  batch_size: 8 # Processing batch size
+  batch_size: 256 # Processing batch size
   output_dir: "data" # Base output directory
   pre_emphasis_coefficient: 0.0 # Pre-emphasis filter coefficient (disabled for flat spectrum test)
   taper: false # Taper breath pressure at note ends
@@ -24,29 +24,40 @@ generate:
 # Synthesizer configuration
 synthesizer:
   type: simple_saw
+  filter_type: "wah"  # Fixed filter type for this dataset
 
   # Parameters that can vary during dataset generation
   parameters:
-    # MIDI note number (0-127) - FIXED for consistency
+    # MIDI note number (0-127) - FIXED to avoid non-convex loss wrt fundamental frequency
     note_number:
+      # Technical test:
       min_value: 43.350 # 100 Hz - exactly 80 samples per cycle at 8000 Hz
       max_value: 43.350
       default: 43.350
       description: "MIDI note number (fixed at 100 Hz)"
+      # Low E:
+      # min_value: 40.0 # 40 is Low E on a guitar (82.4 Hz)
+      # max_value: 40.0
+      # default: 40.0
+      # description: "MIDI note number (fixed)"
 
     # MIDI velocity (0-127, but we use floating point)
     note_velocity:
-      min_value: 100.0
-      step: 5.0
-      max_value: 127.0
-      default: 127.0
+      # min_value: 10.0     # Really 0 is the min, but this sets our datasample range
+      min_value: 120.0 # FIXED-VELOCITY TEST
+      step: 0.5 # Nominal JND
+      max_value: 120.0 # MIDI velocity max is 127
+      default: 120.0 # Full amplitude
       description: "MIDI velocity (amplitude)"
 
     # Log10 of decay time in seconds
     log10_decay_time:
-      min_value: -1.0 # log10(0.1) = -1.0
-      step: 0.1
-      max_value: 0.0 # log10(1.0) = 0.0
+      #     min_value: 100.0    # TEST
+      #     max_value: 100.1    # log10(2.0) = 0.301
+      # min_value: -2.0 # log10(0.01) = -2.0
+      min_value: -1.0
+      step: 0.1 # Rough JND
+      max_value: 0.3 # log10(2.0) = 0.301
       default: -0.3 # log10(0.5) = -0.301
       description: "Log10 of exponential decay time constant"
 
@@ -55,29 +66,25 @@ synthesizer:
       min_value: 1.0 # Always enabled for this test
       max_value: 1.0
       default: 1.0
-      description: "Enable Moog VCF filter"
+      description: "Enable filter"
 
     # Log10 of base cutoff frequency
     log10_filter_cutoff_hz:
-      min_value: 2.301 # log10(200) = 2.301
-      step: 0.1
-      max_value: 3.301 # log10(2000) = 3.301
-      default: 2.903 # log10(800) = 2.903
+      min_value: 3.0 # log10(1000) = 3.0
+      step: 0.01     # 5 cents (~JND) is log10(2^(5/1200)) = 0.00125
+      max_value: 3.602 # log10(4000) = 3.602
+      default: 3.477 # log10(3000) = 3.477
       description: "Log10 of filter cutoff frequency in Hz"
-
-    # Filter resonance
-    filter_resonance:
-      min_value: 0.0
-      step: 0.1
-      max_value: 0.9 # Keep below 1.0 for stability
-      default: 0.5
-      description: "Filter resonance (0-1)"
 
 # Configuration references
 defaults:
   - /stft: pitch_sync_80
   - /mel: default
   - _self_
+
+mel:
+  freq_min: 40.0
+  freq_max_ratio: 0.9
 
 # Logging configuration
 log_level: DEBUG
