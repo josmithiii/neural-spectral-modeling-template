@@ -15,7 +15,7 @@ sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset with SawSyn
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p"; \
 	else \
-		python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384; \
+		time python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384; \
 	fi
 	ls ./data/
 
@@ -194,7 +194,7 @@ cd clean-data: ## Clean data files
 cl clean-logs: ## Clean logs
 	rm -rf logs/**
 
-dc distclean: clean clean-data clean-logs ## Clean back to original distribution
+dc distclean: clean clean-data clean-logs ## Clean back to original distribution (except for hidden files)
 
 # TESTING TARGETS "t", "ta"
 
