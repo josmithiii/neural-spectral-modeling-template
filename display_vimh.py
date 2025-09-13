@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, TextBox
 from mpl_toolkits.mplot3d import Axes3D
 
 from src.data.vimh_dataset import VIMHDataset
@@ -25,6 +25,7 @@ class VIMHViewer:
         self.dataset_path = Path(dataset_path)
         self.current_idx = 0
         self.channel = channel
+        self.dynamic_range_db = 80  # Default dynamic range in dB
 
         # Load dataset using the existing VIMHDataset class
         try:
@@ -200,9 +201,9 @@ class VIMHViewer:
             f"Waterfall Plot - {spec_name} Spectral Slices Over Time", fontsize=14, y=0.95
         )
 
-        # Create 3D axis with top margin
+        # Create 3D axis with top margin and space for text box at bottom
         self.ax_3d = self.fig_3d.add_subplot(111, projection="3d")
-        self.fig_3d.subplots_adjust(top=0.85)
+        self.fig_3d.subplots_adjust(top=0.85, bottom=0.15)
         self.ax_3d.set_xlabel("Time (frames)")
 
         # Set Y-axis label based on spectrogram type
@@ -213,7 +214,14 @@ class VIMHViewer:
         else:
             self.ax_3d.set_ylabel("Frequency (bins)")
 
-        self.ax_3d.set_zlabel("Magnitude")
+        self.ax_3d.set_zlabel("Magnitude (dB)")
+
+        # Add dynamic range text box
+        ax_textbox = self.fig_3d.add_axes([0.1, 0.02, 0.15, 0.05])
+        self.textbox_range = TextBox(
+            ax_textbox, "Dynamic Range (dB): ", initial=str(self.dynamic_range_db)
+        )
+        self.textbox_range.on_submit(self.on_dynamic_range_change)
 
         # Connect keyboard events for the 3D plot
         self.fig_3d.canvas.mpl_connect("key_press_event", self.on_key_press_3d)
@@ -245,21 +253,35 @@ class VIMHViewer:
         # Create meshgrids for interpolated surface
         T, F = np.meshgrid(time_frames, freq_bins)
 
+        # Convert magnitude to dB scale (20*log10 for amplitude, add small epsilon to avoid log(0))
+        eps = 1e-8
+        spectrogram_db = 20 * np.log10(np.abs(spectrogram_2d) + eps)
+
+        # Calculate Z-axis limits for dB scale using dynamic range
+        z_max_db = np.max(spectrogram_db)
+        z_min_db = z_max_db - self.dynamic_range_db  # User-configurable dynamic range
+
+        # Round upper limit up to nearest multiple of 10 dB
+        z_max_rounded = np.ceil(z_max_db / 10) * 10
+
+        # Clip data to the display range to avoid matplotlib visualization issues
+        spectrogram_db = np.clip(spectrogram_db, z_min_db, z_max_rounded)
+
         # Plot both smooth surface and wireframe for best visualization
         # 1. Smooth interpolated surface (semi-transparent)
         surf = self.ax_3d.plot_surface(
-            T, F, spectrogram_2d, cmap="viridis", alpha=0.6, linewidth=0, antialiased=True
+            T, F, spectrogram_db, cmap="viridis", alpha=0.6, linewidth=0, antialiased=True
         )
 
         # 2. Wireframe lattice to show discrete data structure
         wire = self.ax_3d.plot_wireframe(
-            T, F, spectrogram_2d, color="black", linewidth=0.5, alpha=0.8
+            T, F, spectrogram_db, color="black", linewidth=0.5, alpha=0.8
         )
 
         # Add grid lines to show actual data points
         # Vertical lines (time frames) - sample every few to avoid clutter
         for t in range(0, width, max(1, width // 8)):
-            spectrum_slice = spectrogram_2d[:, t]
+            spectrum_slice = spectrogram_db[:, t]
             time_line = np.full_like(freq_bins, t)
             self.ax_3d.plot(
                 time_line, freq_bins, spectrum_slice, color="black", linewidth=0.8, alpha=0.6
@@ -267,7 +289,7 @@ class VIMHViewer:
 
         # Horizontal lines (frequency bins) - sample every few to avoid clutter
         for f in range(0, height, max(1, height // 8)):
-            time_slice = spectrogram_2d[f, :]
+            time_slice = spectrogram_db[f, :]
             freq_line = np.full_like(time_frames, f)
             self.ax_3d.plot(
                 time_frames, freq_line, time_slice, color="black", linewidth=0.8, alpha=0.6
@@ -285,7 +307,7 @@ class VIMHViewer:
         else:
             self.ax_3d.set_ylabel("Frequency (bins)")
 
-        self.ax_3d.set_zlabel("Magnitude")
+        self.ax_3d.set_zlabel("Magnitude (dB)")
 
         # Update title with sample info - show only varying parameters for concise display
         varying_params = self.get_varying_params_only(info)
@@ -311,15 +333,25 @@ class VIMHViewer:
             f"Waterfall Plot - {spec_name} Spectral Slices Over Time\n{title}", fontsize=12, y=0.95
         )
 
-        # Set symmetric Z-axis limits
-        z_max = np.abs(spectrogram_2d).max()
-        self.ax_3d.set_zlim(-z_max, z_max)
+        # Set Z-axis limits for dB scale (limits already calculated and applied to data)
+        self.ax_3d.set_zlim(z_min_db, z_max_rounded)
 
         # Set viewing angle for better perspective
         self.ax_3d.view_init(elev=20, azim=45)
 
         # Draw the plot
         self.fig_3d.canvas.draw()
+
+    def on_dynamic_range_change(self, text):
+        """Handle dynamic range text box changes."""
+        try:
+            new_range = float(text)
+            if new_range > 0:  # Ensure positive range
+                self.dynamic_range_db = new_range
+                self.update_waterfall_display()
+        except ValueError:
+            # Reset to previous value if invalid input
+            self.textbox_range.set_val(str(self.dynamic_range_db))
 
     def on_key_press_3d(self, event):
         """Handle keyboard shortcuts for 3D plot."""
