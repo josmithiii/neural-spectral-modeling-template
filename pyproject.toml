@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "neural-spectral-modeling-template"
 version = "0.0.1"
 description = "Neural Spectral Modeling Template - A PyTorch Lightning template for neural spectral analysis of audio data"
-authors = [{name = "Julius O. Smith III", email = ""}]
+authors = [{name = "Julius O. Smith III"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.8"

@@ -58,16 +58,26 @@ synthesizer:
       default: -0.3 # log10(0.5) = -0.301
       description: "Log10 of exponential decay time constant"
 
-# STFT parameters for spectrogram generation
-stft:
-  type: "stft" # "stft" or "mel"
-  # n_fft: 512      # EfficientLEAF choice
-  # hop_length: 64  # EfficientLEAF choice
-  n_fft: 80 # Must be >= n_window for STFT
-  n_window: 80 # pitch_synchronous (one period at 100 Hz)
-  hop_length: 80 # pitch_synchronous
-  window_type: "rectangular" # "rectangular", "hann", "hamming", "blackman"
-  bins_per_harmonic: 1.0
+    # Filter enable/disable
+    filter_enabled:
+      min_value: 1.0 # Always enabled for this test
+      max_value: 1.0
+      default: 1.0
+      description: "Enable Moog VCF filter"
+
+    # Base cutoff frequency
+    filter_cutoff:
+      min_value: 200.0 # Hz
+      step: 100.0
+      max_value: 2000.0 # Hz
+      default: 800.0
+      description: "Filter cutoff frequency in Hz"
+
+# Configuration references
+defaults:
+  - /stft: pitch_sync_80
+  - /mel: default
+  - _self_
 
 mel:
   freq_min: 40.0
