@@ -24,7 +24,7 @@ generate:
 # Synthesizer configuration
 synthesizer:
   type: simple_saw
-  filter_type: "wah"  # Fixed filter type for this dataset
+  filter_type: "wah"  # Fixed filter type for this dataset - also have type "moog"
 
   # Parameters that can vary during dataset generation
   parameters:

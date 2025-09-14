@@ -68,11 +68,11 @@ make h
 
 # ===== DATASET GENERATION =====
 
-# Generate small synthetic dataset (256 samples)
-make sds    # or: python generate_vimh.py --config-name=synth/generate_simple_saw
+# Generate small synthetic dataset (256 samples) - now uses Crybaby wah pedal
+make sds    # or: python generate_vimh.py --config-name=synth/generate_saw_wah
 
 # Generate large synthetic dataset (16k samples)
-make sdl    # or: python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384
+make sdl    # or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
 
 # Generate all Moog VCF datasets (basic, envelope, resonance)
 make sdma
@@ -128,6 +128,12 @@ make emvitb # ViT on basic Moog VCF
 make emvite # ViT on Moog envelope
 make emvitr # ViT on high-resonance Moog
 make emvitgta # Generate + train all Moog ViTs
+
+# Wah Pedal experiments (Crybaby)
+# Note: default sds/sdl now use wah pedal instead of Moog VCF
+# Available filter types: "moog" (VCF) and "wah" (Crybaby pedal)
+make sdwe   # Wah envelope dataset generation (512 samples, 9 params)
+make ewe    # CNN training on wah pedal envelope sweep data
 
 # ===== DIRECT TRAINING =====
 
@@ -187,9 +193,21 @@ VIMH datasets use a structured format with:
 ```yaml
 # configs/data/vimh_256dss.yaml
 _target_: src.data.vimh_datamodule.VIMHDataModule
-data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p  # Now using wah pedal
 batch_size: 128
 num_workers: 4
+
+# Dataset generation with configurable naming
+# configs/synth/generate_saw_wah.yaml
+dataset:
+  name: "saw_wah"  # Custom dataset name for output directory
+  size: 256
+synthesizer:
+  filter_type: "wah"  # "moog" or "wah" supported
+  parameters:
+    log10_filter_cutoff_hz: # Variable wah pedal frequency
+      min_value: 3.0
+      max_value: 3.602
 
 # Model auto-configures from dataset
 # configs/experiment/cnn.yaml
@@ -207,7 +225,8 @@ defaults:
 
 ### 🛠️ Use Cases
 
-- **Audio Synthesis**: Image-to-audio parameter mapping
-- **Computer Vision**: Multi-target regression tasks
+- **Audio Effects Modeling**: Predict Moog VCF and Crybaby wah pedal parameters from spectrograms
+- **Audio Synthesis**: Image-to-audio parameter mapping with configurable filter types
+- **Computer Vision**: Multi-target regression tasks with custom dataset naming
 - **Scientific Computing**: Parameter prediction from visual data
-- **Research**: Multihead neural network architectures
+- **Research**: Multihead neural network architectures with spectral audio processing

@@ -27,10 +27,10 @@ make h
 # ===== DATASET GENERATION =====
 
 # Generate small synthetic dataset (256 samples)
-make sds    # or: python generate_vimh.py --config-name=synth/generate_simple_saw
+make sds    # or: python generate_vimh.py --config-name=synth/generate_saw_wah
 
 # Generate large synthetic dataset (16k samples)
-make sdl    # or: python generate_vimh.py --config-name=synth/generate_simple_saw dataset.size=16384
+make sdl    # or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
 
 # Generate all Moog VCF datasets (basic, envelope, resonance)
 make sdma
