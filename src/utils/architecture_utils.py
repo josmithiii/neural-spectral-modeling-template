@@ -405,6 +405,12 @@ def configure_vimh_model(model, datamodule, cfg) -> None:
                 log.info(
                     f"Auto-configured auxiliary_input_size: {old_size} -> {auxiliary_input_size} (based on {cfg.data.auxiliary_features})"
                 )
+
+                # Rebuild auxiliary network and heads if the size changed
+                if old_size != auxiliary_input_size and hasattr(
+                    model.net, "_rebuild_auxiliary_and_heads"
+                ):
+                    model.net._rebuild_auxiliary_and_heads()
     except Exception as e:
         log.warning(f"Failed to auto-configure model from dataset metadata: {e}")
 

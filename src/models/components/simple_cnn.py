@@ -203,6 +203,71 @@ class SimpleCNN(nn.Module):
         self.heads_config = heads_config
         self.is_multihead = len(heads_config) > 1
 
+    def _rebuild_auxiliary_and_heads(self) -> None:
+        """Rebuild auxiliary network and heads when auxiliary_input_size changes."""
+        import torch.nn as nn
+
+        # Rebuild auxiliary network if needed
+        if self.auxiliary_input_size > 0:
+            if self.auxiliary_net is None:
+                # Create auxiliary network for the first time
+                self.auxiliary_net = nn.Sequential(
+                    nn.Linear(self.auxiliary_input_size, self.auxiliary_hidden_size),
+                    nn.ReLU(),
+                    nn.Dropout(0.25 / 2),  # Less dropout for auxiliary features
+                    nn.Linear(self.auxiliary_hidden_size, self.auxiliary_hidden_size),
+                    nn.ReLU(),
+                )
+            else:
+                # Update existing auxiliary network input size
+                first_layer = self.auxiliary_net[0]
+                if (
+                    hasattr(first_layer, "in_features")
+                    and first_layer.in_features != self.auxiliary_input_size
+                ):
+                    self.auxiliary_net[0] = nn.Linear(
+                        self.auxiliary_input_size, self.auxiliary_hidden_size
+                    )
+        else:
+            self.auxiliary_net = None
+
+        # Recalculate combined feature size
+        if self.auxiliary_input_size > 0:
+            combined_feature_size = self.fc_hidden + self.auxiliary_hidden_size
+        else:
+            combined_feature_size = self.fc_hidden
+
+        # Rebuild heads with correct feature size
+        if hasattr(self, "heads_config") and self.heads_config:
+            if self.is_multihead:
+                if self.output_mode == "regression":
+                    # For regression, create heads with sigmoid activation
+                    self.heads = nn.ModuleDict(
+                        {
+                            head_name: nn.Sequential(
+                                nn.Linear(combined_feature_size, 1), nn.Sigmoid()
+                            )
+                            for head_name in self.heads_config.keys()
+                        }
+                    )
+                else:
+                    # Classification heads
+                    self.heads = nn.ModuleDict(
+                        {
+                            head_name: nn.Linear(combined_feature_size, num_classes)
+                            for head_name, num_classes in self.heads_config.items()
+                        }
+                    )
+            else:
+                # Single head (backward compatibility)
+                head_name, num_classes = next(iter(self.heads_config.items()))
+                if self.output_mode == "regression":
+                    self.classifier = nn.Sequential(
+                        nn.Linear(combined_feature_size, 1), nn.Sigmoid()
+                    )
+                else:
+                    self.classifier = nn.Linear(combined_feature_size, num_classes)
+
 
 if __name__ == "__main__":
     # Test backward compatibility (single head)
