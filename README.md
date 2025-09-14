@@ -68,7 +68,7 @@ make h
 
 # ===== DATASET GENERATION =====
 
-# Generate small synthetic dataset (256 samples) - now uses Crybaby wah pedal
+# Generate small synthetic dataset (256 samples) - now uses wah pedal
 make sds    # or: python generate_vimh.py --config-name=synth/generate_saw_wah
 
 # Generate large synthetic dataset (16k samples)
@@ -116,22 +116,21 @@ make evitms # Micro ViT (~8K params) on small dataset
 make evitts # Tiny ViT (~25K params) on small dataset
 make evitall # Run all ViT trivial experiments
 
-# Moog VCF experiments (CNN)
+# Moog VCF experiments using CNN architecture
 make emb    # Basic Moog VCF (4 params)
 make eme    # Moog envelope sweep (10 params), ordinal classification output
 make emer   # Moog envelope sweep (10 params), regression output
 make emr    # High-resonance Moog (8 params)
 make emall  # Generate datasets + train all Moog CNNs
 
-# Moog VCF experiments (ViT)
+# Moog VCF experiments using ViT architecture
 make emvitb # ViT on basic Moog VCF
 make emvite # ViT on Moog envelope
 make emvitr # ViT on high-resonance Moog
 make emvitgta # Generate + train all Moog ViTs
 
-# Wah Pedal experiments (Crybaby)
-# Note: default sds/sdl now use wah pedal instead of Moog VCF
-# Available filter types: "moog" (VCF) and "wah" (Crybaby pedal)
+# Wah Pedal experiments
+# Available filter types: "moog" (VCF) and "wah" (Wah pedal)
 make sdwe   # Wah envelope dataset generation (512 samples, 9 params)
 make ewe    # CNN training on wah pedal envelope sweep data
 
@@ -225,7 +224,7 @@ defaults:
 
 ### 🛠️ Use Cases
 
-- **Audio Effects Modeling**: Predict Moog VCF and Crybaby wah pedal parameters from spectrograms
+- **Audio Effects Modeling**: Predict Moog VCF and wah pedal parameters from spectrograms
 - **Audio Synthesis**: Image-to-audio parameter mapping with configurable filter types
 - **Computer Vision**: Multi-target regression tasks with custom dataset naming
 - **Scientific Computing**: Parameter prediction from visual data

@@ -19,7 +19,7 @@ sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset with SawSyn
 	fi
 	ls ./data/
 
-sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Crybaby "wah" ADSR envelope settings varied (512 samples)
+sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Wah ADSR envelope settings varied (512 samples)
 	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_wah_envelope_9p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_wah_envelope_9p"; \
 	else \
@@ -158,8 +158,8 @@ emer exp-moog-envelope-regression: sdme ## Train CNN on Moog envelope sweep data
 emr exp-moog-resonance: sdmr ## Train CNN on high-resonance Moog dataset (8 params)
 	time python src/train.py experiment=moog_cnn_resonance
 
-ewe exp-wah-envelope: sdwe ## Train CNN on Crybaby wah envelope sweep dataset
-	time python src/train.py experiment=crybaby_cnn_envelope
+ewe exp-wah-envelope: sdwe ## Train CNN on wah envelope sweep dataset
+	time python src/train.py experiment=wah_cnn_envelope
 
 emall: emall-gen emb eme emr ## Generate datasets and train CNNs on all Moog VCF experiments
 

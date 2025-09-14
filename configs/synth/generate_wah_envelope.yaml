@@ -1,9 +1,9 @@
 # @package _global_
-# Envelope-modulated Crybaby Wah Pedal configuration - Classic wah-wah sweeps
+# Envelope-modulated Wah Pedal configuration - Wah-wah sweeps under envelope control
 
 # Dataset parameters
 dataset:
-  name: "crybaby_wah" # Custom dataset name for output directory
+  name: "wah_envelope" # Custom dataset name for output directory
   size: 512 # More samples for envelope parameter space
   sampling_rate: 8000 # Sample rate in Hz
   duration: 2.0 # Longer duration to hear full envelope
@@ -57,8 +57,7 @@ synthesizer:
       min_value: 1.0
       max_value: 1.0
       default: 1.0
-      description: "Enable Crybaby wah pedal filter"
-
+      description: "Enable wah pedal second-order resonant lowpass filter"
 
     # Base wah position (starting point for envelope)
     wah_position:

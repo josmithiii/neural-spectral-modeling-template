@@ -335,7 +335,7 @@ def check_params(params: Dict[str, float], *required_params: str) -> None:
 
 
 class WahPedal:
-    """Crybaby wah pedal effect based on Faust implementation."""
+    """Wah pedal effect based on Faust implementation."""
 
     def __init__(self, sample_rate: int):
         self.sample_rate = sample_rate
@@ -350,8 +350,8 @@ class WahPedal:
         """Fast 2^x approximation - matches Faust pow(2.0,x)"""
         return np.power(2.0, x)
 
-    def crybaby_coeffs(self, wah: float) -> Tuple[float, float, float]:
-        """Compute biquad coefficients for crybaby wah effect"""
+    def wah_coeffs(self, wah: float) -> Tuple[float, float, float]:
+        """Compute biquad coefficients for wah effect"""
         # From the Faust code
         Q = self.fastpow2(2.0 * (1.0 - wah) + 1.0)  # Resonance quality factor
         fr = 450.0 * self.fastpow2(2.3 * wah)  # Resonance tuning
@@ -402,7 +402,7 @@ class WahPedal:
             wah_pos = np.clip(wah_pos, 0.0, 0.999)
 
             # Get coefficients for this wah position
-            g, a1, a2 = self.crybaby_coeffs(wah_pos)
+            g, a1, a2 = self.wah_coeffs(wah_pos)
 
             # Process sample
             output[i] = self.process_sample(sample, g, a1, a2)
