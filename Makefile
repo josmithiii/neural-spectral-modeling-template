@@ -3,7 +3,7 @@ h help:  ## Show help
 
 # SYNTHETIC DATASET MAKE TARGETS "sd"
 
-sds synth-dataset-small: ## Synthesize a small example VIMH dataset with SawSynth (256 samples)
+sds synth-dataset-small: ## Synthesize a small example VIMH dataset with SawSynth + Wah (256 samples)
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p"; \
 	else \
@@ -11,11 +11,19 @@ sds synth-dataset-small: ## Synthesize a small example VIMH dataset with SawSynt
 	fi
 	ls ./data/
 
-sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset with SawSynth (16k samples)
+sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset with SawSynth + Wah (16k samples)
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p"; \
 	else \
 		time python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384; \
+	fi
+	ls ./data/
+
+sdw synth-dataset-wah: ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (256 samples)
+	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p"; \
+	else \
+		python generate_vimh.py --config-name=synth/generate_saw_wah; \
 	fi
 	ls ./data/
 
@@ -158,7 +166,10 @@ emer exp-moog-envelope-regression: sdme ## Train CNN on Moog envelope sweep data
 emr exp-moog-resonance: sdmr ## Train CNN on high-resonance Moog dataset (8 params)
 	time python src/train.py experiment=moog_cnn_resonance
 
-ewe exp-wah-envelope: sdwe ## Train CNN on wah envelope sweep dataset
+ew exp-wah: sdw ## Train CNN on dataset sdw (sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_cnn
+
+ewe exp-wah-envelope: sdwe ## CNN training on dataset sdwe (sdw + ADSR wah control)
 	time python src/train.py experiment=wah_cnn_envelope
 
 emall: emall-gen emb eme emr ## Generate datasets and train CNNs on all Moog VCF experiments

@@ -77,6 +77,12 @@ make sdl    # or: python generate_vimh.py --config-name=synth/generate_saw_wah d
 # Generate all small Wah and Moog VCF datasets (basic, envelope, resonance)
 make sda
 
+# Generate small synthetic dataset (512 samples) using sawtooth into wah pedal
+make sdw
+
+# Generate small synthetic dataset (512 samples) using sawtooth into wah pedal controlled by ADSR envelope
+make sdwe
+
 # ===== DATASET DISPLAY =====
 
 # Display most recently created dataset
@@ -100,7 +106,7 @@ make vpl    # or: python vimhd.py -p path/to/larger-example-dataset
 
 # ===== TRAINING EXPERIMENTS =====
 
-# Quick example experiment
+# Quick example experiment (small and quick for testing)
 make ex     # CNN on default dataset
 
 # Trivial dataset experiments (small models for testing)
@@ -111,10 +117,14 @@ make etml   # Micro CNN on large dataset
 make ettl   # Tiny CNN on large dataset
 make etall  # Run all trivial experiments
 
-# ViT experiments on trivial datasets
+# ViT experiments on trivial datasets (quick tests)
 make evitms # Micro ViT (~8K params) on small dataset
 make evitts # Tiny ViT (~25K params) on small dataset
 make evitall # Run all ViT trivial experiments
+
+# Wah Pedal experiments
+make ew     # CNN training on dataset sdw (sawtooth + wah + decay envelope)
+make ewe    # CNN training on dataset sdwe (sdw + ADSR wah control)
 
 # Moog VCF experiments using CNN architecture
 make emb    # Basic Moog VCF (4 params)
@@ -128,11 +138,6 @@ make emvitb # ViT on basic Moog VCF
 make emvite # ViT on Moog envelope
 make emvitr # ViT on high-resonance Moog
 make emvitgta # Generate + train all Moog ViTs
-
-# Wah Pedal experiments
-# Available filter types: "moog" (VCF) and "wah" (Wah pedal)
-make sdwe   # Wah envelope dataset generation (512 samples, 9 params)
-make ewe    # CNN training on wah pedal envelope sweep data
 
 # ===== DIRECT TRAINING =====
 
