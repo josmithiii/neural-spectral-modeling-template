@@ -213,7 +213,7 @@ c clean: ## Clean all generated files except logs and datasets
 cd clean-data: ## Clean data files
 	rm -rf data/*
 
-cl clean-logs: ## Clean logs
+cl clean-logs: ## Clean run logs
 	rm -rf logs/**
 
 dc distclean: clean clean-data clean-logs ## Clean back to original distribution (except for hidden files)

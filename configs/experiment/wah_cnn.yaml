@@ -1,7 +1,7 @@
 # @package _global_
 
-# Wah Pedal Envelope CNN experiment
-# python src/train.py experiment=wah_cnn_envelope
+# Wah Pedal CNN experiment: Decaying Sawtooth into Fixed Wah Pedal
+# python src/train.py experiment=wah_cnn
 
 defaults:
   - override /data: vimh
@@ -24,8 +24,8 @@ model:
 
 data:
   data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
-  batch_size: 24 # Smaller batch for wider images
+  batch_size: 32
 
 logger:
   tensorboard:
-    name: "wah_cnn_envelope"
+    name: "wah_cnn"
