@@ -1,25 +1,15 @@
 h help:  ## Show help
 	@grep -E '^[.a-zA-Z0-9_ -]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' | less -R
 
-# SYNTHETIC DATASET MAKE TARGETS "sd"
+# GENERATE DATASET MAKE TARGETS "gd"
 
-sds synth-dataset-small: ## Synthesize a small example VIMH dataset with SawSynth + Wah (256 samples)
-	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p"; \
-	else \
-		python generate_vimh.py --config-name=synth/generate_saw_wah; \
-	fi
-	ls ./data/
+gds generate-dataset-small: ## Synthesize a small example VIMH dataset with SawSynth + Wah (256 samples)
+	(make gdws)          # Default is currently the Saw + Wah dataset below
 
-sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset with SawSynth + Wah (16k samples)
-	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p"; \
-	else \
-		time python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384; \
-	fi
-	ls ./data/
+gdl generate-dataset-large: ## Synthesize a larger example VIMH dataset with SawSynth + Wah (16k samples)
+	(make gdwl)          # Default is currently the Saw + Wah dataset below
 
-sdw synth-dataset-wah: ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (256 samples)
+gdws generate-dataset-wah-small: ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (256 samples)
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p"; \
 	else \
@@ -27,7 +17,15 @@ sdw synth-dataset-wah: ## Synthesize VIMH dataset with Saw + Wah - decay-time an
 	fi
 	ls ./data/
 
-sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Wah ADSR envelope settings varied (512 samples)
+gdwl generate-dataset-wah-large: ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (16k samples)
+	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p"; \
+	else \
+		python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384; \
+	fi
+	ls ./data/
+
+gdwe generate-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Wah ADSR envelope settings varied (512 samples)
 	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_wah_envelope_9p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_wah_envelope_9p"; \
 	else \
@@ -35,7 +33,7 @@ sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Wah ADSR 
 	fi
 	ls ./data/
 
-sdmb synth-dataset-moog-basic: ## Synthesize VIMH dataset with basic Saw + Moog VCF (256 samples)
+gdmb generate-dataset-moog-basic: ## Synthesize VIMH dataset with basic Saw + Moog VCF (256 samples)
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_4p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_4p"; \
 	else \
@@ -43,7 +41,7 @@ sdmb synth-dataset-moog-basic: ## Synthesize VIMH dataset with basic Saw + Moog 
 	fi
 	ls ./data/
 
-sdme synth-dataset-moog-envelope: ## Synthesize VIMH dataset with Saw + Moog envelope sweeps (512 samples)
+gdme generate-dataset-moog-envelope: ## Synthesize VIMH dataset with Saw + Moog envelope sweeps (512 samples)
 	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_saw_wah_10p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_saw_wah_10p"; \
 	else \
@@ -51,7 +49,7 @@ sdme synth-dataset-moog-envelope: ## Synthesize VIMH dataset with Saw + Moog env
 	fi
 	ls ./data/
 
-sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-resonance Moog exploration (384 samples)
+gdmr generate-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-resonance Moog exploration (384 samples)
 	@if [ -f ./data/vimh-48x48x1_8000Hz_1p5s_384dss_saw_wah_8p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-48x48x1_8000Hz_1p5s_384dss_saw_wah_8p"; \
 	else \
@@ -59,7 +57,7 @@ sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-re
 	fi
 	ls ./data/
 
-sda synth-dataset-all-small: sds sdwe sdmb sdme sdmr ## Generate all small datasets
+gdas generate-dataset-all-small: gdws gdwe gdmb gdme gdmr ## Generate all small datasets
 
 # DUMP VIMH DATASET METADATA "vd"
 
@@ -88,105 +86,108 @@ vpl vimh-params-large: ## Analyze parameter distributions in the larger example 
 ddr display-dataset-recent: ## Display the most recently created dataset (default)
 	python display_vimh.py
 
-dds display-dataset-small: synth-dataset-small ## Display the small example VIMH dataset (256 samples)
+dds display-dataset-small: generate-dataset-small ## Display the small example VIMH dataset (256 samples)
 	python display_vimh.py
 
-ddl display-dataset-large: sdl ## Display the larger example VIMH dataset (16k samples)
+ddl display-dataset-large: gdl ## Display the larger example VIMH dataset (16k samples)
 	python display_vimh.py
 
 # EXPERIMENTS "e" - Complete Configuration Examples
 
-ex exp-example: synth-dataset-small ## Train CNN on default dataset
+ex exp-example: generate-dataset-small ## Train CNN on default dataset
 	time python src/train.py experiment=example  # ./configs/experiment/example.yaml
 
 # TRIVIAL DATASET EXPERIMENTS "et" - Small models for testing on trivial synthetic data
 
-etms exp-trivial-micro-small: sds ## Micro CNN (~2K params) on small dataset (256 samples) - ordinal classification loss
+etms exp-trivial-micro-small: gds ## Micro CNN (~2K params) on small dataset (256 samples) - ordinal classification loss
 	time python src/train.py experiment=trivial_micro_small
 
-etmsr exp-trivial-micro-small-regression: sds ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss
+etmsr exp-trivial-micro-small-regression: gds ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss
 	time python src/train.py experiment=trivial_micro_small_regression
 
-etmsrdt exp-trivial-micro-small-regression-decay-time: sds ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss on log10_decay_time only
+etmsrdt exp-trivial-micro-small-regression-decay-time: gds ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss on log10_decay_time only
 	time python src/train.py experiment=trivial_micro_small_regression callbacks.model_checkpoint.monitor="val/log10_decay_time_mae" callbacks.early_stopping.monitor="val/log10_decay_time_mae" optimized_metric="val/log10_decay_time_mae"
 
-etts exp-trivial-tiny-small: sds ## Tiny CNN (~8K params) on small dataset (256 samples)
+etts exp-trivial-tiny-small: gds ## Tiny CNN (~8K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_tiny_small
 
-etml exp-trivial-micro-large: sdl ## Micro CNN (~2K params) on large dataset (16K samples)
+etml exp-trivial-micro-large: gdl ## Micro CNN (~2K params) on large dataset (16K samples)
 	time python src/train.py experiment=trivial_micro_large
 
-etmlr exp-trivial-micro-large-regression: sdl ## Micro CNN (~2K params) on large dataset (16K samples) - regression loss
+etmlr exp-trivial-micro-large-regression: gdl ## Micro CNN (~2K params) on large dataset (16K samples) - regression loss
 	time python src/train.py experiment=trivial_micro_large_regression
 
-etmlrdt exp-trivial-micro-large-regression-decay-time: sdl ## Micro CNN (~2K params) on large dataset (16K samples) - regression loss on log10_decay_time only
+etmlrdt exp-trivial-micro-large-regression-decay-time: gdl ## Micro CNN (~2K params) on large dataset (16K samples) - regression loss on log10_decay_time only
 	time python src/train.py experiment=trivial_micro_large_regression callbacks.model_checkpoint.monitor="val/log10_decay_time_mae" callbacks.early_stopping.monitor="val/log10_decay_time_mae" optimized_metric="val/log10_decay_time_mae"
 
-etmldt exp-trivial-micro-large-decay-time: sdl ## Micro CNN (~2K params) on large dataset (16K samples) - ordinal loss on log10_decay_time only
+etmldt exp-trivial-micro-large-decay-time: gdl ## Micro CNN (~2K params) on large dataset (16K samples) - ordinal loss on log10_decay_time only
 	time python src/train.py experiment=trivial_micro_large callbacks.model_checkpoint.monitor="val/log10_decay_time_acc" callbacks.early_stopping.monitor="val/log10_decay_time_acc" optimized_metric="val/log10_decay_time_acc"
 
-ettl exp-trivial-tiny-large: sdl ## Tiny CNN (~8K params) on large dataset (16K samples)
+ettl exp-trivial-tiny-large: gdl ## Tiny CNN (~8K params) on large dataset (16K samples)
 	time python src/train.py experiment=trivial_tiny_large
 
-et64l exp-trivial-64k-large: sdl ## "64K" CNN (actually 1.4M params) on large dataset - for comparison
+et64l exp-trivial-64k-large: gdl ## "64K" CNN (actually 1.4M params) on large dataset - for comparison
 	time python src/train.py experiment=trivial_64k_large
 
 etall: ex etms etts etml ettl et64l ## Run all trivial dataset experiments: ex etms etts etml ettl et64l
 
 # TRIVIAL DATASET ViT EXPERIMENTS "evit" - Small ViT models for testing on trivial synthetic data
 
-evitms exp-trivial-vit-micro-small: sds ## Micro ViT (~8K params) on small dataset (256 samples)
+evitms exp-trivial-vit-micro-small: gds ## Micro ViT (~8K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_vit_micro_small
 
-evitmsr exp-trivial-vit-micro-small-regression: sds ## Micro ViT (~8K params) on small dataset (256 samples) - regression variant (placeholder)
+evitmsr exp-trivial-vit-micro-small-regression: gds ## Micro ViT (~8K params) on small dataset (256 samples) - regression variant (placeholder)
 	time python src/train.py experiment=trivial_vit_micro_small_regression
 
-evitts exp-trivial-vit-tiny-small: sds ## Tiny ViT (~25K params) on small dataset (256 samples)
+evitts exp-trivial-vit-tiny-small: gds ## Tiny ViT (~25K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_vit_tiny_small
 
-evitml exp-trivial-vit-micro-large: sdl ## Micro ViT (~8K params) on large dataset (16K samples)
+evitml exp-trivial-vit-micro-large: gdl ## Micro ViT (~8K params) on large dataset (16K samples)
 	time python src/train.py experiment=trivial_vit_micro_large
 
-evittl exp-trivial-vit-tiny-large: sdl ## Tiny ViT (~25K params) on large dataset (16K samples)
+evittl exp-trivial-vit-tiny-large: gdl ## Tiny ViT (~25K params) on large dataset (16K samples)
 	time python src/train.py experiment=trivial_vit_tiny_large
 
 evitall: evitms evitts evitml evittl ## Run all ViT trivial dataset experiments
 
 # MOOG VCF DATASET EXPERIMENTS "em" - CNN training on Moog filter datasets
 
-emb exp-moog-basic: sdmb ## Train CNN on basic Moog VCF dataset (4 params)
+emb exp-moog-basic: gdmb ## Train CNN on basic Moog VCF dataset (4 params)
 	time python src/train.py experiment=moog_cnn_basic
 
-eme exp-moog-envelope: sdme ## Train CNN on Moog envelope sweep dataset (10 params)
+eme exp-moog-envelope: gdme ## Train CNN on Moog envelope sweep dataset (10 params)
 	time python src/train.py experiment=moog_cnn_envelope
 
-emer exp-moog-envelope-regression: sdme ## Train CNN on Moog envelope sweep dataset (10 params) using regression loss
+emer exp-moog-envelope-regression: gdme ## Train CNN on Moog envelope sweep dataset (10 params) using regression loss
 	time python src/train.py experiment=moog_cnn_envelope_regression
 
-emr exp-moog-resonance: sdmr ## Train CNN on high-resonance Moog dataset (8 params)
+emr exp-moog-resonance: gdmr ## Train CNN on high-resonance Moog dataset (8 params)
 	time python src/train.py experiment=moog_cnn_resonance
 
-ew exp-wah: sdw ## Train CNN on dataset sdw (sawtooth + wah + decay envelope)
+ew exp-wah: gdw ## Train CNN on dataset gdw (sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn
 
-ewe exp-wah-envelope: sdwe ## CNN training on dataset sdwe (sdw + ADSR wah control)
+ewl exp-wah-large: gdw ## Train CNN on dataset gdw (sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_cnn
+
+ewe exp-wah-envelope: gdwe ## CNN training on dataset gdwe (gdw + ADSR wah control)
 	time python src/train.py experiment=wah_cnn_envelope
 
 emall: emall-gen emb eme emr ## Generate datasets and train CNNs on all Moog VCF experiments
 
-emall-gen: sdmb sdme sdmr ## Generate all Moog datasets before training
+emall-gen: gdmb gdme gdmr ## Generate all Moog datasets before training
 
 emall-train: emb eme emr ## Run all Moog dataset training experiments
 
 # MOOG VCF ViT EXPERIMENTS "emvit" - ViT training on Moog filter datasets (experimental)
 
-emvitb exp-moog-vit-basic: sdmb ## Train ViT on basic Moog VCF dataset (4 params) - square 32x32
+emvitb exp-moog-vit-basic: gdmb ## Train ViT on basic Moog VCF dataset (4 params) - square 32x32
 	time python src/train.py experiment=moog_vit_basic
 
-emvite exp-moog-vit-envelope: sdme ## Train ViT on Moog envelope sweep dataset (10 params) - rectangular 32x64
+emvite exp-moog-vit-envelope: gdme ## Train ViT on Moog envelope sweep dataset (10 params) - rectangular 32x64
 	time python src/train.py experiment=moog_vit_envelope
 
-emvitr exp-moog-vit-resonance: sdmr ## Train ViT on high-resonance Moog dataset (8 params) - square 48x48
+emvitr exp-moog-vit-resonance: gdmr ## Train ViT on high-resonance Moog dataset (8 params) - square 48x48
 	time python src/train.py experiment=moog_vit_resonance
 
 emvit emvit-train-all: emvitb emvite emvitr ## Run all Moog ViT training experiments
@@ -260,16 +261,16 @@ tdv test-diagram-vgg: ## Generate VGG-style architecture diagrams (EPS + PNG)
 
 # RAW TRAINING TARGETS "tr" (no "experiment" - use hydra overrides to set desired config - experiments recommended instead)
 
-tr train: synth-dataset-small ## Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml
+tr train: generate-dataset-small ## Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml
 	time python src/train.py
 
-trq train-quick: sds ## Train super quickly the default model and dataset (quick sanity test to see if things are working)
+trq train-quick: gds ## Train super quickly the default model and dataset (quick sanity test to see if things are working)
 	python src/train.py trainer.max_epochs=1
 
-trs train-vimh-small: sds ## Train the small example VIMH dataset using the default model (CNN 64k)
+trs train-vimh-small: gds ## Train the small example VIMH dataset using the default model (CNN 64k)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-trl train-vimh-large: sdl ## Train the large example VIMH dataset using the default model (CNN 64k)
+trl train-vimh-large: gdl ## Train the large example VIMH dataset using the default model (CNN 64k)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # UTILITY TARGETS

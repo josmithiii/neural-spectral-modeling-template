@@ -70,22 +70,19 @@ sh setup.sh
 # Look over all make targets available
 make h
 
-# ===== DATASET GENERATION =====
+# ===== SYNTHETIC DATASET GENERATION =====
 
-# Generate small synthetic dataset (256 samples) - now uses wah pedal
-make sds    # or: python generate_vimh.py --config-name=synth/generate_saw_wah
+# Generate all small Wah and Moog VCF datasets
+make gdas
 
-# Generate large synthetic dataset (16k samples)
-make sdl    # or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
+# Generate small synthetic dataset (256 samples) using sawtooth into wah pedal
+make gdws    # or: python generate_vimh.py --config-name=synth/generate_saw_wah
 
-# Generate all small Wah and Moog VCF datasets (basic, envelope, resonance)
-make sda
-
-# Generate small synthetic dataset (512 samples) using sawtooth into wah pedal
-make sdw
+# Generate large synthetic dataset (16384 samples) using sawtooth into wah pedal
+make gdwl    # or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
 
 # Generate small synthetic dataset (512 samples) using sawtooth into wah pedal controlled by ADSR envelope
-make sdwe
+make gdwe    # or: python generate_vimh.py --config-name=synth/generate_wah_envelope
 
 # ===== DATASET DISPLAY =====
 
@@ -127,8 +124,8 @@ make evitts # Tiny ViT (~25K params) on small dataset
 make evitall # Run all ViT trivial experiments
 
 # Wah Pedal experiments
-make ew     # CNN training on dataset sdw (sawtooth + wah + decay envelope)
-make ewe    # CNN training on dataset sdwe (sdw + ADSR wah control)
+make ew     # CNN training on dataset gdws (sawtooth + wah + decay envelope)
+make ewe    # CNN training on dataset gdwe (gdw + ADSR wah control)
 
 # Moog VCF experiments using CNN architecture
 make emb    # Basic Moog VCF (4 params)
