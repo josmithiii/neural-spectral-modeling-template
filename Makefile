@@ -164,11 +164,14 @@ emer exp-moog-envelope-regression: gdme ## Train CNN on Moog envelope sweep data
 emr exp-moog-resonance: gdmr ## Train CNN on high-resonance Moog dataset (8 params)
 	time python src/train.py experiment=moog_cnn_resonance
 
-ew exp-wah: gdw ## Train CNN on dataset gdw (sawtooth + wah + decay envelope)
+ew exp-wah: gdws ## Train CNN on dataset gdws (small sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn
 
-ewl exp-wah-large: gdw ## Train CNN on dataset gdw (sawtooth + wah + decay envelope)
-	time python src/train.py experiment=wah_cnn
+ewl exp-wah-large: gdwl ## Train CNN on dataset gdwl (large sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_cnn_large
+
+ewla exp-wah-large-aux: gdwl ## Train Hybrid CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature
+	time python src/train.py experiment=wah_cnn_large_aux
 
 ewe exp-wah-envelope: gdwe ## CNN training on dataset gdwe (gdw + ADSR wah control)
 	time python src/train.py experiment=wah_cnn_envelope
