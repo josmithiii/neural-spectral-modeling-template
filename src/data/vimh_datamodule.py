@@ -810,7 +810,7 @@ if __name__ == "__main__":
 
         # Initialize data module
         dm = VIMHDataModule(
-            data_dir="data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p", batch_size=4, num_workers=0
+            data_dir="data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p", batch_size=4, num_workers=0
         )
 
         # Setup the data module

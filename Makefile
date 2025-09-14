@@ -19,6 +19,14 @@ sdl synth-dataset-large: ## Synthesize a larger example VIMH dataset with SawSyn
 	fi
 	ls ./data/
 
+sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Crybaby "wah" ADSR envelope settings varied (512 samples)
+	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_wah_envelope_9p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_wah_envelope_9p"; \
+	else \
+		python generate_vimh.py --config-name=synth/generate_wah_envelope; \
+	fi
+	ls ./data/
+
 sdmb synth-dataset-moog-basic: ## Synthesize VIMH dataset with basic Saw + Moog VCF (256 samples)
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_4p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_4p"; \
@@ -43,15 +51,7 @@ sdmr synth-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-re
 	fi
 	ls ./data/
 
-sdma synth-dataset-moog-all: sdmb sdme sdmr ## Generate all Moog VCF datasets: basic, envelope, resonance
-
-sdwe synth-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Crybaby wah envelope sweeps (512 samples)
-	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_crybaby_wah_9p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_crybaby_wah_9p"; \
-	else \
-		python generate_vimh.py --config-name=synth/generate_wah_envelope; \
-	fi
-	ls ./data/
+sda synth-dataset-all-small: sds sdwe sdmb sdme sdmr ## Generate all small datasets
 
 # DUMP VIMH DATASET METADATA "vd"
 

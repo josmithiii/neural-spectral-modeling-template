@@ -41,7 +41,7 @@ def basic_evaluation_example():
     checkpoint_path = (
         "logs/train/runs/2024-01-01_12-00-00/checkpoints/best.ckpt"  # Your checkpoint
     )
-    dataset_path = "data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p"  # Your dataset
+    dataset_path = "data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p"  # Your dataset
 
     # Check if files exist
     if not Path(checkpoint_path).exists():
@@ -188,8 +188,8 @@ def batch_evaluation_example():
 
     # List of datasets to test on
     datasets = [
-        "data/vimh-32x32x1_8000Hz_1p0s_16384dss_simple_2p",
-        "data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p",
+        "data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p",
+        "data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p",
     ]
 
     print("This example would evaluate each checkpoint on each dataset:")

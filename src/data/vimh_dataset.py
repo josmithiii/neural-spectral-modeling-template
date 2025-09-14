@@ -509,7 +509,7 @@ if __name__ == "__main__":
         sys.path.insert(0, str(src_path))
 
     # Test dataset loading
-    example_data_dir = "data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p"
+    example_data_dir = "data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p"
 
     try:
         print("Testing VIMH dataset loading...")

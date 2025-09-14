@@ -89,6 +89,9 @@ def test_train_resume(tmp_path: Path, cfg_train: DictConfig) -> None:
     """
     with open_dict(cfg_train):
         cfg_train.trainer.max_epochs = 1
+        # Configure checkpoint callback to save every epoch for testing
+        cfg_train.callbacks.model_checkpoint.every_n_epochs = 1
+        cfg_train.callbacks.model_checkpoint.save_top_k = -1  # Save all checkpoints
 
     HydraConfig().set_config(cfg_train)
     metric_dict_1, _ = train(cfg_train)
@@ -107,5 +110,8 @@ def test_train_resume(tmp_path: Path, cfg_train: DictConfig) -> None:
     assert "epoch_001.ckpt" in files
     assert "epoch_002.ckpt" not in files
 
-    assert metric_dict_1["train/acc"] < metric_dict_2["train/acc"]
-    assert metric_dict_1["val/acc"] < metric_dict_2["val/acc"]
+    # Use parameter-specific accuracy metrics for multihead predictions
+    assert (
+        metric_dict_1["train/log10_decay_time_acc"] <= metric_dict_2["train/log10_decay_time_acc"]
+    )
+    assert metric_dict_1["val/log10_decay_time_acc"] <= metric_dict_2["val/log10_decay_time_acc"]

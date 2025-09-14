@@ -834,7 +834,7 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"  • Varying parameters: {len(varying_params)}")
         logger.info(f"  • Parameter order: {varying_params}")
 
-        # Create output directory with expected format: vimh-32x32x3_8000Hz_1p0s_16384dss_simple_2p
+        # Create output directory with expected format: vimh-32x32x3_8000Hz_1p0s_16384dss_saw_wah_2p
         # or vimh-vimh-... for VIMH mode, with _shuffled suffix if shuffled
         duration_str = f"{duration}s".replace(".", "p")
         prefix = "vimh"

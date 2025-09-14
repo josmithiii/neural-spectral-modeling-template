@@ -43,7 +43,7 @@ model:
     weight_decay: 0.01
 
 data:
-  data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+  data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
   batch_size: 32
 
 # Optimized metric for regression mode

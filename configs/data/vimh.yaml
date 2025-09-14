@@ -1,7 +1,7 @@
 _target_: src.data.vimh_datamodule.VIMHDataModule
 
 # Default dataset directory, overridden by experiments in ../experiment/
-data_dir: ${paths.root_dir}/data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
+data_dir: ${paths.root_dir}/data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
 # Training parameters optimized for MPS (Mac) compatibility
 batch_size: 128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
