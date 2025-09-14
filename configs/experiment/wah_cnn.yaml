@@ -1,0 +1,31 @@
+# @package _global_
+
+# Wah Pedal Envelope CNN experiment
+# python src/train.py experiment=wah_cnn_envelope
+
+defaults:
+  - override /data: vimh
+  - override /model: cnn_tiny # Medium model for wah parameter dataset - ../model/cnn_tiny.yaml
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["wah", "cnn_tiny"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 8
+  max_epochs: 25
+
+model:
+  optimizer:
+    lr: 0.002
+    weight_decay: 0.015
+
+data:
+  data_dir: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
+  batch_size: 24 # Smaller batch for wider images
+
+logger:
+  tensorboard:
+    name: "wah_cnn_envelope"
