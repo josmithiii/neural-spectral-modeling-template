@@ -577,11 +577,15 @@ class SimpleSawSynth:
 
             # Filter parameters (optional)
             filter_enabled = params.get("filter_enabled", False)
-            # Auto-detect filter type based on presence of wah_position parameter
-            if "wah_position" in params:
-                filter_type = "wah"
+            # Determine filter type: prioritize explicit config, then auto-detect, default to "wah"
+            if "filter_type" in params:
+                filter_type = params["filter_type"]  # Explicit config takes precedence
+            elif "wah_position" in params:
+                filter_type = "wah"  # Auto-detect based on wah parameters
+            elif "log10_filter_cutoff_hz" in params:
+                filter_type = "moog"  # Auto-detect based on moog parameters
             else:
-                filter_type = params.get("filter_type", "moog")  # "moog" or "wah"
+                filter_type = "wah"  # Default to wah (changed from moog)
 
             # Moog VCF parameters
             log10_cutoff = params.get("log10_filter_cutoff_hz", 3.0)  # log10(Hz)
