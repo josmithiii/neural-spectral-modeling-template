@@ -463,7 +463,9 @@ class VIMHDataModule(LightningDataModule):
         # Separate images, labels, and auxiliary features
         for item in batch:
             if len(item) == 3:
-                image, labels, aux_features = item
+                image, labels, aux_features = (
+                    item  # aux_features computed in VIMHDataset.__getitem__
+                )
             else:
                 # Backward compatibility
                 image, labels = item

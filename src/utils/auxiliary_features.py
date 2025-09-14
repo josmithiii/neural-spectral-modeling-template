@@ -154,7 +154,7 @@ def extract_auxiliary_features(
     features_list = []
 
     if "decay_time" in feature_types:
-        # First try to use pre-computed temporal envelope
+        # First try to use pre-computed temporal envelope (faster)
         if "temporal_envelope" in data:
             decay_features = extract_decay_time_features(data["temporal_envelope"])
             features_list.append(decay_features)

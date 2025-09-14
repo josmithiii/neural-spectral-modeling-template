@@ -366,7 +366,7 @@ class VIMHDataset(MultiheadDatasetBase):
         else:
             labels = class_labels
 
-        # Apply transforms if specified
+        # Apply transforms (data augmentation) if specified
         if self.transform is not None:
             image = self.transform(image)
 
