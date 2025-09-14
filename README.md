@@ -74,8 +74,8 @@ make sds    # or: python generate_vimh.py --config-name=synth/generate_saw_wah
 # Generate large synthetic dataset (16k samples)
 make sdl    # or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
 
-# Generate all Moog VCF datasets (basic, envelope, resonance)
-make sdma
+# Generate all small Wah and Moog VCF datasets (basic, envelope, resonance)
+make sda
 
 # ===== DATASET DISPLAY =====
 
