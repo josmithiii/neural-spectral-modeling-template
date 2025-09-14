@@ -1,5 +1,9 @@
 # Neural Spectral Modeling Template (NSMT)
 
+### Status: _**Alpha**_
+
+## Overview
+
 The [**Neural Spectral Modeling Template
 (NSMT)**](https://github.com/josmithiii/neural-spectral-modeling-template.git)
 is a fork of the [Lightning-Hydra-Template-Extended
