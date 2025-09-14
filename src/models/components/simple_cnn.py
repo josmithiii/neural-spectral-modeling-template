@@ -176,23 +176,29 @@ class SimpleCNN(nn.Module):
             return self.classifier(combined_features)
 
     def _build_heads(self, heads_config: Dict[str, int]) -> None:
-        """Rebuild heads for auto-configuration (regression mode only)."""
-        if self.output_mode != "regression":
-            raise ValueError("_build_heads only supports regression mode")
-
+        """Rebuild heads for auto-configuration (supports both classification and regression modes)."""
         # Calculate combined feature size (same as in __init__)
         if self.auxiliary_input_size > 0:
             combined_feature_size = self.fc_hidden + self.auxiliary_hidden_size
         else:
             combined_feature_size = self.fc_hidden
 
-        # Create regression heads with sigmoid activation
-        self.heads = nn.ModuleDict(
-            {
-                head_name: nn.Sequential(nn.Linear(combined_feature_size, 1), nn.Sigmoid())
-                for head_name in heads_config.keys()
-            }
-        )
+        if self.output_mode == "regression":
+            # Create regression heads with sigmoid activation
+            self.heads = nn.ModuleDict(
+                {
+                    head_name: nn.Sequential(nn.Linear(combined_feature_size, 1), nn.Sigmoid())
+                    for head_name in heads_config.keys()
+                }
+            )
+        else:
+            # Classification mode: create heads with appropriate number of classes
+            self.heads = nn.ModuleDict(
+                {
+                    head_name: nn.Linear(combined_feature_size, num_classes)
+                    for head_name, num_classes in heads_config.items()
+                }
+            )
 
         self.heads_config = heads_config
         self.is_multihead = len(heads_config) > 1

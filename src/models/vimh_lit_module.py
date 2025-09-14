@@ -234,13 +234,10 @@ class VIMHLitModule(LightningModule):
                 self.net.parameter_names = list(heads_config.keys())
 
             # If the network has a _build_heads method, use it to rebuild heads
-            # Call for networks that need dynamic head rebuilding (VisionTransformer, SimpleCNN in regression mode)
+            # Call for networks that need dynamic head rebuilding
             if hasattr(self.net, "_build_heads") and callable(getattr(self.net, "_build_heads")):
                 network_name = type(self.net).__name__
-                if network_name == "VisionTransformer" or (
-                    network_name == "SimpleCNN"
-                    and getattr(self.net, "output_mode", None) == "regression"
-                ):
+                if network_name in ["VisionTransformer", "SimpleCNN"]:
                     self.net._build_heads(heads_config)
                     # Update the network's multihead flag after rebuilding
                     if hasattr(self.net, "is_multihead"):
@@ -754,9 +751,35 @@ class VIMHLitModule(LightningModule):
                 if isinstance(dataset, MultiheadDatasetBase):
                     self._auto_configure_from_dataset(dataset)
 
+                    # Set example_input_array from dataset for TensorBoard computational graph
+                    # Note: Disabled for multihead models due to dict output incompatibility with JIT tracer
+                    if (
+                        not hasattr(self, "example_input_array")
+                        or self.example_input_array is None
+                    ):
+                        if len(dataset.get_heads_config()) == 1:
+                            # Only enable for single-head models to avoid JIT tracer dict output issues
+                            try:
+                                sample = dataset[0]
+                                if isinstance(sample, (tuple, list)) and len(sample) > 0:
+                                    # Use actual sample from dataset with batch dimension
+                                    self.example_input_array = sample[0].unsqueeze(0)
+                            except Exception:
+                                # Fallback based on dataset metadata if available
+                                if hasattr(dataset, "image_shape"):
+                                    self.example_input_array = torch.randn(1, *dataset.image_shape)
+                                else:
+                                    self.example_input_array = torch.randn(1, 1, 32, 32)
+
         # Setup criteria and metrics
         self._setup_criteria()
         self._setup_metrics()
+
+        # Fallback example_input_array if not set above (only for single-head models)
+        if not hasattr(self, "example_input_array") or self.example_input_array is None:
+            # Only set for single-head models to avoid TensorBoard JIT tracer issues with dict outputs
+            if not self.is_multihead:
+                self.example_input_array = torch.randn(1, 1, 32, 32)
 
         # Compile model if requested
         if self.hparams.compile and stage == "fit":

@@ -3,7 +3,7 @@ _target_: lightning.pytorch.trainer.Trainer
 default_root_dir: ${paths.output_dir}
 
 min_epochs: 5 # prevents early stopping
-max_epochs: 5 # default = fast sanity check for debugging
+max_epochs: 100
 
 accelerator: auto
 devices: 1
