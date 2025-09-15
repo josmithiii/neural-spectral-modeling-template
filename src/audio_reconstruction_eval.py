@@ -1311,7 +1311,12 @@ class InteractiveAudioEvaluator:
                 self.axes[r, c] = self.fig.add_subplot(outer_gs[r, c])
 
         # Controls row spanning all columns
-        controls_gs = outer_gs[2, :].subgridspec(1, 7, width_ratios=[6, 1, 1, 1, 1, 1, 1])
+        # Bottom controls: slider + 8 buttons
+        controls_gs = outer_gs[2, :].subgridspec(
+            1,
+            9,
+            width_ratios=[6, 1, 1, 1, 1, 1, 1, 1, 1],
+        )
 
         # Slider occupies most of the bottom strip
         ax_slider = self.fig.add_subplot(controls_gs[0, 0])
@@ -1322,9 +1327,21 @@ class InteractiveAudioEvaluator:
         ax_play_pred = self.fig.add_subplot(controls_gs[0, 4])
         ax_copy = self.fig.add_subplot(controls_gs[0, 5])
         ax_save = self.fig.add_subplot(controls_gs[0, 6])
+        ax_wav_true = self.fig.add_subplot(controls_gs[0, 7])
+        ax_wav_pred = self.fig.add_subplot(controls_gs[0, 8])
 
         # Reduce visual clutter in control axes
-        for ax in [ax_slider, ax_prev, ax_next, ax_play_true, ax_play_pred, ax_copy, ax_save]:
+        for ax in [
+            ax_slider,
+            ax_prev,
+            ax_next,
+            ax_play_true,
+            ax_play_pred,
+            ax_copy,
+            ax_save,
+            ax_wav_true,
+            ax_wav_pred,
+        ]:
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
@@ -1342,6 +1359,8 @@ class InteractiveAudioEvaluator:
         self.btn_play_pred = Button(ax_play_pred, "Play Pred")
         self.btn_copy = Button(ax_copy, "Copy Info")
         self.btn_save = Button(ax_save, "Save PNG")
+        self.btn_wav_true = Button(ax_wav_true, "Save True WAV")
+        self.btn_wav_pred = Button(ax_wav_pred, "Save Pred WAV")
 
         self.btn_prev.on_clicked(self.prev_sample)
         self.btn_next.on_clicked(self.next_sample)
@@ -1349,6 +1368,8 @@ class InteractiveAudioEvaluator:
         self.btn_play_pred.on_clicked(self.play_pred_audio)
         self.btn_copy.on_clicked(self.copy_status_info)
         self.btn_save.on_clicked(self.save_figure)
+        self.btn_wav_true.on_clicked(self.save_true_wav)
+        self.btn_wav_pred.on_clicked(self.save_pred_wav)
 
         # Add keyboard navigation
         self.fig.canvas.mpl_connect("key_press_event", self.on_key_press)
@@ -1384,6 +1405,12 @@ class InteractiveAudioEvaluator:
         elif event.key.lower() == "s":
             # Save figure
             self.save_figure(None)
+        elif event.key.lower() == "t":
+            # Save true WAV
+            self.save_true_wav(None)
+        elif event.key.lower() == "p":
+            # Save predicted WAV
+            self.save_pred_wav(None)
 
     def update_sample(self, val):
         """Update current sample from slider."""
@@ -1715,6 +1742,46 @@ class InteractiveAudioEvaluator:
             print(f"[AE] Saved figure to {fname}")
         except Exception as e:
             print(f"[AE] Save figure failed: {e}")
+
+    def _save_wav(self, audio, sr: int, kind: str) -> None:
+        """Save numpy audio array to WAV (16-bit PCM) in audio_eval_results."""
+        from pathlib import Path
+        import time
+        import numpy as _np
+
+        out_dir = Path("audio_eval_results")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        run = getattr(self.evaluator, "run_name", "run") or "run"
+        idx = self.current_results.get("sample_idx", 0) if self.current_results else 0
+        fname = out_dir / f"ae_{run}_sample-{idx:04d}_{kind}_{ts}.wav"
+
+        # Prefer soundfile, else scipy
+        try:
+            import soundfile as sf
+
+            sf.write(str(fname), _np.asarray(audio, dtype=_np.float32), sr)
+        except Exception:
+            from scipy.io import wavfile as _wav
+
+            x = _np.asarray(audio, dtype=_np.float32)
+            x = _np.clip(x, -1.0, 1.0)
+            x16 = (x * 32767.0).astype(_np.int16)
+            _wav.write(str(fname), sr, x16)
+
+        print(f"[AE] Saved {kind} WAV to {fname}")
+
+    def save_true_wav(self, event):
+        if not self.current_results:
+            print("[AE] No data to save")
+            return
+        self._save_wav(self.current_results["true_audio"], self.evaluator.sample_rate, "true")
+
+    def save_pred_wav(self, event):
+        if not self.current_results:
+            print("[AE] No data to save")
+            return
+        self._save_wav(self.current_results["pred_audio"], self.evaluator.sample_rate, "pred")
 
     def play_true_audio(self, event):
         """Play true audio with robust playback options."""
