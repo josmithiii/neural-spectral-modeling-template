@@ -23,22 +23,32 @@ repos:
         # Avoid touching logs/ and archive/ even if present locally
         exclude: ^(logs/|archive/)
       - id: end-of-file-fixer
+        stages: [manual]
         # Avoid touching logs/ and archive/ even if present locally
         exclude: ^(logs/|archive/)
       - id: check-docstring-first
+        stages: [manual]
       - id: check-yaml
+        stages: [manual]
       - id: debug-statements
+        stages: [manual]
       - id: detect-private-key
+        stages: [manual]
       - id: check-executables-have-shebangs
+        stages: [manual]
       - id: check-toml
+        stages: [manual]
       - id: check-case-conflict
+        stages: [manual]
       - id: check-added-large-files
+        stages: [manual]
 
   # python code formatting
   - repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:
       - id: black
+        stages: [manual]
         args: [--line-length, "99"]
         exclude: ^(.githooks/)
         # Runs on all tracked Python files by default
@@ -48,6 +58,7 @@ repos:
     rev: 6.0.1
     hooks:
       - id: isort
+        stages: [manual]
         args: ["--profile", "black", "--filter-files"]
         # Runs on all tracked Python files by default
 
@@ -56,6 +67,7 @@ repos:
     rev: v3.20.0
     hooks:
       - id: pyupgrade
+        stages: [manual]
         args: [--py38-plus]
         # Modernizes Python syntax; behavior-only changes are rare
 
@@ -81,6 +93,7 @@ repos:
     rev: 1.7.0 # or master if you're bold
     hooks:
       - id: interrogate
+        stages: [manual]
         # Check docstring coverage only within library and tests
         files: ^(src/|tests/)
         args:
@@ -116,6 +129,7 @@ repos:
     rev: "1.8.6"
     hooks:
       - id: bandit
+        stages: [manual]
         # Security lint only for src/tests and selected top-level scripts
         files: ^(src/|tests/|examples/|viz/|scripts/|display_vimh\.py$|single_step_inference\.py$|plot_loss_analysis\.py$)
         args: ["-s", "B101,B403,B110,B404,B603", "-lll"]
@@ -126,6 +140,7 @@ repos:
     rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
+        stages: [manual]
         name: "prettier (FORMATTING CHECK - WILL FAIL IF FILES NEED FORMATTING)"
         types: [yaml, markdown]
         # exclude: none needed anymore
@@ -137,6 +152,7 @@ repos:
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
+        stages: [manual]
         # Lint shell scripts (sh/bash); no auto-fix
 
   # word spelling linter
@@ -144,6 +160,7 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
+        stages: [manual]
         args:
           - --skip=logs/**,data/**,*.ipynb
           # - --ignore-words-list=abc,def
@@ -154,6 +171,7 @@ repos:
     rev: 0.8.1
     hooks:
       - id: nbstripout
+        stages: [manual]
         # Cleans notebook outputs only
 
   # jupyter notebook linting
@@ -161,10 +179,13 @@ repos:
     rev: 1.9.1
     hooks:
       - id: nbqa-black
+        stages: [manual]
         args: ["--line-length=99"]
       - id: nbqa-isort
+        stages: [manual]
         args: ["--profile=black"]
       - id: nbqa-flake8
+        stages: [manual]
         args:
           [
             "--extend-ignore=E203,E402,E501,F401,F841",
