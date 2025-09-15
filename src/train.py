@@ -419,8 +419,12 @@ def main(cfg: DictConfig) -> Optional[float]:
             data_dir = os.path.relpath(data_dir)
         except:
             pass  # Keep original if relpath fails
-    log.info(f"DATA CONFIG:      {data_config} (data_dir={data_dir})")
-    log.info(f"TRAINER CONFIG:   {trainer_config} ({cfg.trainer._target_})")
+    batch_size = getattr(cfg.data, "batch_size", "unknown")
+    log.info(f"DATA CONFIG:      {data_config} (data_dir={data_dir}, batch_size={batch_size})")
+    max_epochs = getattr(cfg.trainer, "max_epochs", "unknown")
+    log.info(
+        f"TRAINER CONFIG:   {trainer_config} ({cfg.trainer._target_}, max_epochs={max_epochs})"
+    )
     if cfg.get("experiment"):
         log.info(f"EXPERIMENT:       {cfg.experiment}")
     else:
