@@ -1,15 +1,15 @@
 # @package _global_
 
 # Wah Pedal CNN experiment: Decaying Sawtooth into Fixed Wah Pedal
-# python src/train.py experiment=wah_cnn
+# python src/train.py experiment=wah_cnn_tiny_aux
 
 defaults:
   - override /data: vimh
-  - override /model: cnn_tiny # Use smaller model as intended
+  - override /model: cnn_tiny # ~41K trainable parameters
   - override /callbacks: default
   - override /trainer: default
 
-tags: ["wah", "cnn_tiny"]
+tags: ["wah", "cnn_tiny_aux", "aux_decay_time"]
 
 seed: 12345
 
