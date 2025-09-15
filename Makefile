@@ -167,8 +167,11 @@ emr exp-moog-resonance: gdmr ## Train CNN on high-resonance Moog dataset (8 para
 ew exp-wah: gdws ## Train CNN on dataset gdws (small sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn
 
-ewl exp-wah-large: gdwl ## Train CNN on dataset gdwl (large sawtooth + wah + decay envelope)
+ewl exp-wah-large: gdwl ## Train "large" (~1.4M) CNN on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn_large
+
+ewt exp-wah-tiny: gdwl ## Train "tiny" (~41K) CNN on dataset gdwl (large sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_cnn_tiny
 
 ewla exp-wah-large-aux: gdwl ## Train Hybrid CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature
 	time python src/train.py experiment=wah_cnn_large_aux
