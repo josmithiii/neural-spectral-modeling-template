@@ -103,6 +103,8 @@ def _configure_vimh_model_config(cfg: DictConfig) -> None:
                     cfg.model.net.parameter_names = parameter_names
                     # Ensure output_mode is set at network level too
                     cfg.model.net.output_mode = "regression"
+                    # Clear any existing heads_config to prevent classification head creation
+                    cfg.model.net.heads_config = None
             else:
                 # For classification/ordinal mode, use heads_config
                 heads_config = get_heads_config_from_metadata(cfg.data.data_dir)

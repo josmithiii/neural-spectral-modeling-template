@@ -497,10 +497,10 @@ class AudioReconstructionEvaluator:
                         sys.exit(1)
 
                 for head_name, logits in preds.items():
-                    if getattr(self.model, "output_mode", "classification") == "regression":
-                        v = float(logits.squeeze().item())
-                    else:
+                    if logits.numel() > 1:  # Multiple logits = classification
                         v = int(torch.argmax(logits, dim=-1).item())
+                    else:  # Single logit = regression
+                        v = float(logits.squeeze().item())
                     values[head_name].append(v)
 
         # Compute simple stats
@@ -508,7 +508,7 @@ class AudioReconstructionEvaluator:
         print("\nPrediction diversity over", n, "sample(s):")
         for name in self.param_names:
             vals = values.get(name, [])
-            if getattr(self.model, "output_mode", "classification") == "regression":
+            if vals and isinstance(vals[0], float):  # Regression values
                 std = float(np.std(vals)) if vals else 0.0
                 report[name] = {
                     "std": std,
@@ -519,7 +519,7 @@ class AudioReconstructionEvaluator:
                 print(
                     f"  - {name}: std={std:.6f} [{status}] range=({report[name]['min']}, {report[name]['max']})"
                 )
-            else:
+            else:  # Classification values
                 uniques = sorted(list(set(vals))) if vals else []
                 report[name] = {"unique": len(uniques), "values": uniques[:15]}
                 status = "⚠️ degenerate" if len(uniques) <= 1 else "ok"
@@ -557,7 +557,14 @@ class AudioReconstructionEvaluator:
             param_max = mapping["max"]
 
             # Handle different prediction formats
-            if getattr(self.model, "output_mode", "classification") == "regression":
+            # Determine if this was a classification or regression output
+            is_regression = (
+                isinstance(pred_tensor, torch.Tensor)
+                and pred_tensor.numel() == 1
+                and pred_tensor.dtype.is_floating_point
+            )
+
+            if is_regression:
                 # Direct regression output (should be in [0,1])
                 normalized_value = float(pred_tensor.item())
             else:
@@ -689,10 +696,14 @@ class AudioReconstructionEvaluator:
                 print(f"Head/parameter name mismatch. Missing: {missing}, Extra: {extra}")
                 sys.exit(1)
 
-            processed_predictions = {
-                head_name: torch.argmax(logits, dim=-1).squeeze(0)
-                for head_name, logits in raw_predictions.items()
-            }
+            # Process predictions based on actual model head configuration
+            # Check if heads have multiple outputs (classification) or single output (regression)
+            processed_predictions = {}
+            for head_name, logits in raw_predictions.items():
+                if logits.numel() > 1:  # Multiple logits = classification
+                    processed_predictions[head_name] = torch.argmax(logits, dim=-1).squeeze(0)
+                else:  # Single logit = regression
+                    processed_predictions[head_name] = logits.squeeze(0)
 
         # Denormalize predictions
         predicted_params = self.denormalize_parameters(processed_predictions)
@@ -1820,22 +1831,56 @@ def _reconstruct_model_manually(
     }
     reconstructor = CheckpointArchitectureReconstructor(reconstructor_config)
 
+    # Load checkpoint for hyperparameters first
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    hyper_parameters = checkpoint.get("hyper_parameters", {})
+    output_mode = hyper_parameters.get("output_mode", "classification")
+
+    # Determine the correct heads config by inspecting the actual checkpoint weights
+    actual_heads_config = {}
+    state_dict = checkpoint.get("state_dict", {})
+    for head_name in heads_config.keys():
+        weight_key = f"net.heads.{head_name}.0.weight"
+        if weight_key in state_dict:
+            # Get actual output size from the checkpoint weights
+            weight_tensor = state_dict[weight_key]
+            actual_output_size = weight_tensor.shape[0]  # First dimension is output size
+            actual_heads_config[head_name] = actual_output_size
+            log.info(f"Found head '{head_name}' with {actual_output_size} outputs in checkpoint")
+        else:
+            log.warning(
+                f"Head '{head_name}' weights not found in checkpoint, using dataset config"
+            )
+            actual_heads_config[head_name] = heads_config[head_name]
+
+    log.info(f"Reconstructing with actual checkpoint heads config: {actual_heads_config}")
+
     try:
         net, arch_config = reconstructor.reconstruct_from_checkpoint(
-            ckpt_path, heads_config, dataset_metadata
+            ckpt_path, actual_heads_config, dataset_metadata
         )
         log.info(f"Successfully reconstructed {arch_config.architecture_type} model")
 
-        # Load checkpoint for hyperparameters
-        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-        hyper_parameters = checkpoint.get("hyper_parameters", {})
-
         # Create the complete model
-        from torch.nn import CrossEntropyLoss
-
         from src.models.vimh_lit_module import VIMHLitModule
 
-        criteria = {head_name: CrossEntropyLoss() for head_name in heads_config.keys()}
+        # Create criteria based on the actual head architecture
+        criteria = {}
+        for head_name, num_outputs in actual_heads_config.items():
+            if num_outputs == 1:
+                # Single output = regression
+                from torch.nn import MSELoss
+
+                criteria[head_name] = MSELoss()
+            else:
+                # Multiple outputs = classification
+                from torch.nn import CrossEntropyLoss
+
+                criteria[head_name] = CrossEntropyLoss()
+
+        log.info(
+            f"Using criteria for heads: {[(k, type(v).__name__) for k, v in criteria.items()]}"
+        )
 
         model = VIMHLitModule(
             net=net,
@@ -1845,7 +1890,7 @@ def _reconstruct_model_manually(
             compile=hyper_parameters.get("compile", False),
             criteria=criteria,
             auto_configure_from_dataset=False,
-            output_mode=hyper_parameters.get("output_mode", "classification"),
+            output_mode=output_mode,
         )
 
         # Load compatible weights
@@ -1877,6 +1922,14 @@ def _load_compatible_weights(
                 )
         else:
             incompatible_weights.append(f"{key} (missing in model)")
+
+    # Debug: Show some model keys for troubleshooting
+    log.debug(f"Model state dict has {len(model_state_dict)} keys")
+    head_keys = [k for k in model_state_dict.keys() if "head" in k.lower()]
+    if head_keys:
+        log.debug(f"Model head keys: {head_keys}")
+    else:
+        log.warning("No head keys found in model state dict!")
 
     # Report incompatible weights
     if incompatible_weights:

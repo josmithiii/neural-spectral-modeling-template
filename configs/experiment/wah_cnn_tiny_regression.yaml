@@ -46,7 +46,7 @@ model:
   # Use L1 loss in normalized space (merged with auto-configured criteria per head)
   criteria:
     log10_decay_time:
-      loss_type: l1
+      loss_type: l1 # GPT5 says "L1 loss and a modest capacity bump often reduce MAE and stabilize training for continuous targets"
     wah_position:
       loss_type: l1
 
