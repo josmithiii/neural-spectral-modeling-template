@@ -425,7 +425,11 @@ class AudioReconstructionEvaluator:
     """Evaluates model predictions by reconstructing and comparing audio."""
 
     def __init__(
-        self, model: LightningModule, datamodule: LightningDataModule, device: str = "cpu"
+        self,
+        model: LightningModule,
+        datamodule: LightningDataModule,
+        device: str = "cpu",
+        ckpt_path: Optional[str] = None,
     ):
         """
         Initialize the evaluator.
@@ -439,6 +443,21 @@ class AudioReconstructionEvaluator:
         self.model.eval()
         self.datamodule = datamodule
         self.device = device
+        self.ckpt_path = ckpt_path
+        try:
+            from pathlib import Path as _P
+
+            if ckpt_path:
+                cp = _P(ckpt_path)
+                # logs/train/runs/<run>/checkpoints/<file>.ckpt → run directory two levels up
+                self.run_dir = cp.parent.parent
+                self.run_name = self.run_dir.name
+            else:
+                self.run_dir = None
+                self.run_name = ""
+        except Exception:
+            self.run_dir = None
+            self.run_name = ""
 
         # Setup test dataset
         self.datamodule.setup("test")
@@ -448,6 +467,7 @@ class AudioReconstructionEvaluator:
         self.dataset_info = self.datamodule.get_dataset_info()
         self.sample_rate = self.dataset_info.get("sample_rate", 8000)
         self.duration = self.dataset_info.get("duration", 1.0)
+        self.dataset_name = self.dataset_info.get("dataset_name", "")
 
         # Initialize synthesizer
         self.synth = SimpleSawSynth(sample_rate=self.sample_rate)
@@ -1291,7 +1311,7 @@ class InteractiveAudioEvaluator:
                 self.axes[r, c] = self.fig.add_subplot(outer_gs[r, c])
 
         # Controls row spanning all columns
-        controls_gs = outer_gs[2, :].subgridspec(1, 5, width_ratios=[6, 1, 1, 1, 1])
+        controls_gs = outer_gs[2, :].subgridspec(1, 6, width_ratios=[6, 1, 1, 1, 1, 1])
 
         # Slider occupies most of the bottom strip
         ax_slider = self.fig.add_subplot(controls_gs[0, 0])
@@ -1300,9 +1320,10 @@ class InteractiveAudioEvaluator:
         ax_next = self.fig.add_subplot(controls_gs[0, 2])
         ax_play_true = self.fig.add_subplot(controls_gs[0, 3])
         ax_play_pred = self.fig.add_subplot(controls_gs[0, 4])
+        ax_copy = self.fig.add_subplot(controls_gs[0, 5])
 
         # Reduce visual clutter in control axes
-        for ax in [ax_slider, ax_prev, ax_next, ax_play_true, ax_play_pred]:
+        for ax in [ax_slider, ax_prev, ax_next, ax_play_true, ax_play_pred, ax_copy]:
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
@@ -1318,11 +1339,13 @@ class InteractiveAudioEvaluator:
         self.btn_next = Button(ax_next, "Next")
         self.btn_play_true = Button(ax_play_true, "Play True")
         self.btn_play_pred = Button(ax_play_pred, "Play Pred")
+        self.btn_copy = Button(ax_copy, "Copy Info")
 
         self.btn_prev.on_clicked(self.prev_sample)
         self.btn_next.on_clicked(self.next_sample)
         self.btn_play_true.on_clicked(self.play_true_audio)
         self.btn_play_pred.on_clicked(self.play_pred_audio)
+        self.btn_copy.on_clicked(self.copy_status_info)
 
         # Add keyboard navigation
         self.fig.canvas.mpl_connect("key_press_event", self.on_key_press)
@@ -1345,6 +1368,7 @@ class InteractiveAudioEvaluator:
         print("   • Click 'Prev'/'Next' buttons: Navigate between samples")
         print("   • Use slider: Jump to specific sample")
         print("   • Click 'Play True'/'Play Pred': Play audio for current sample")
+        print("   • Click 'Copy Info': Copy header info to clipboard (or print)")
 
     def on_key_press(self, event):
         """Handle keyboard navigation events."""
@@ -1391,6 +1415,20 @@ class InteractiveAudioEvaluator:
         # Update status line with model/eval info
         try:
             self.status_text.set_text(self._build_status_string())
+            # Optional secondary line for run/dataset/ckpt details
+            detail = self._build_status_detail_string()
+            if not hasattr(self, "status_text2"):
+                self.status_text2 = self.fig.text(
+                    0.01,
+                    0.965,
+                    detail,
+                    fontsize=9,
+                    va="top",
+                    ha="left",
+                    family="monospace",
+                )
+            else:
+                self.status_text2.set_text(detail)
         except Exception:
             # Avoid UI breakage on any unexpected attribute
             pass
@@ -1573,6 +1611,88 @@ class InteractiveAudioEvaluator:
             f"mode={mode} | heads[{head_str}] | weights: compat={compat}, "
             f"skip={incompat}, regression_loaded={heads_loaded}"
         )
+
+    def _build_status_detail_string(self) -> str:
+        """Second header line with run/dataset/arch summary."""
+        e = self.evaluator
+        dataset = getattr(e, "dataset_name", "")
+        sr = getattr(e, "sample_rate", None)
+        dur = getattr(e, "duration", None)
+        dims = (
+            f"{e.dataset_info.get('height','?')}x{e.dataset_info.get('width','?')}x{e.dataset_info.get('channels','?')}"
+            if hasattr(e, "dataset_info")
+            else "?x?x?"
+        )
+        run = getattr(e, "run_name", "")
+        ckpt = getattr(e, "ckpt_path", "")
+        ckpt_short = ckpt
+        try:
+            if ckpt and len(ckpt) > 64:
+                ckpt_short = "…" + ckpt[-63:]
+        except Exception:
+            pass
+        net_name = (
+            type(e.model.net).__name__ if hasattr(e.model, "net") else type(e.model).__name__
+        )
+        # Param count
+        try:
+            import numpy as _np  # noqa: F401
+
+            params = sum(p.numel() for p in e.model.parameters())
+        except Exception:
+            params = None
+        params_str = f"{params:,}" if params is not None else "?"
+        sr_str = f"{sr}" if sr is not None else "?"
+        dur_str = f"{dur}" if dur is not None else "?"
+
+        return (
+            f"run={run or '-'} | dataset={dataset or '-'} ({dims}) | sr={sr_str} Hz, dur={dur_str}s | "
+            f"arch={net_name} params={params_str} | ckpt={ckpt_short or '-'}"
+        )
+
+    def copy_status_info(self, event):
+        """Copy header lines to clipboard, with fallbacks to stdout and file."""
+        try:
+            text = self._build_status_string() + "\n" + self._build_status_detail_string()
+        except Exception as _e:  # noqa: F841
+            text = ""
+        success = False
+        # Try pyperclip
+        try:
+            import pyperclip
+
+            pyperclip.copy(text)
+            success = True
+        except Exception:
+            pass
+        # Try tkinter as a fallback
+        if not success:
+            try:
+                import tkinter as tk
+
+                r = tk.Tk()
+                r.withdraw()
+                r.clipboard_clear()
+                r.clipboard_append(text)
+                r.update()  # now it stays on the clipboard after the window is closed
+                r.destroy()
+                success = True
+            except Exception:
+                pass
+        # Fallback to printing and saving to a file
+        if not success:
+            print("[AE] Clipboard unavailable. Header info:\n" + text)
+            try:
+                import os
+                from pathlib import Path
+
+                out_dir = Path("logs/audio_eval")
+                out_dir.mkdir(parents=True, exist_ok=True)
+                with open(out_dir / "clipboard.txt", "w") as f:
+                    f.write(text)
+                print(f"[AE] Saved header info to {out_dir / 'clipboard.txt'}")
+            except Exception:
+                pass
 
     def play_true_audio(self, event):
         """Play true audio with multiple playback options."""
@@ -1800,7 +1920,7 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Tuple[Dict[str, Any], Opti
         model = _load_model_from_checkpoint(ckpt_path, datamodule, device)
 
         # Create evaluator and run evaluation
-        evaluator = AudioReconstructionEvaluator(model, datamodule, device)
+        evaluator = AudioReconstructionEvaluator(model, datamodule, device, ckpt_path=ckpt_path)
         return _run_evaluation(cfg, evaluator, ckpt_path)
 
     except CheckpointError as e:
