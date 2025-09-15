@@ -1271,6 +1271,17 @@ class InteractiveAudioEvaluator:
             nrows=3, ncols=3, height_ratios=[1.0, 1.0, 0.18], hspace=0.35, wspace=0.3
         )
 
+        # Status line (top-left corner). Monospace for compact alignment.
+        self.status_text = self.fig.text(
+            0.01,
+            0.985,
+            "",
+            fontsize=9,
+            va="top",
+            ha="left",
+            family="monospace",
+        )
+
         # Axes matrix for the six plots
         import numpy as _np
 
@@ -1376,6 +1387,13 @@ class InteractiveAudioEvaluator:
 
         # Evaluate current sample
         self.current_results = self.evaluator.evaluate_sample(self.current_sample, plot=False)
+
+        # Update status line with model/eval info
+        try:
+            self.status_text.set_text(self._build_status_string())
+        except Exception:
+            # Avoid UI breakage on any unexpected attribute
+            pass
 
         # Debug: Print some identifying info about this sample
         if self.current_results:
@@ -1523,6 +1541,38 @@ class InteractiveAudioEvaluator:
         self.fig.canvas.flush_events()
         # Force figure to update in interactive backends
         plt.pause(0.01)
+
+    def _build_status_string(self) -> str:
+        """Assemble a one-line status string for the UI header.
+
+        Shows: output mode, head sizes, and whether regression head weights were loaded.
+        """
+        m = getattr(self.evaluator, "model", None)
+        if m is None:
+            return ""
+
+        mode = getattr(m, "output_mode", "?")
+        # Head sizes from the network config
+        heads = {}
+        if hasattr(m, "net") and hasattr(m.net, "heads_config") and m.net.heads_config:
+            heads = dict(m.net.heads_config)
+        head_str = ", ".join(f"{k}:{v}" for k, v in heads.items()) if heads else "-"
+
+        # Weight loading info populated during reconstruction
+        info = getattr(m, "_ae_weight_load_info", {}) or {}
+        compat = info.get("compatible", "-")
+        incompat = info.get("incompatible", "-")
+        heads_loaded = "-"
+        try:
+            loaded_keys = info.get("loaded_keys", [])
+            heads_loaded = "yes" if any(".heads." in k for k in loaded_keys) else "no"
+        except Exception:
+            pass
+
+        return (
+            f"mode={mode} | heads[{head_str}] | weights: compat={compat}, "
+            f"skip={incompat}, regression_loaded={heads_loaded}"
+        )
 
     def play_true_audio(self, event):
         """Play true audio with multiple playback options."""
@@ -1993,6 +2043,16 @@ def _load_compatible_weights(
         log.info(f"Loaded {len(compatible_weights)} compatible weights from checkpoint")
     else:
         raise CheckpointError("No compatible weights found in checkpoint")
+
+    # Expose load summary for the interactive UI
+    try:
+        model._ae_weight_load_info = {
+            "compatible": len(compatible_weights),
+            "incompatible": len(incompatible_weights),
+            "loaded_keys": list(compatible_weights.keys())[:50],  # cap for brevity
+        }
+    except Exception:
+        pass
 
 
 def _print_evaluation_header(ckpt_path: str, evaluator: AudioReconstructionEvaluator) -> None:
