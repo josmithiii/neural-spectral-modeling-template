@@ -176,7 +176,7 @@ ewla exp-wah-large-aux: gdwl ## Train "large" (~1.4M) Hybrid CNN-MLP on dataset 
 ewt exp-wah-tiny: gdwl ## Train "tiny" (~41K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~10 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_tiny
 
-ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (~41K) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~10 min to train on Mac MPS]
+ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (1.1M) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.2 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_tiny_regression
 
 ewta exp-wah-tiny-aux: gdwl ## Train "tiny" (~43K) Hybrib CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature

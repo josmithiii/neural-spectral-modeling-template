@@ -116,10 +116,10 @@ def _configure_vimh_model_config(cfg: DictConfig) -> None:
 
                     param_ranges = get_parameter_ranges_from_metadata(cfg.data.data_dir)
                     # Build a Hydra-instantiable criteria dict instead of inserting objects
-                    criteria_cfg: Dict[str, Any] = {}
+                    base_criteria_cfg: Dict[str, Any] = {}
                     for param_name in parameter_names:
                         param_range = param_ranges.get(param_name, (0.0, 1.0))
-                        criteria_cfg[param_name] = {
+                        base_criteria_cfg[param_name] = {
                             "_target_": "src.models.losses.NormalizedRegressionLoss",
                             "param_range": (
                                 tuple(param_range)
@@ -128,11 +128,26 @@ def _configure_vimh_model_config(cfg: DictConfig) -> None:
                             ),
                         }
 
+                    # If user provided extra kwargs for criteria (e.g., loss_type), merge them per head
+                    merged_criteria_cfg: Dict[str, Any] = {}
+                    user_criteria = getattr(cfg.model, "criteria", None)
+                    for head, base_cfg in base_criteria_cfg.items():
+                        merged = dict(base_cfg)
+                        try:
+                            if user_criteria and head in user_criteria:
+                                for k, v in user_criteria[head].items():
+                                    if k not in ("_target_", "param_range"):
+                                        merged[k] = v
+                        except Exception:
+                            # If user_criteria isn't a mapping, ignore gracefully
+                            pass
+                        merged_criteria_cfg[head] = merged
+
                     with open_dict(cfg.model):
-                        cfg.model.criteria = OmegaConf.create(criteria_cfg)
+                        cfg.model.criteria = OmegaConf.create(merged_criteria_cfg)
 
                     log.info(
-                        f"Auto-configured regression loss functions for: {list(criteria_cfg.keys())}"
+                        f"Auto-configured regression loss functions for: {list(merged_criteria_cfg.keys())}"
                     )
                 except Exception as e:
                     log.warning(f"Failed to configure regression losses: {e}")
