@@ -140,6 +140,24 @@ make emvite # ViT on Moog envelope
 make emvitr # ViT on high-resonance Moog
 make emvitgta # Generate + train all Moog ViTs
 
+# ===== EVALS (Evaluate Saved Checkpoints) =====
+
+# Evaluate the latest wah_cnn_tiny (classification) run
+make evwt
+# Or evaluate a specific checkpoint path
+make evwt CKPT=logs/train/runs/2025-09-15_03-09-10/checkpoints/epoch_068.ckpt
+
+# Evaluate the latest wah_cnn_tiny_regression (regression) run
+make evwtr
+# Or evaluate a specific regression checkpoint path
+make evwtr CKPT=logs/train/runs/2025-09-15_04-27-43/checkpoints/epoch_050.ckpt
+
+# Notes:
+# - These use the training entrypoint with train=false, test=true to ensure
+#   the exact same datamodule and model wiring as training.
+# - Classification prints per-head accuracy (e.g., test/log10_decay_time_acc).
+# - Regression prints per-head MAE (e.g., test/wah_position_mae).
+
 # ===== DIRECT TRAINING =====
 
 # Train with default config

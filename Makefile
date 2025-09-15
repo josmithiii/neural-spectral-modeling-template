@@ -206,6 +206,54 @@ emvit emvit-train-all: emvitb emvite emvitr ## Run all Moog ViT training experim
 
 emvitgta emvit-gen-train-all: emall-gen emvit ## Generate datasets and train ViTs on all Moog VCF experiments
 
+# EVALS "ev" - Evaluate saved checkpoints
+
+evwt eval-wah-tiny: ## Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override)
+	@set -e; \
+	if [ -z "$(CKPT)" ]; then \
+		echo "[eval] Locating latest wah_cnn_tiny (classification) run..."; \
+		RUN_DIR=$$(for d in $$(ls -td logs/train/runs/* 2>/dev/null); do \
+			if [ -f $$d/tags.log ] \
+			   && grep -q "wah" $$d/tags.log \
+			   && grep -q "cnn_tiny" $$d/tags.log \
+			   && ! grep -q "regression" $$d/tags.log; then \
+				echo $$d; break; \
+			fi; \
+		done); \
+		if [ -z "$$RUN_DIR" ]; then echo "No matching run found in logs/train/runs"; exit 1; fi; \
+		echo "[eval] Using run: $$RUN_DIR"; \
+		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
+		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		echo "[eval] Using checkpoint: $$CKPT_PATH"; \
+		time python src/train.py experiment=wah_cnn_tiny train=false test=true ckpt_path=$$CKPT_PATH; \
+	else \
+		echo "[eval] Using checkpoint: $(CKPT)"; \
+		time python src/train.py experiment=wah_cnn_tiny train=false test=true ckpt_path=$(CKPT); \
+	fi
+
+evwtr eval-wah-tiny-regression: ## Evaluate latest wah_cnn_tiny_regression best checkpoint (set CKPT=path/to.ckpt to override)
+	@set -e; \
+	if [ -z "$(CKPT)" ]; then \
+		echo "[eval] Locating latest wah_cnn_tiny_regression run..."; \
+		RUN_DIR=$$(for d in $$(ls -td logs/train/runs/* 2>/dev/null); do \
+			if [ -f $$d/tags.log ] \
+			   && grep -q "wah" $$d/tags.log \
+			   && grep -q "cnn_tiny" $$d/tags.log \
+			   && grep -q "regression" $$d/tags.log; then \
+				echo $$d; break; \
+			fi; \
+		done); \
+		if [ -z "$$RUN_DIR" ]; then echo "No matching regression run found in logs/train/runs"; exit 1; fi; \
+		echo "[eval] Using run: $$RUN_DIR"; \
+		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
+		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		echo "[eval] Using checkpoint: $$CKPT_PATH"; \
+		time python src/train.py experiment=wah_cnn_tiny_regression train=false test=true ckpt_path=$$CKPT_PATH; \
+	else \
+		echo "[eval] Using checkpoint: $(CKPT)"; \
+		time python src/train.py experiment=wah_cnn_tiny_regression train=false test=true ckpt_path=$(CKPT); \
+	fi
+
 # AUDIO EVAL
 ae audio-eval: ## Eval latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py
 	python src/audio_reconstruction_eval.py
