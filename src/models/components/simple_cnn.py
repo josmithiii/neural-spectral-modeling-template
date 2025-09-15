@@ -143,11 +143,15 @@ class SimpleCNN(nn.Module):
                 )
         else:
             # Single head (backward compatibility)
-            head_name, num_classes = next(iter(heads_config.items()))
-            if output_mode == "regression":
-                self.classifier = nn.Sequential(nn.Linear(combined_feature_size, 1), nn.Sigmoid())
-            else:
-                self.classifier = nn.Linear(combined_feature_size, num_classes)
+            if heads_config:
+                head_name, num_classes = next(iter(heads_config.items()))
+                if output_mode == "regression":
+                    self.classifier = nn.Sequential(
+                        nn.Linear(combined_feature_size, 1), nn.Sigmoid()
+                    )
+                else:
+                    self.classifier = nn.Linear(combined_feature_size, num_classes)
+            # If heads_config is empty, don't create classifier - will be auto-configured later
 
     def forward(self, x: torch.Tensor, auxiliary: Optional[torch.Tensor] = None):
         """Perform a single forward pass through the network.

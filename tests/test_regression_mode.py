@@ -57,10 +57,14 @@ class TestRegressionNetworkArchitecture:
             assert torch.all(param_output >= 0.0), f"Output should be >= 0 for {param_name}"
             assert torch.all(param_output <= 1.0), f"Output should be <= 1 for {param_name}"
 
-    def test_regression_network_parameter_names_required(self):
-        """Test that parameter_names is required for regression mode."""
-        with pytest.raises(ValueError, match="parameter_names must be provided"):
-            SimpleCNN(input_channels=3, output_mode="regression", input_size=32)
+    def test_regression_network_empty_parameter_names_allowed(self):
+        """Test that empty parameter_names is allowed for regression mode (auto-configuration)."""
+        # This should not raise an error - empty parameter_names allows auto-configuration
+        net = SimpleCNN(input_channels=3, output_mode="regression", input_size=32)
+
+        assert net.output_mode == "regression"
+        assert net.parameter_names == []
+        assert net.heads_config == {}  # Empty until auto-configured
 
     def test_regression_network_backward_compatibility(self):
         """Test that classification mode still works (backward compatibility)."""
