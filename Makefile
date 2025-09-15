@@ -262,7 +262,7 @@ evwtr eval-wah-tiny-regression: ## Evaluate latest wah_cnn_tiny_regression best 
 	fi
 
 # AUDIO EVAL
-ae audio-eval: ## Eval latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py
+ae ae_latest audio-eval-latest: ## Display eval of latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py
 	python src/audio_reconstruction_eval.py
 
 # AUDIO-EVAL helpers: select specific runs/checkpoints quickly
@@ -274,7 +274,7 @@ ae audio-eval: ## Eval latest best model checkpoint using default dataset using 
 #     make aef FILTER=regression
 # - You can still override with CKPT=path/to/checkpoint.ckpt
 
-ae_reg audio-eval-regression: ## Audio-eval latest run with "regression" tag (auto-picks best/last ckpt)
+aer ae_reg audio-eval-regression: ## Audio-eval latest run with "regression" tag (auto-picks best/last ckpt)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		echo "[ae] Locating latest run tagged 'regression'..."; \
@@ -292,7 +292,7 @@ ae_reg audio-eval-regression: ## Audio-eval latest run with "regression" tag (au
 		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
 	fi
 
-ae_prev audio-eval-previous: ## Audio-eval the second most recent run (any experiment)
+aep ae_prev audio-eval-previous: ## Audio-eval the second most recent run (any experiment)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		echo "[ae] Locating previous run (2nd newest)..."; \
@@ -308,7 +308,7 @@ ae_prev audio-eval-previous: ## Audio-eval the second most recent run (any exper
 		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
 	fi
 
-ae_filter audio-eval-filter: ## Audio-eval latest run whose tags.log contains FILTER=...
+aef ae_filter audio-eval-filter: ## Audio-eval latest run whose tags.log contains FILTER=...
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		if [ -z "$(FILTER)" ]; then echo "Provide FILTER=... or CKPT=..."; exit 2; fi; \
