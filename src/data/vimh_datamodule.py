@@ -72,6 +72,7 @@ class VIMHDataModule(LightningDataModule):
         test_transform: Optional[transforms.Compose] = None,
         target_width: float = 0.0,
         auxiliary_features: Optional[List[str]] = None,
+        label_mode: str = "classification",
     ) -> None:
         """Initialize a `VIMHDataModule`.
 
@@ -138,6 +139,32 @@ class VIMHDataModule(LightningDataModule):
             {}
         )  # Parameter (min, max) for regression
         self.image_shape: Tuple[int, int, int] = (3, 32, 32)  # Default, will be updated
+
+    def _build_regression_target_transform(self):
+        """Create a target transform that converts class indices to actual parameter values.
+
+        Uses heads_config and parameter_bounds loaded in setup().
+        """
+        heads_config = self.heads_config
+        param_bounds = self.parameter_bounds
+
+        def to_actual(labels: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+            out: Dict[str, torch.Tensor] = {}
+            for name, idx in labels.items():
+                # Convert index to float tensor
+                if isinstance(idx, torch.Tensor):
+                    idx_t = idx.to(torch.float32)
+                else:
+                    idx_t = torch.tensor(idx, dtype=torch.float32)
+
+                num_classes = float(heads_config.get(name, 1))
+                pmin, pmax = param_bounds.get(name, (0.0, 1.0))
+                # Avoid division by zero if only 1 class (shouldn't happen for VIMH)
+                step = (pmax - pmin) / max(1.0, (num_classes - 1.0))
+                out[name] = pmin + idx_t * step
+            return out
+
+        return to_actual
 
     def _adjust_transforms_for_image_size(self, height: int, width: int, channels: int) -> None:
         """Adjust transforms based on actual image dimensions."""
@@ -490,13 +517,26 @@ class VIMHDataModule(LightningDataModule):
 
         # Convert label lists to tensors
         batched_labels = {}
+        is_regression = (
+            str(getattr(self.hparams, "label_mode", "classification")).lower() == "regression"
+        )
         for head_name, label_list in labels_dict.items():
-            batched_labels[head_name] = torch.tensor(label_list, dtype=torch.long)
+            if is_regression:
+                # Map scalar tensors or numbers to float tensor [batch]
+                floats: list[torch.Tensor] = []
+                for v in label_list:
+                    if isinstance(v, torch.Tensor):
+                        floats.append(v.to(torch.float32))
+                    else:
+                        floats.append(torch.tensor(v, dtype=torch.float32))
+                batched_labels[head_name] = torch.stack(floats).view(-1)
+            else:
+                batched_labels[head_name] = torch.tensor(label_list, dtype=torch.long)
 
         # Assertions/Warns: sanity on label diversity per head (helps catch decoding bugs)
         # Only check when batch has at least 2 items and labels are scalar class indices.
         batch_size = len(images)
-        if batch_size >= 2:
+        if batch_size >= 2 and not is_regression:
             for head_name, labels in batched_labels.items():
                 try:
                     if labels.ndim == 1 and labels.dtype in (
@@ -641,11 +681,17 @@ class VIMHDataModule(LightningDataModule):
                 # Adjust transforms based on detected image dimensions
                 self._adjust_transforms_for_image_size(height, width, channels)
 
+                # Optionally map labels to continuous values for regression
+                target_transform = None
+                if getattr(self.hparams, "label_mode", "classification").lower() == "regression":
+                    target_transform = self._build_regression_target_transform()
+
                 # Now load datasets with correctly adjusted transforms
                 self.data_train = VIMHDataset(
                     self.hparams.data_dir,
                     train=True,
                     transform=self.train_transform,
+                    target_transform=target_transform,
                     target_width=self.hparams.target_width,
                     auxiliary_features=self.hparams.auxiliary_features,
                 )
@@ -654,6 +700,7 @@ class VIMHDataModule(LightningDataModule):
                     self.hparams.data_dir,
                     train=False,
                     transform=self.test_transform,
+                    target_transform=target_transform,
                     target_width=self.hparams.target_width,
                     auxiliary_features=self.hparams.auxiliary_features,
                 )
@@ -664,6 +711,7 @@ class VIMHDataModule(LightningDataModule):
                     self.hparams.data_dir,
                     train=False,
                     transform=self.val_transform,
+                    target_transform=target_transform,
                     target_width=self.hparams.target_width,
                     auxiliary_features=self.hparams.auxiliary_features,
                 )

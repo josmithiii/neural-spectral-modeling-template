@@ -8,7 +8,7 @@ import rootutils
 import torch
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf, open_dict
 
 _original_torch_load = torch.load
 
@@ -98,37 +98,41 @@ def _configure_vimh_model_config(cfg: DictConfig) -> None:
             # Configure model based on output mode
             if hasattr(cfg.model, "output_mode") and cfg.model.output_mode == "regression":
                 # For regression mode, set parameter_names in the network config
-                cfg.model.net.parameter_names = parameter_names
-                # Ensure output_mode is set at network level too
-                cfg.model.net.output_mode = "regression"
+                # Use open_dict to allow adding dynamic keys under structured configs
+                with open_dict(cfg.model):
+                    cfg.model.net.parameter_names = parameter_names
+                    # Ensure output_mode is set at network level too
+                    cfg.model.net.output_mode = "regression"
             else:
                 # For classification/ordinal mode, use heads_config
                 heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
-                cfg.model.net.heads_config = heads_config
+                with open_dict(cfg.model):
+                    cfg.model.net.heads_config = heads_config
 
             # Auto-configure regression loss functions for each parameter
             if hasattr(cfg.model, "output_mode") and cfg.model.output_mode == "regression":
                 try:
-                    from src.models.losses import NormalizedRegressionLoss
                     from src.utils.vimh_utils import get_parameter_ranges_from_metadata
 
                     param_ranges = get_parameter_ranges_from_metadata(cfg.data.data_dir)
-                    cfg.model.criteria = {}
-
+                    # Build a Hydra-instantiable criteria dict instead of inserting objects
+                    criteria_cfg: Dict[str, Any] = {}
                     for param_name in parameter_names:
-                        if param_name in param_ranges:
-                            param_range = param_ranges[param_name]
-                            cfg.model.criteria[param_name] = NormalizedRegressionLoss(
-                                param_range=param_range
-                            )
-                        else:
-                            # Fallback range if not found
-                            cfg.model.criteria[param_name] = NormalizedRegressionLoss(
-                                param_range=(0.0, 1.0)
-                            )
+                        param_range = param_ranges.get(param_name, (0.0, 1.0))
+                        criteria_cfg[param_name] = {
+                            "_target_": "src.models.losses.NormalizedRegressionLoss",
+                            "param_range": (
+                                tuple(param_range)
+                                if isinstance(param_range, (list, tuple))
+                                else (0.0, float(param_range))
+                            ),
+                        }
+
+                    with open_dict(cfg.model):
+                        cfg.model.criteria = OmegaConf.create(criteria_cfg)
 
                     log.info(
-                        f"Auto-configured regression loss functions for: {list(cfg.model.criteria.keys())}"
+                        f"Auto-configured regression loss functions for: {list(criteria_cfg.keys())}"
                     )
                 except Exception as e:
                     log.warning(f"Failed to configure regression losses: {e}")
@@ -162,13 +166,15 @@ def _configure_vimh_model_config(cfg: DictConfig) -> None:
                             name: weight / max_weight for name, weight in loss_weights.items()
                         }
 
-                    cfg.model.loss_weights = loss_weights
+                    with open_dict(cfg.model):
+                        cfg.model.loss_weights = loss_weights
                     log.info(
                         f"Auto-configured JND-based loss_weights (normalized): {cfg.model.loss_weights}"
                     )
                 except Exception as e:
                     # Fallback to equal weights
-                    cfg.model.loss_weights = {name: 1.0 for name in parameter_names}
+                    with open_dict(cfg.model):
+                        cfg.model.loss_weights = {name: 1.0 for name in parameter_names}
                     log.warning(f"Failed to calculate JND-based weights, using equal weights: {e}")
                     log.info(f"Auto-configured loss_weights: {cfg.model.loss_weights}")
     except Exception as e:
@@ -202,6 +208,18 @@ def _preflight_check_label_diversity(
         except Exception as e:
             # If setup fails (e.g., dataset missing), don't proceed with preflight
             raise
+
+        # Skip this check for regression label mode where labels are continuous
+        try:
+            if hasattr(datamodule, "hparams"):
+                label_mode = str(
+                    getattr(datamodule.hparams, "label_mode", "classification")
+                ).lower()
+                if label_mode == "regression":
+                    log.info("Preflight skipped: regression label mode (continuous targets)")
+                    return
+        except Exception:
+            pass
 
         loader = datamodule.train_dataloader()
         if loader is None:
@@ -349,7 +367,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     if cfg.get("test"):
         log.info("Starting testing!")
-        ckpt_path = trainer.checkpoint_callback.best_model_path
+        ckpt_path = cfg.get("ckpt_path") or trainer.checkpoint_callback.best_model_path
         if ckpt_path == "":
             log.warning("Best ckpt not found! Using current weights for testing...")
             ckpt_path = None
