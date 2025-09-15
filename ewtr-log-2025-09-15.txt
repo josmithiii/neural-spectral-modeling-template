@@ -1,0 +1,111 @@
+<jos@josmp25:/l/nt> make ewtr
+Dataset already exists: ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
+ls ./data/
+vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p	vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
+time python src/train.py experiment=wah_cnn_tiny_regression
+[2025-09-15 04:27:43,600][src.utils.utils][INFO] - [rank: 0] Enforcing tags! <cfg.extras.enforce_tags=True>
+[2025-09-15 04:27:43,602][__main__][INFO] - [rank: 0] ============================================================
+[2025-09-15 04:27:43,602][__main__][INFO] - [rank: 0] MODEL CONFIG:     cnn_tiny_regression (src.models.vimh_lit_module.VIMHLitModule)
+[2025-09-15 04:27:43,602][__main__][INFO] - [rank: 0] DATA CONFIG:      vimh (data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p)
+[2025-09-15 04:27:43,602][__main__][INFO] - [rank: 0] TRAINER CONFIG:   default (lightning.pytorch.trainer.Trainer)
+[2025-09-15 04:27:43,602][__main__][INFO] - [rank: 0] EXPERIMENT:       none
+[2025-09-15 04:27:43,602][__main__][INFO] - [rank: 0] TAGS:             ['wah', 'cnn_tiny', 'regression']
+[2025-09-15 04:27:43,602][__main__][INFO] - [rank: 0] SEED:             12345
+[2025-09-15 04:27:43,602][__main__][INFO] - [rank: 0] ============================================================
+Seed set to 12345
+[2025-09-15 04:27:43,604][__main__][INFO] - [rank: 0] Instantiating datamodule <src.data.vimh_datamodule.VIMHDataModule>
+[2025-09-15 04:27:43,604][__main__][INFO] - [rank: 0] Using spectrogram-appropriate transforms (no image augmentations)
+[2025-09-15 04:27:43,608][__main__][INFO] - [rank: 0] Configuring model with parameter names from dataset: ['log10_decay_time', 'wah_position']
+[2025-09-15 04:27:43,609][__main__][INFO] - [rank: 0] Auto-configured regression loss functions for: ['log10_decay_time', 'wah_position']
+[2025-09-15 04:27:43,609][__main__][INFO] - [rank: 0] Auto-configured JND-based loss_weights (normalized): {'log10_decay_time': 0.7222222222222222, 'wah_position': 1.0}
+[2025-09-15 04:27:43,609][__main__][INFO] - [rank: 0] Instantiating model <src.models.vimh_lit_module.VIMHLitModule>
+[2025-09-15 04:27:43,612][__main__][INFO] - [rank: 0] Model output mode: regression
+[2025-09-15 04:27:43,613][__main__][INFO] - [rank: 0] Model loss functions: {'log10_decay_time': 'NormalizedRegressionLoss', 'wah_position': 'NormalizedRegressionLoss'}
+[2025-09-15 04:27:43,613][__main__][INFO] - [rank: 0] Instantiating callbacks...
+[2025-09-15 04:27:43,613][src.utils.instantiators][INFO] - [rank: 0] Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2025-09-15 04:27:43,614][src.utils.instantiators][INFO] - [rank: 0] Instantiating callback <lightning.pytorch.callbacks.EarlyStopping>
+[2025-09-15 04:27:43,614][src.utils.instantiators][INFO] - [rank: 0] Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2025-09-15 04:27:43,615][src.utils.instantiators][INFO] - [rank: 0] Instantiating callback <lightning.pytorch.callbacks.ProgressBar>
+[2025-09-15 04:27:43,615][__main__][INFO] - [rank: 0] Instantiating loggers...
+[2025-09-15 04:27:43,615][src.utils.instantiators][INFO] - [rank: 0] Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2025-09-15 04:27:43,616][__main__][INFO] - [rank: 0] Instantiating trainer <lightning.pytorch.trainer.Trainer>
+Trainer already configured with model summary callbacks: [<class 'lightning.pytorch.callbacks.rich_model_summary.RichModelSummary'>]. Skipping setting a default `ModelSummary` callback.
+GPU available: True (mps), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+[2025-09-15 04:27:43,648][__main__][INFO] - [rank: 0] Logging hyperparameters!
+[2025-09-15 04:27:43,789][src.utils.architecture_utils][INFO] - Retrieved dataset metadata: ['heads_config', 'image_shape', 'num_train_samples', 'num_val_samples', 'num_test_samples', 'batch_size', 'num_workers', 'data_dir', 'format', 'version', 'dataset_name', 'output_format', 'height', 'width', 'channels', 'channel_labels', 'varying_parameters', 'parameter_names', 'train_samples', 'test_samples', 'total_samples', 'n_samples', 'sample_rate', 'duration', 'synth_type', 'image_size', 'parameter_mappings', 'fixed_parameters', 'pre_emphasis_coefficient', 'spectrogram_config', 'mel_config', 'label_encoding']
+[2025-09-15 04:27:43,789][src.utils.architecture_utils][WARNING] - Could not access CNN hyperparameters, using inference from model
+[2025-09-15 04:27:43,789][src.utils.architecture_utils][INFO] - Stored architecture metadata: {'type': 'CNN', 'input_channels': 1, 'conv1_channels': 16, 'conv2_channels': 32, 'fc_hidden': 64, 'dropout': 0.5, 'input_size': 32}
+[2025-09-15 04:27:43,790][__main__][INFO] - [rank: 0] Preflight skipped: regression label mode (continuous targets)
+[2025-09-15 04:27:43,790][__main__][INFO] - [rank: 0] Label preflight passed (diverse targets across heads)
+[2025-09-15 04:27:43,790][__main__][INFO] - [rank: 0] Starting training!
+Updated log10_decay_time regression loss with parameter bounds: (-1.0, 0.3)
+Updated wah_position regression loss with parameter bounds: (0.0, 0.9)
+┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┓
+┃    ┃ Name                               ┃ Type              ┃ Params ┃ Mode  ┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━┩
+│ 0  │ net                                │ SimpleCNN         │ 37.9 K │ train │
+│ 1  │ net.conv_layers                    │ Sequential        │  4.9 K │ train │
+│ 2  │ net.conv_layers.0                  │ Conv2d            │    160 │ train │
+│ 3  │ net.conv_layers.1                  │ BatchNorm2d       │     32 │ train │
+│ 4  │ net.conv_layers.2                  │ ReLU              │      0 │ train │
+│ 5  │ net.conv_layers.3                  │ MaxPool2d         │      0 │ train │
+│ 6  │ net.conv_layers.4                  │ Conv2d            │  4.6 K │ train │
+│ 7  │ net.conv_layers.5                  │ BatchNorm2d       │     64 │ train │
+│ 8  │ net.conv_layers.6                  │ ReLU              │      0 │ train │
+│ 9  │ net.conv_layers.7                  │ MaxPool2d         │      0 │ train │
+│ 10 │ net.conv_layers.8                  │ AdaptiveAvgPool2d │      0 │ train │
+│ 11 │ net.shared_features                │ Sequential        │ 32.8 K │ train │
+│ 12 │ net.shared_features.0              │ Flatten           │      0 │ train │
+│ 13 │ net.shared_features.1              │ Linear            │ 32.8 K │ train │
+│ 14 │ net.shared_features.2              │ ReLU              │      0 │ train │
+│ 15 │ net.shared_features.3              │ Dropout           │      0 │ train │
+│ 16 │ net.heads                          │ ModuleDict        │    130 │ train │
+│ 17 │ net.heads.log10_decay_time         │ Sequential        │     65 │ train │
+│ 18 │ net.heads.log10_decay_time.0       │ Linear            │     65 │ train │
+│ 19 │ net.heads.log10_decay_time.1       │ Sigmoid           │      0 │ train │
+│ 20 │ net.heads.wah_position             │ Sequential        │     65 │ train │
+│ 21 │ net.heads.wah_position.0           │ Linear            │     65 │ train │
+│ 22 │ net.heads.wah_position.1           │ Sigmoid           │      0 │ train │
+│ 23 │ train_metrics                      │ ModuleDict        │      0 │ train │
+│ 24 │ train_metrics.log10_decay_time_mae │ MeanAbsoluteError │      0 │ train │
+│ 25 │ train_metrics.wah_position_mae     │ MeanAbsoluteError │      0 │ train │
+│ 26 │ val_metrics                        │ ModuleDict        │      0 │ train │
+│ 27 │ val_metrics.log10_decay_time_mae   │ MeanAbsoluteError │      0 │ train │
+│ 28 │ val_metrics.wah_position_mae       │ MeanAbsoluteError │      0 │ train │
+│ 29 │ test_metrics                       │ ModuleDict        │      0 │ train │
+│ 30 │ test_metrics.log10_decay_time_mae  │ MeanAbsoluteError │      0 │ train │
+│ 31 │ test_metrics.wah_position_mae      │ MeanAbsoluteError │      0 │ train │
+│ 32 │ train_loss                         │ MeanMetric        │      0 │ train │
+│ 33 │ val_loss                           │ MeanMetric        │      0 │ train │
+│ 34 │ test_loss                          │ MeanMetric        │      0 │ train │
+│ 35 │ val_acc_best                       │ MaxMetric         │      0 │ train │
+└────┴────────────────────────────────────┴───────────────────┴────────┴───────┘
+Trainable params: 37.9 K
+Non-trainable params: 0
+Total params: 37.9 K
+Total estimated model params size (MB): 0
+Modules in train mode: 36
+Modules in eval mode: 0
+/Users/jos/w/neural-spectral-modeling-template/.venv/lib/python3.9/site-packages/lightning/pytorch/loggers/tensorboard.py:195: Could not log computational graph to TensorBoard: The `model.example_input_array` attribute is not set or `input_array` was not given.
+/Users/jos/w/neural-spectral-modeling-template/.venv/lib/python3.9/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=15` in the `DataLoader` to improve performance.
+/Users/jos/w/neural-spectral-modeling-template/.venv/lib/python3.9/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=15` in the `DataLoader` to improve performance.
+[2025-09-15 04:31:29,744][__main__][INFO] - [rank: 0] Starting testing!
+Updated log10_decay_time regression loss with parameter bounds: (-1.0, 0.3)
+Updated wah_position regression loss with parameter bounds: (0.0, 0.9)
+Restoring states from the checkpoint path at /Users/jos/w/neural-spectral-modeling-template/logs/train/runs/2025-09-15_04-27-43/checkpoints/epoch_050.ckpt
+Loaded model weights from the checkpoint at /Users/jos/w/neural-spectral-modeling-template/logs/train/runs/2025-09-15_04-27-43/checkpoints/epoch_050.ckpt
+/Users/jos/w/neural-spectral-modeling-template/.venv/lib/python3.9/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'test_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=15` in the `DataLoader` to improve performance.
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃        Test metric        ┃       DataLoader 0        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ test/log10_decay_time_mae │   0.050651565194129944    │
+│         test/loss         │   0.003685700474306941    │
+│   test/wah_position_mae   │   0.026090295985341072    │
+└───────────────────────────┴───────────────────────────┘
+[2025-09-15 04:31:29,966][__main__][INFO] - [rank: 0] Best ckpt path: /Users/jos/w/neural-spectral-modeling-template/logs/train/runs/2025-09-15_04-27-43/checkpoints/epoch_050.ckpt
+[2025-09-15 04:31:29,966][src.utils.utils][INFO] - [rank: 0] Output dir: /Users/jos/w/neural-spectral-modeling-template/logs/train/runs/2025-09-15_04-27-43
+[2025-09-15 04:31:29,966][src.utils.utils][INFO] - [rank: 0] Retrieved metric value! <val/mae_best=0.050651565194129944>
+      228.22 real       151.89 user        26.90 sys
+<jos@josmp25:/l/nt>

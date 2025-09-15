@@ -135,34 +135,59 @@ class CheckpointArchitectureReconstructor:
 
         hyper_parameters = checkpoint.get("hyper_parameters", {})
         architecture_metadata = hyper_parameters.get("architecture_metadata", {})
+        output_mode = hyper_parameters.get("output_mode", "classification")
+        parameter_names = None
+        if dataset_metadata and "parameter_names" in dataset_metadata:
+            parameter_names = list(dataset_metadata.get("parameter_names", []))
 
         # Try stored metadata first (preferred method)
         if architecture_metadata and architecture_metadata.get("type"):
-            return self._reconstruct_from_metadata(architecture_metadata, heads_config)
+            return self._reconstruct_from_metadata(
+                architecture_metadata,
+                heads_config,
+                output_mode=output_mode,
+                parameter_names=parameter_names,
+            )
 
         # Fallback to inference from weights
         log.warning(
             "No architecture metadata found in checkpoint, attempting inference from weights"
         )
         return self._reconstruct_from_weights(
-            checkpoint["state_dict"], heads_config, dataset_metadata
+            checkpoint["state_dict"],
+            heads_config,
+            dataset_metadata,
+            output_mode=output_mode,
+            parameter_names=parameter_names,
         )
 
     def _reconstruct_from_metadata(
-        self, metadata: Dict[str, Any], heads_config: Dict[str, int]
+        self,
+        metadata: Dict[str, Any],
+        heads_config: Dict[str, int],
+        output_mode: str = "classification",
+        parameter_names: Optional[List[str]] = None,
     ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Reconstruct model using stored architecture metadata."""
         arch_type = metadata["type"]
 
         if arch_type == "ViT":
-            return self._create_vit_from_metadata(metadata, heads_config)
+            return self._create_vit_from_metadata(metadata, heads_config, output_mode=output_mode)
         elif arch_type == "CNN":
-            return self._create_cnn_from_metadata(metadata, heads_config)
+            return self._create_cnn_from_metadata(
+                metadata,
+                heads_config,
+                output_mode=output_mode,
+                parameter_names=parameter_names,
+            )
         else:
             raise ArchitectureInferenceError(f"Unknown architecture type in metadata: {arch_type}")
 
     def _create_vit_from_metadata(
-        self, metadata: Dict[str, Any], heads_config: Dict[str, int]
+        self,
+        metadata: Dict[str, Any],
+        heads_config: Dict[str, int],
+        output_mode: str = "classification",
     ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Create ViT model from stored metadata."""
         from src.models.components.vision_transformer import VisionTransformer
@@ -196,7 +221,11 @@ class CheckpointArchitectureReconstructor:
         return net, config
 
     def _create_cnn_from_metadata(
-        self, metadata: Dict[str, Any], heads_config: Dict[str, int]
+        self,
+        metadata: Dict[str, Any],
+        heads_config: Dict[str, int],
+        output_mode: str = "classification",
+        parameter_names: Optional[List[str]] = None,
     ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Create CNN model from stored metadata."""
         from src.models.components.simple_cnn import SimpleCNN
@@ -219,6 +248,8 @@ class CheckpointArchitectureReconstructor:
             heads_config=heads_config,
             dropout=config.dropout,
             input_size=config.input_size,
+            output_mode=output_mode,
+            parameter_names=parameter_names if output_mode == "regression" else None,
         )
 
         return net, config
@@ -264,6 +295,8 @@ class CheckpointArchitectureReconstructor:
         state_dict: Dict[str, torch.Tensor],
         heads_config: Dict[str, int],
         dataset_metadata: Optional[Dict[str, Any]] = None,
+        output_mode: str = "classification",
+        parameter_names: Optional[List[str]] = None,
     ) -> Tuple[torch.nn.Module, ArchitectureConfig]:
         """Infer CNN architecture from weights."""
         if not dataset_metadata:
@@ -290,6 +323,8 @@ class CheckpointArchitectureReconstructor:
             heads_config=heads_config,
             dropout=self.default_dropout,
             input_size=cnn_params["input_size"],
+            output_mode=output_mode,
+            parameter_names=parameter_names if output_mode == "regression" else None,
         )
 
         config = ArchitectureConfig(
@@ -1716,7 +1751,7 @@ def evaluate_audio_reconstruction(cfg: DictConfig) -> Tuple[Dict[str, Any], Opti
 
         # Create evaluator and run evaluation
         evaluator = AudioReconstructionEvaluator(model, datamodule, device)
-        return _run_evaluation(cfg, evaluator)
+        return _run_evaluation(cfg, evaluator, ckpt_path)
 
     except CheckpointError as e:
         log.error(f"Checkpoint error: {e}")
@@ -1960,10 +1995,97 @@ def _load_compatible_weights(
         raise CheckpointError("No compatible weights found in checkpoint")
 
 
+def _print_evaluation_header(ckpt_path: str, evaluator: AudioReconstructionEvaluator) -> None:
+    """Print evaluation header with checkpoint and dataset information."""
+    import os
+    from pathlib import Path
+
+    print("\n" + "=" * 80)
+    print("🎵 AUDIO RECONSTRUCTION EVALUATION")
+    print("=" * 80)
+
+    # Checkpoint path and basic info
+    ckpt_name = Path(ckpt_path).name
+    ckpt_dir = Path(ckpt_path).parent
+    print(f"📁 Checkpoint: {ckpt_name}")
+    print(f"   Path: {ckpt_path}")
+
+    # Extract training run information from path
+    # Format: logs/train/runs/YYYY-MM-DD_HH-MM-SS/checkpoints/best.ckpt
+    path_parts = Path(ckpt_path).parts
+    run_info = None
+    for i, part in enumerate(path_parts):
+        if part == "runs" and i + 1 < len(path_parts):
+            run_info = path_parts[i + 1]
+            break
+
+    if run_info:
+        print(f"🏃 Training Run: {run_info}")
+
+    # Load checkpoint to get additional metadata
+    try:
+        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+
+        # Training dataset information
+        vimh_data = checkpoint.get("VIMHDataModule", {})
+        dataset_metadata = vimh_data.get("dataset_metadata", {})
+
+        if dataset_metadata:
+            dataset_name = dataset_metadata.get("dataset_name", "Unknown")
+            print(f"📊 Training Dataset: {dataset_name}")
+
+            # Dataset statistics
+            if "num_samples" in dataset_metadata:
+                print(f"   Samples: {dataset_metadata['num_samples']}")
+            if "sample_rate" in dataset_metadata:
+                print(f"   Sample Rate: {dataset_metadata['sample_rate']} Hz")
+            if "duration" in dataset_metadata:
+                print(f"   Duration: {dataset_metadata['duration']} s")
+            if "parameter_names" in dataset_metadata:
+                param_names = dataset_metadata["parameter_names"]
+                print(f"   Parameters: {', '.join(param_names)} ({len(param_names)} total)")
+
+        # Model information from hyperparameters
+        hyper_params = checkpoint.get("hyper_parameters", {})
+        if hyper_params:
+            output_mode = hyper_params.get("output_mode", "Unknown")
+            print(f"🤖 Model Output Mode: {output_mode}")
+
+            # Architecture metadata if available
+            arch_metadata = hyper_params.get("architecture_metadata", {})
+            if arch_metadata:
+                arch_type = arch_metadata.get("type", "Unknown")
+                print(f"   Architecture: {arch_type}")
+
+                # Architecture-specific details
+                if arch_type == "CNN":
+                    channels = arch_metadata.get("conv1_channels", "?")
+                    fc_hidden = arch_metadata.get("fc_hidden", "?")
+                    print(f"   Details: {channels} conv channels, {fc_hidden} FC hidden")
+                elif arch_type == "ViT":
+                    embed_dim = arch_metadata.get("embed_dim", "?")
+                    n_layers = arch_metadata.get("n_layers", "?")
+                    n_heads = arch_metadata.get("n_attention_heads", "?")
+                    print(f"   Details: {embed_dim}d embed, {n_layers} layers, {n_heads} heads")
+
+    except Exception as e:
+        log.warning(f"Could not read checkpoint metadata: {e}")
+
+    # Current evaluation dataset info
+    dataset_info = evaluator.dataset_info
+    test_size = len(evaluator.test_dataset)
+    print(f"🧪 Evaluation Dataset: {test_size} test samples")
+
+    print("=" * 80 + "\n")
+
+
 def _run_evaluation(
-    cfg: DictConfig, evaluator: AudioReconstructionEvaluator
+    cfg: DictConfig, evaluator: AudioReconstructionEvaluator, ckpt_path: str
 ) -> Tuple[Dict[str, Any], Optional[None]]:
     """Run the actual evaluation based on configuration."""
+    # Extract and display checkpoint information
+    _print_evaluation_header(ckpt_path, evaluator)
+
     num_samples = cfg.get("num_samples", 5)
     interactive = cfg.get("interactive", False)
     save_audio = cfg.get("save_audio", False)
