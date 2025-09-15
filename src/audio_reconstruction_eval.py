@@ -565,8 +565,17 @@ class AudioReconstructionEvaluator:
             )
 
             if is_regression:
-                # Direct regression output (should be in [0,1])
-                normalized_value = float(pred_tensor.item())
+                # Direct regression output – models emit sigmoid-activated [0,1]
+                # Be robust to tiny numerical drift and clamp to [0,1].
+                try:
+                    normalized_value = float(pred_tensor.item())
+                except Exception:
+                    normalized_value = float(pred_tensor)
+                # Safety clamp
+                if normalized_value < 0.0:
+                    normalized_value = 0.0
+                elif normalized_value > 1.0:
+                    normalized_value = 1.0
             else:
                 # Classification - convert class index to normalized value
                 if "num_classes" in mapping:
@@ -589,7 +598,11 @@ class AudioReconstructionEvaluator:
                             f"Parameter mapping for '{param_name}' missing 'num_classes' and 'step'; aborting."
                         )
                         sys.exit(1)
-                class_idx = int(pred_tensor.item())
+                # Allow plain numbers or 0-D tensors
+                try:
+                    class_idx = int(pred_tensor.item())
+                except Exception:
+                    class_idx = int(pred_tensor)
                 normalized_value = class_idx / (num_classes - 1)
 
             # Denormalize to actual parameter range

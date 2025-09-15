@@ -176,8 +176,15 @@ ewla exp-wah-large-aux: gdwl ## Train "large" (~1.4M) Hybrid CNN-MLP on dataset 
 ewt exp-wah-tiny: gdwl ## Train "tiny" (~41K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~10 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_tiny
 
+ewtq exp-wah-tiny-quick: gdwl ## Quick version ewt (exp-wah-tiny) to produce a checkpoint fast for testing (1 epoch, small dataset)
+	time python src/train.py experiment=wah_cnn_tiny trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
+
 ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (1.1M) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.2 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_tiny_regression
+
+# Quick variant of ewtr: 1 epoch on the small dataset to produce a checkpoint fast
+ewtrq exp-wah-tiny-regression-quick: gdws ## Quick regression run (1 epoch, small dataset) to produce a checkpoint fast
+	python src/train.py experiment=wah_cnn_tiny_regression trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
 ewta exp-wah-tiny-aux: gdwl ## Train "tiny" (~43K) Hybrib CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature
 	time python src/train.py experiment=wah_cnn_tiny_aux  # Result: hurts slightly - bug?  It helped in the regression case
@@ -257,6 +264,68 @@ evwtr eval-wah-tiny-regression: ## Evaluate latest wah_cnn_tiny_regression best 
 # AUDIO EVAL
 ae audio-eval: ## Eval latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py
 	python src/audio_reconstruction_eval.py
+
+# AUDIO-EVAL helpers: select specific runs/checkpoints quickly
+# - Use `make ae_reg` to open latest run tagged with "regression"
+# - Use `make ae_prev` to open the second most recent run (any experiment)
+# - Use `make ae_filter FILTER=<grep>` to open the latest run whose tags.log contains FILTER
+#   Examples:
+#     make aef FILTER=wah_cnn_tiny
+#     make aef FILTER=regression
+# - You can still override with CKPT=path/to/checkpoint.ckpt
+
+ae_reg audio-eval-regression: ## Audio-eval latest run with "regression" tag (auto-picks best/last ckpt)
+	@set -e; \
+	if [ -z "$(CKPT)" ]; then \
+		echo "[ae] Locating latest run tagged 'regression'..."; \
+		RUN_DIR=$$(for d in $$(ls -td logs/train/runs/* 2>/dev/null); do \
+			if [ -f $$d/tags.log ] && grep -qi "regression" $$d/tags.log; then echo $$d; break; fi; \
+		done); \
+		if [ -z "$$RUN_DIR" ]; then echo "No matching regression run found in logs/train/runs"; exit 1; fi; \
+		echo "[ae] Using run: $$RUN_DIR"; \
+		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
+		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		echo "[ae] Using checkpoint: $$CKPT_PATH"; \
+		python src/audio_reconstruction_eval.py ckpt_path=$$CKPT_PATH; \
+	else \
+		echo "[ae] Using checkpoint: $(CKPT)"; \
+		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
+	fi
+
+ae_prev audio-eval-previous: ## Audio-eval the second most recent run (any experiment)
+	@set -e; \
+	if [ -z "$(CKPT)" ]; then \
+		echo "[ae] Locating previous run (2nd newest)..."; \
+		RUN_DIR=$$(ls -td logs/train/runs/* 2>/dev/null | sed -n '2p'); \
+		if [ -z "$$RUN_DIR" ]; then echo "No previous run found in logs/train/runs"; exit 1; fi; \
+		echo "[ae] Using run: $$RUN_DIR"; \
+		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
+		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		echo "[ae] Using checkpoint: $$CKPT_PATH"; \
+		python src/audio_reconstruction_eval.py ckpt_path=$$CKPT_PATH; \
+	else \
+		echo "[ae] Using checkpoint: $(CKPT)"; \
+		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
+	fi
+
+ae_filter audio-eval-filter: ## Audio-eval latest run whose tags.log contains FILTER=...
+	@set -e; \
+	if [ -z "$(CKPT)" ]; then \
+		if [ -z "$(FILTER)" ]; then echo "Provide FILTER=... or CKPT=..."; exit 2; fi; \
+		echo "[ae] Locating latest run with filter '$(FILTER)'..."; \
+		RUN_DIR=$$(for d in $$(ls -td logs/train/runs/* 2>/dev/null); do \
+			if [ -f $$d/tags.log ] && grep -qi "$(FILTER)" $$d/tags.log; then echo $$d; break; fi; \
+		done); \
+		if [ -z "$$RUN_DIR" ]; then echo "No run matched FILTER='$(FILTER)'"; exit 1; fi; \
+		echo "[ae] Using run: $$RUN_DIR"; \
+		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
+		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		echo "[ae] Using checkpoint: $$CKPT_PATH"; \
+		python src/audio_reconstruction_eval.py ckpt_path=$$CKPT_PATH; \
+	else \
+		echo "[ae] Using checkpoint: $(CKPT)"; \
+		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
+	fi
 
 # CLEANING MAKE TARGETS
 
