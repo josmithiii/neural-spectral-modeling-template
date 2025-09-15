@@ -308,15 +308,33 @@ aep ae_prev audio-eval-previous: ## Audio-eval the second most recent run (any e
 		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
 	fi
 
-aef ae_filter audio-eval-filter: ## Audio-eval latest run whose tags.log contains FILTER=...
+aef ae_filter audio-eval-filter: ## Audio-eval latest run whose tags.log contains FILTER=... (optional EXCLUDE=...)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		if [ -z "$(FILTER)" ]; then echo "Provide FILTER=... or CKPT=..."; exit 2; fi; \
-		echo "[ae] Locating latest run with filter '$(FILTER)'..."; \
+		echo "[ae] Locating latest run with filter '$(FILTER)'$(if $(EXCLUDE), and excluding '$(EXCLUDE)',)..."; \
 		RUN_DIR=$$(for d in $$(ls -td logs/train/runs/* 2>/dev/null); do \
-			if [ -f $$d/tags.log ] && grep -qi "$(FILTER)" $$d/tags.log; then echo $$d; break; fi; \
+			if [ -f $$d/tags.log ] && grep -qi "$(FILTER)" $$d/tags.log $(if $(EXCLUDE),&& ! grep -qi "$(EXCLUDE)" $$d/tags.log,); then echo $$d; break; fi; \
 		done); \
 		if [ -z "$$RUN_DIR" ]; then echo "No run matched FILTER='$(FILTER)'"; exit 1; fi; \
+		echo "[ae] Using run: $$RUN_DIR"; \
+		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
+		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		echo "[ae] Using checkpoint: $$CKPT_PATH"; \
+		python src/audio_reconstruction_eval.py ckpt_path=$$CKPT_PATH; \
+	else \
+		echo "[ae] Using checkpoint: $(CKPT)"; \
+		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
+	fi
+
+ae_cls audio-eval-classification: ## Audio-eval latest classification run (exclude 'regression')
+	@set -e; \
+	if [ -z "$(CKPT)" ]; then \
+		echo "[ae] Locating latest classification run (excluding 'regression')..."; \
+		RUN_DIR=$$(for d in $$(ls -td logs/train/runs/* 2>/dev/null); do \
+			if [ -f $$d/tags.log ] && ! grep -qi "regression" $$d/tags.log; then echo $$d; break; fi; \
+		done); \
+		if [ -z "$$RUN_DIR" ]; then echo "No classification run found in logs/train/runs"; exit 1; fi; \
 		echo "[ae] Using run: $$RUN_DIR"; \
 		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
 		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \

@@ -1311,7 +1311,7 @@ class InteractiveAudioEvaluator:
                 self.axes[r, c] = self.fig.add_subplot(outer_gs[r, c])
 
         # Controls row spanning all columns
-        controls_gs = outer_gs[2, :].subgridspec(1, 6, width_ratios=[6, 1, 1, 1, 1, 1])
+        controls_gs = outer_gs[2, :].subgridspec(1, 7, width_ratios=[6, 1, 1, 1, 1, 1, 1])
 
         # Slider occupies most of the bottom strip
         ax_slider = self.fig.add_subplot(controls_gs[0, 0])
@@ -1321,9 +1321,10 @@ class InteractiveAudioEvaluator:
         ax_play_true = self.fig.add_subplot(controls_gs[0, 3])
         ax_play_pred = self.fig.add_subplot(controls_gs[0, 4])
         ax_copy = self.fig.add_subplot(controls_gs[0, 5])
+        ax_save = self.fig.add_subplot(controls_gs[0, 6])
 
         # Reduce visual clutter in control axes
-        for ax in [ax_slider, ax_prev, ax_next, ax_play_true, ax_play_pred, ax_copy]:
+        for ax in [ax_slider, ax_prev, ax_next, ax_play_true, ax_play_pred, ax_copy, ax_save]:
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
@@ -1340,12 +1341,14 @@ class InteractiveAudioEvaluator:
         self.btn_play_true = Button(ax_play_true, "Play True")
         self.btn_play_pred = Button(ax_play_pred, "Play Pred")
         self.btn_copy = Button(ax_copy, "Copy Info")
+        self.btn_save = Button(ax_save, "Save PNG")
 
         self.btn_prev.on_clicked(self.prev_sample)
         self.btn_next.on_clicked(self.next_sample)
         self.btn_play_true.on_clicked(self.play_true_audio)
         self.btn_play_pred.on_clicked(self.play_pred_audio)
         self.btn_copy.on_clicked(self.copy_status_info)
+        self.btn_save.on_clicked(self.save_figure)
 
         # Add keyboard navigation
         self.fig.canvas.mpl_connect("key_press_event", self.on_key_press)
@@ -1378,6 +1381,9 @@ class InteractiveAudioEvaluator:
         elif event.key == "right":
             # Right arrow key - go to next sample
             self.next_sample(None)
+        elif event.key.lower() == "s":
+            # Save figure
+            self.save_figure(None)
 
     def update_sample(self, val):
         """Update current sample from slider."""
@@ -1694,8 +1700,24 @@ class InteractiveAudioEvaluator:
             except Exception:
                 pass
 
+    def save_figure(self, event):
+        """Save current figure to PNG under audio_eval_results/ with timestamp."""
+        try:
+            import time
+            from pathlib import Path
+
+            out_dir = Path("audio_eval_results")
+            out_dir.mkdir(parents=True, exist_ok=True)
+            ts = time.strftime("%Y%m%d-%H%M%S")
+            run = getattr(self.evaluator, "run_name", "run") or "run"
+            fname = out_dir / f"ae_{run}_{ts}.png"
+            self.fig.savefig(str(fname), dpi=150)
+            print(f"[AE] Saved figure to {fname}")
+        except Exception as e:
+            print(f"[AE] Save figure failed: {e}")
+
     def play_true_audio(self, event):
-        """Play true audio with multiple playback options."""
+        """Play true audio with robust playback options."""
         if not self.current_results:
             print("⚠️  No audio data available")
             return
@@ -1706,99 +1728,13 @@ class InteractiveAudioEvaluator:
             sample_idx = self.current_results["sample_idx"]
 
             print(f"🎵 Playing true audio (Sample {sample_idx})")
-
-            # Try multiple playback options
-            success = False
-
-            # Option 1: Use sounddevice for direct playback (best for Mac command line)
-            try:
-                import sounddevice as sd
-
-                sd.play(audio, sample_rate)
-                sd.wait()  # Wait until playback is finished
-                success = True
-                print(f"   ✓ Played via sounddevice at {sample_rate} Hz")
-            except ImportError:
-                print("   sounddevice not available")
-            except Exception as e:
-                print(f"   sounddevice playback failed: {e}")
-
-            # Option 2: Jupyter/IPython display (only if sounddevice failed)
-            if not success and IPYTHON_AVAILABLE:
-                try:
-                    from IPython.display import display
-
-                    # Only use IPython if we're actually in a Jupyter environment
-                    try:
-                        # Check if we're in IPython without calling get_ipython directly
-                        import sys
-
-                        if "IPython" in sys.modules:
-                            display(ipd.Audio(audio, rate=sample_rate))
-                            success = True
-                            print(f"   ✓ Displayed via Jupyter")
-                    except Exception:
-                        # Not in IPython/Jupyter, skip this method
-                        pass
-                except Exception as e:
-                    print(f"   Jupyter playback failed: {e}")
-
-            # Option 3: Save to temporary file and use system player
-            if not success:
-                try:
-                    import platform
-                    import subprocess
-                    import tempfile
-
-                    # Create temporary wav file
-                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
-                        tmp_path = tmp_file.name
-
-                    try:
-                        import soundfile as sf
-
-                        sf.write(tmp_path, audio, sample_rate)
-
-                        # Try to play with system command
-                        system = platform.system()
-                        if system == "Darwin":  # macOS
-                            subprocess.run(["afplay", tmp_path], check=True)
-                        elif system == "Linux":
-                            subprocess.run(["aplay", tmp_path], check=True)
-                        elif system == "Windows":
-                            import os
-
-                            os.startfile(tmp_path)
-
-                        success = True
-                        print(f"   ✓ Played via system audio player")
-
-                    except Exception as e:
-                        print(f"   System player failed: {e}")
-                    finally:
-                        # Clean up temp file after a delay
-                        try:
-                            import os
-                            import time
-
-                            time.sleep(2)  # Wait for playback to start
-                            os.unlink(tmp_path)
-                        except:
-                            pass
-
-                except Exception as e:
-                    print(f"   Temp file playback failed: {e}")
-
-            if not success:
-                print("   ⚠️  No audio playback method available")
-                print("   💡 Try installing: pip install sounddevice")
-                print("   💡 Or run in Jupyter notebook for web audio")
+            self._play_audio_array(audio, sample_rate)
 
         except Exception as e:
             print(f"⚠️  Error playing true audio: {e}")
 
     def play_pred_audio(self, event):
-        """Play predicted audio with multiple playback options."""
+        """Play predicted audio with robust playback options."""
         if not self.current_results:
             print("⚠️  No audio data available")
             return
@@ -1809,96 +1745,101 @@ class InteractiveAudioEvaluator:
             sample_idx = self.current_results["sample_idx"]
 
             print(f"🎵 Playing predicted audio (Sample {sample_idx})")
+            self._play_audio_array(audio, sample_rate)
 
-            # Try multiple playback options
-            success = False
+        except Exception as e:
+            print(f"⚠️  Error playing predicted audio: {e}")
 
-            # Option 1: Use sounddevice for direct playback (best for Mac command line)
+    def _play_audio_array(self, audio, sample_rate: int) -> None:
+        """Centralized robust playback with OS-specific fallbacks."""
+        import platform, subprocess, tempfile, numpy as _np
+
+        system = platform.system()
+        audio = _np.asarray(audio, dtype=_np.float32)
+
+        # macOS: afplay first (often most reliable from CLI/Matplotlib)
+        if system == "Darwin":
             try:
-                import sounddevice as sd
-
-                sd.play(audio, sample_rate)
-                sd.wait()  # Wait until playback is finished
-                success = True
-                print(f"   ✓ Played via sounddevice at {sample_rate} Hz")
-            except ImportError:
-                print("   sounddevice not available")
-            except Exception as e:
-                print(f"   sounddevice playback failed: {e}")
-
-            # Option 2: Jupyter/IPython display (only if sounddevice failed)
-            if not success and IPYTHON_AVAILABLE:
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                    tmp_path = tmp.name
                 try:
-                    from IPython.display import display
-
-                    # Only use IPython if we're actually in a Jupyter environment
-                    try:
-                        # Check if we're in IPython without calling get_ipython directly
-                        import sys
-
-                        if "IPython" in sys.modules:
-                            display(ipd.Audio(audio, rate=sample_rate))
-                            success = True
-                            print(f"   ✓ Displayed via Jupyter")
-                    except Exception:
-                        # Not in IPython/Jupyter, skip this method
-                        pass
-                except Exception as e:
-                    print(f"   Jupyter playback failed: {e}")
-
-            # Option 3: Save to temporary file and use system player
-            if not success:
-                try:
-                    import platform
-                    import subprocess
-                    import tempfile
-
-                    # Create temporary wav file
-                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
-                        tmp_path = tmp_file.name
-
                     try:
                         import soundfile as sf
 
                         sf.write(tmp_path, audio, sample_rate)
+                    except Exception:
+                        from scipy.io import wavfile as _wav
 
-                        # Try to play with system command
-                        system = platform.system()
-                        if system == "Darwin":  # macOS
-                            subprocess.run(["afplay", tmp_path], check=True)
-                        elif system == "Linux":
-                            subprocess.run(["aplay", tmp_path], check=True)
-                        elif system == "Windows":
-                            import os
+                        _wav.write(tmp_path, sample_rate, (audio * 32767).astype(_np.int16))
+                    subprocess.run(["afplay", tmp_path], check=True)
+                    print("   ✓ Played via afplay")
+                    return
+                finally:
+                    import os, time as _t
 
-                            os.startfile(tmp_path)
+                    _t.sleep(0.25)
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+            except Exception as e:
+                print(f"   macOS afplay failed: {e}")
 
-                        success = True
-                        print(f"   ✓ Played via system audio player")
+        # Generic: sounddevice
+        try:
+            import sounddevice as sd
 
-                    except Exception as e:
-                        print(f"   System player failed: {e}")
-                    finally:
-                        # Clean up temp file after a delay
-                        try:
-                            import os
-                            import time
-
-                            time.sleep(2)  # Wait for playback to start
-                            os.unlink(tmp_path)
-                        except:
-                            pass
-
-                except Exception as e:
-                    print(f"   Temp file playback failed: {e}")
-
-            if not success:
-                print("   ⚠️  No audio playback method available")
-                print("   💡 Try installing: pip install sounddevice")
-                print("   💡 Or run in Jupyter notebook for web audio")
-
+            sd.play(audio, sample_rate)
+            sd.wait()
+            print("   ✓ Played via sounddevice")
+            return
         except Exception as e:
-            print(f"⚠️  Error playing predicted audio: {e}")
+            print(f"   sounddevice not available or failed: {e}")
+
+        # Jupyter/IPython
+        if IPYTHON_AVAILABLE:
+            try:
+                from IPython.display import display
+
+                display(ipd.Audio(audio, rate=sample_rate))
+                print("   ✓ Displayed via Jupyter")
+                return
+            except Exception as e:
+                print(f"   Jupyter playback failed: {e}")
+
+        # Linux/Windows system players
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                try:
+                    import soundfile as sf
+
+                    sf.write(tmp_path, audio, sample_rate)
+                except Exception:
+                    from scipy.io import wavfile as _wav
+
+                    _wav.write(tmp_path, sample_rate, (audio * 32767).astype(_np.int16))
+                if system == "Linux":
+                    subprocess.run(["aplay", tmp_path], check=True)
+                elif system == "Windows":
+                    import os
+
+                    os.startfile(tmp_path)
+                else:
+                    raise RuntimeError("No suitable system player")
+                print("   ✓ Played via system player")
+                return
+            finally:
+                import os, time as _t
+
+                _t.sleep(0.25)
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"   Fallback system player failed: {e}")
 
 
 @task_wrapper
