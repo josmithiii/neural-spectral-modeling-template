@@ -30,4 +30,4 @@ data:
 
 logger:
   tensorboard:
-    name: "wah_cnn_large_dataset"
+    name: "wah_cnn"

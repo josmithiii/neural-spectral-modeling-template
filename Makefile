@@ -167,14 +167,20 @@ emr exp-moog-resonance: gdmr ## Train CNN on high-resonance Moog dataset (8 para
 ew exp-wah: gdws ## Train CNN on dataset gdws (small sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn
 
-ewl exp-wah-large: gdwl ## Train "large" (~1.4M) CNN on dataset gdwl (large sawtooth + wah + decay envelope)
+ewl exp-wah-large: gdwl ## Train "large" (~1.4M) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~14 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_large
 
-ewt exp-wah-tiny: gdwl ## Train "tiny" (~41K) CNN on dataset gdwl (large sawtooth + wah + decay envelope)
+ewla exp-wah-large-aux: gdwl ## Train "large" (~1.4M) Hybrid CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature
+	time python src/train.py experiment=wah_cnn_large_aux
+
+ewt exp-wah-tiny: gdwl ## Train "tiny" (~41K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~10 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_tiny
 
-ewla exp-wah-large-aux: gdwl ## Train Hybrid CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature
-	time python src/train.py experiment=wah_cnn_large_aux
+ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (~41K) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~10 min to train on Mac MPS]
+	time python src/train.py experiment=wah_cnn_tiny_regression
+
+ewta exp-wah-tiny-aux: gdwl ## Train "tiny" (~43K) Hybrib CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature
+	time python src/train.py experiment=wah_cnn_tiny_aux  # Result: hurts slightly - bug?  It helped in the regression case
 
 ewe exp-wah-envelope: gdwe ## CNN training on dataset gdwe (gdw + ADSR wah control)
 	time python src/train.py experiment=wah_cnn_envelope
