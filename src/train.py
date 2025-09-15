@@ -72,11 +72,107 @@ from src.utils import (
 )
 from src.utils.architecture_utils import (
     ArchitectureMetadataExtractor,
-    configure_vimh_model,
     create_spectrogram_transforms,
 )
 
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+def _configure_vimh_model_config(cfg: DictConfig) -> None:
+    """Configure model config for VIMH datasets before instantiation.
+
+    This is a cleaner approach adopted from /l/av that modifies the config
+    before model instantiation rather than rebuilding the model afterward.
+    """
+    try:
+        from src.utils.vimh_utils import (
+            get_heads_config_from_metadata,
+            get_parameter_names_from_metadata,
+            load_vimh_metadata,
+        )
+
+        parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
+        if parameter_names and hasattr(cfg.model, "net"):
+            log.info(f"Configuring model with parameter names from dataset: {parameter_names}")
+
+            # Configure model based on output mode
+            if hasattr(cfg.model, "output_mode") and cfg.model.output_mode == "regression":
+                # For regression mode, set parameter_names in the network config
+                cfg.model.net.parameter_names = parameter_names
+                # Ensure output_mode is set at network level too
+                cfg.model.net.output_mode = "regression"
+            else:
+                # For classification/ordinal mode, use heads_config
+                heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
+                cfg.model.net.heads_config = heads_config
+
+            # Auto-configure regression loss functions for each parameter
+            if hasattr(cfg.model, "output_mode") and cfg.model.output_mode == "regression":
+                try:
+                    from src.models.losses import NormalizedRegressionLoss
+                    from src.utils.vimh_utils import get_parameter_ranges_from_metadata
+
+                    param_ranges = get_parameter_ranges_from_metadata(cfg.data.data_dir)
+                    cfg.model.criteria = {}
+
+                    for param_name in parameter_names:
+                        if param_name in param_ranges:
+                            param_range = param_ranges[param_name]
+                            cfg.model.criteria[param_name] = NormalizedRegressionLoss(
+                                param_range=param_range
+                            )
+                        else:
+                            # Fallback range if not found
+                            cfg.model.criteria[param_name] = NormalizedRegressionLoss(
+                                param_range=(0.0, 1.0)
+                            )
+
+                    log.info(
+                        f"Auto-configured regression loss functions for: {list(cfg.model.criteria.keys())}"
+                    )
+                except Exception as e:
+                    log.warning(f"Failed to configure regression losses: {e}")
+
+            # Auto-configure loss_weights using JND-based approach from /l/av
+            if (
+                not hasattr(cfg.model, "loss_weights")
+                or not cfg.model.loss_weights
+                or len(cfg.model.loss_weights) == 0
+            ):
+                try:
+                    metadata = load_vimh_metadata(cfg.data.data_dir)
+                    param_mappings = metadata.get("parameter_mappings", {})
+                    loss_weights = {}
+
+                    for param_name in parameter_names:
+                        if param_name in param_mappings:
+                            mapping = param_mappings[param_name]
+                            param_range = mapping["max"] - mapping["min"]
+                            step = mapping.get("step", 1.0)
+                            # Weight proportional to number of JND steps
+                            jnd_steps = param_range / step
+                            loss_weights[param_name] = float(jnd_steps)
+                        else:
+                            loss_weights[param_name] = 1.0
+
+                    # Normalize weights so maximum weight is 1.0
+                    if loss_weights:
+                        max_weight = max(loss_weights.values())
+                        loss_weights = {
+                            name: weight / max_weight for name, weight in loss_weights.items()
+                        }
+
+                    cfg.model.loss_weights = loss_weights
+                    log.info(
+                        f"Auto-configured JND-based loss_weights (normalized): {cfg.model.loss_weights}"
+                    )
+                except Exception as e:
+                    # Fallback to equal weights
+                    cfg.model.loss_weights = {name: 1.0 for name in parameter_names}
+                    log.warning(f"Failed to calculate JND-based weights, using equal weights: {e}")
+                    log.info(f"Auto-configured loss_weights: {cfg.model.loss_weights}")
+    except Exception as e:
+        log.warning(f"Failed to auto-configure model from dataset metadata: {e}")
 
 
 def _setup_datamodule_with_transforms(cfg: DictConfig) -> LightningDataModule:
@@ -178,25 +274,16 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # Setup datamodule with appropriate transforms
     datamodule: LightningDataModule = _setup_datamodule_with_transforms(cfg)
 
-    # For VIMH datasets, configure model with parameter names from metadata
+    # For VIMH datasets, configure model config BEFORE instantiation (cleaner approach from /l/av)
     if (
         "vimh" in cfg.data._target_.lower()
         and hasattr(cfg.model, "auto_configure_from_dataset")
         and cfg.model.auto_configure_from_dataset
     ):
-        # Note: model is instantiated below, so we'll configure it after instantiation
-        pass
+        _configure_vimh_model_config(cfg)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
-
-    # Configure VIMH model if needed (after instantiation)
-    if (
-        "vimh" in cfg.data._target_.lower()
-        and hasattr(cfg.model, "auto_configure_from_dataset")
-        and cfg.model.auto_configure_from_dataset
-    ):
-        configure_vimh_model(model, datamodule, cfg)
 
     # Log important model configuration details
     if hasattr(model, "output_mode"):

@@ -51,15 +51,13 @@ class SimpleCNN(nn.Module):
 
         # Handle configuration based on output mode
         if output_mode == "regression":
-            # For regression, we need parameter names
-            if not parameter_names:
-                if heads_config:
-                    parameter_names = list(heads_config.keys())
-                    self.parameter_names = parameter_names
-                else:
-                    raise ValueError("parameter_names must be provided for regression mode")
-            # Create heads_config for regression (each parameter gets 1 output)
-            heads_config = {name: 1 for name in parameter_names}
+            # For regression, we need parameter names (can be empty if auto-configured later)
+            if parameter_names:
+                # Create heads_config for regression (each parameter gets 1 output)
+                heads_config = {name: 1 for name in parameter_names}
+            else:
+                # Will be auto-configured later from dataset
+                heads_config = {}
         else:
             # Backward compatibility: convert old single-head config to multihead
             if heads_config is None:

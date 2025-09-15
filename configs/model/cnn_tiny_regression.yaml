@@ -18,6 +18,7 @@ scheduler:
 output_mode: regression
 
 # Criteria and loss_weights will be auto-configured from dataset metadata
+criteria: {}  # Will be auto-configured from dataset metadata
 loss_weights: {} # Will be auto-configured from dataset metadata
 
 net:
@@ -26,8 +27,8 @@ net:
   conv1_channels: 16
   conv2_channels: 32
   fc_hidden: 64
-  heads_config:
-    synth_param1: 10
+  output_mode: regression  # Enable regression mode at network level
+  parameter_names: []  # Will be auto-configured from dataset metadata
   dropout: 0.3
   input_size: 32
 

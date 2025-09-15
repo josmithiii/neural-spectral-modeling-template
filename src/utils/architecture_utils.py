@@ -365,6 +365,16 @@ def configure_vimh_model(model, datamodule, cfg) -> None:
             if hasattr(model, "output_mode") and model.output_mode == "regression":
                 # For regression mode, use parameter_names
                 model.net.parameter_names = parameter_names
+                # Update heads_config for regression (each parameter gets 1 output)
+                model.net.heads_config = {name: 1 for name in parameter_names}
+                # Update is_multihead based on new heads_config
+                model.net.is_multihead = len(model.net.heads_config) > 1
+                # Update the network's output_mode to match the model's output_mode
+                model.net.output_mode = model.output_mode
+
+                # Rebuild the network heads with the new configuration
+                if hasattr(model.net, "_rebuild_auxiliary_and_heads"):
+                    model.net._rebuild_auxiliary_and_heads()
 
                 # Auto-configure regression loss functions with parameter ranges
                 if hasattr(model, "criteria"):
@@ -376,13 +386,8 @@ def configure_vimh_model(model, datamodule, cfg) -> None:
                 model.net.heads_config = heads_config
 
             # Auto-configure loss_weights (equal weight for all parameters)
-            if (
-                not hasattr(model, "loss_weights")
-                or not model.loss_weights
-                or len(model.loss_weights) == 0
-            ):
-                model.loss_weights = {name: 1.0 for name in parameter_names}
-                log.info(f"Auto-configured loss_weights: {model.loss_weights}")
+            # For regression mode, replace loss_weights entirely with parameter names
+            model.loss_weights = {name: 1.0 for name in parameter_names}
 
         # Auto-configure auxiliary input size based on dataset auxiliary features
         if (
@@ -428,9 +433,8 @@ def _configure_regression_criteria(model, data_dir: str, parameter_names: list) 
 
         param_ranges = get_parameter_ranges_from_metadata(data_dir)
 
-        # Configure criteria for each parameter
-        if not hasattr(model, "criteria") or not model.criteria:
-            model.criteria = {}
+        # Clear old criteria and configure new ones for each parameter
+        model.criteria = {}
 
         for param_name in parameter_names:
             if param_name in param_ranges:

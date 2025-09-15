@@ -20,6 +20,14 @@ trainer:
   min_epochs: 20
   max_epochs: 200  # Reduced from 500 based on rapid convergence
 
+callbacks:
+  model_checkpoint:
+    monitor: "val/mae_best"
+    mode: "min"
+  early_stopping:
+    monitor: "val/mae_best"
+    mode: "min"
+
 model:
   optimizer:
     lr: 0.01  # Higher LR for faster initial learning
