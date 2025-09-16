@@ -1,0 +1,259 @@
+% included by stdlechdr.tex
+
+\providecommand{\twidth}{\textwidth}
+\providecommand{\captionwidth}{0.9\textwidth}
+\providecommand{\theight}{\textheight}
+
+\usepackage{epsfig}
+
+% Simplified figure macros
+
+\newcommand{\myfreqlabel}{\latex{\small}$\omega T$ (radians per sample)}
+\newcommand{\mysmallerfreqlabel}{\latex{\small}
+	Frequency $\omega T$ (rad/sample)}
+
+% Usage: \myFigure{num}{caption}
+\newcommand{\myFigure}[2]{
+	\begin{center}
+	\epsfig{file=eps/#1.eps} \\
+	  #2
+	\end{center}
+}
+
+% Usage: \myFigureRotate{name}{rotationAngle}{caption}
+\newcommand{\myFigureRotate}[3]{
+	\begin{makeimage}
+	\begin{center}
+	\epsfig{file=eps/#1.eps,angle=#2} \\
+	     #3
+	\end{center}
+	\end{makeimage}
+}
+
+% Usage: \myFigureRotateToWidth{name}{rotationAngle}{width}{caption}
+\newcommand{\myFigureRotateToWidth}[4]{
+	\begin{makeimage}
+	\begin{center}
+	\epsfig{file=eps/#1.eps,angle=#2,width=#3} \\
+	     #4
+	\end{center}
+	\end{makeimage}
+}
+
+% Usage: \myFigureRotateTwoToWidth{name1}{name2}{rotationAngle}{width}{caption}
+\newcommand{\myFigureRotateTwoToWidth}[5]{
+	\begin{makeimage}
+	\begin{center}
+        \minipage{\twidth}
+	  \epsfig{file=eps/#1.eps,angle=#3,width=#4}
+	  \epsfig{file=eps/#2.eps,angle=#3,width=#4} \\
+	     #5 % caption
+        \endminipage
+	%\resizebox{0.5 #4}{!}{\rotatebox{#3}{\includegraphics{\figdir/#1\figdotext}}}
+	\end{center}
+	\end{makeimage}
+}
+
+% Usage: \myFigureRotateToBox{name}{angle}{width}{height}{caption}
+\newcommand{\myFigureRotateToBox}[5]{
+	\begin{figure}[htbp]
+	\centering
+	\rotatebox{#2}{\resizebox{#4}{#3}{\includegraphics{eps/#1.eps}}} \\
+	     #5 % caption
+	\end{figure}
+}
+
+% FIXME: This crashes on a divide by zero the one time I tried it so far, while 'ToWidth' works fine:
+% Usage: \myFigureRotateToBox{name}{angle}{width}{height}{caption}
+\newcommand{\myFigureRotateToBoxFIXME}[5]{
+	\begin{makeimage}
+	\begin{center}
+	\epsfig{file=eps/#1.eps,angle=#2,width=#3,height=#4} \\
+	     #5 % caption
+	\end{center}
+	\end{makeimage}
+}
+
+\begin{htmlonly}
+% Usage: \myFigureToWidth{num}{width}{caption}
+\newcommand{\myFigureToWidth}[3]{
+    \begin{makeimage}
+    \begin{center}
+    \epsfig{file=eps/#1.eps,width=#2} \\
+	#3
+    \end{center}
+    \end{makeimage}
+}
+% Usage: \myFigureToBox{num}{width}{height}{caption}
+\newcommand{\myFigureToBox}[4]{
+    \begin{makeimage}
+    \begin{center}
+    \epsfig{file=eps/#1.eps,width=#2,height=#3} \\
+	#4
+    \end{center}
+    \end{makeimage}
+}
+\end{htmlonly}
+
+%\begin{latexonly}
+% Usage: \myFigureToWidth{num}{width}{caption}
+\newcommand{\myFigureToWidth}[3]{
+	\begin{center}
+	\epsfig{file=eps/#1.eps,width=#2} \\
+	  #3
+	\end{center}
+}
+% Usage: \myFigureToBox{num}{width}{height}{caption}
+\newcommand{\myFigureToBox}[4]{
+	\begin{center}
+	\epsfig{file=eps/#1.eps,width=#2,height=#3} \\
+	  #4
+	\end{center}
+}
+%\end{latexonly}
+
+
+% Usage: \myTexFigureNCAny{name}{extension}
+% We create .picture files by exporting from xfig in .latex mode
+\newcommand{\myTexFigureNCAny}[2]{
+	\begin{center}
+	\begin{figure}[h] % FIGURE ENV NECESSARY FOR HTML
+	\centering
+	\input fig/#1.#2
+	\label{fig:#1} % MUST GO AFTER CAPTION OR INSIDE ITS ARGUMENT
+	\end{figure}
+	\end{center}
+}
+
+% Usage: \myTexFigureAny{name}{extension}{caption}
+% We create .picture files by exporting from xfig in .latex mode
+\newcommand{\myTexFigureAny}[3]{
+	\begin{center}
+	\begin{figure}[h] % FIGURE ENV NECESSARY FOR HTML
+	\centering
+	\input fig/#1.#2
+	%\caption{#3} % Includes ``Figure N:''
+	\\ {\LARGE #3}
+	\label{fig:#1} % MUST GO AFTER CAPTION OR INSIDE ITS ARGUMENT
+	\end{figure}
+	\end{center}
+}
+
+\usepackage{epic}
+\usepackage{eepic}
+\usepackage{color} % xfig figures exporting pstex_t files need this
+%\usepackage{eepicemu}
+%\usepackage{pictex}
+
+% Usage: \myTexFigure{name}{caption}
+%\newcommand{\myTexFigure}[2]{\myTexFigureAny{#1}{eepic}{#2}} % default
+%\newcommand{\myTexFigure}[2]{\myTexFigureAny{#1}{latex}{#2}} % default
+% 12/16/2010/jos:
+\newcommand{\myTexFigure}[2]{\myFigure{#1}{#2}} % now using figtex2eps to autocreate .eps from .fig
+%\newcommand{\myTexFigure}[2]{\myTexFigureAny{#1}{pstex_t}{#2}} % default
+\newcommand{\myTexFigureNC}[1]{\myTexFigureNCAny{#1}{pstex_t}} % default
+
+
+% Usage: \myFigureScale{name}{scaleFactor}{caption}
+\newcommand{\myFigureScale}[3]{
+	\begin{center}
+	\epsfbox{eps/#1.eps} \\
+	     #3
+	\end{center}
+}
+
+% Usage: \myFigureScaleURL{name}{scaleFactor}{caption=URL anchor}{URL}
+\newcommand{\myFigureScaleURL}[4]{
+	\begin{center}
+	\htmlimage{map=../typical.map}
+	\epsfbox{eps/#1.eps} \\
+	     #3
+	\end{center}
+}
+
+% Usage: \myTwoFiguresToWidth{name1}{name2}{width}{caption1}{caption2}{caption}
+\newcommand{\myTwoFiguresToWidth}[6]{
+	\begin{figure}[htbp]
+	\centering
+	\subfigure[#4]{ % Top figure = first figure
+	   \epsfxsize=#3
+	   \epsfbox{eps/#1.eps}
+%  	   \label{fig:#1}
+	}
+	\subfigure[#5]{ % Bot figure = 2nd figure
+	   \epsfxsize=#3
+	   \epsfbox{eps/#2.eps}
+%  	   \label{fig:#2}
+	}
+%	\caption{#6}
+	\end{figure}
+}
+
+% Usage: \myTwoFiguresToBoxes{name1}{name2}{width}{sliceheight}{caption1}{caption2}{caption}
+\newcommand{\myTwoFiguresToBoxes}[7]{
+	\begin{figure}[htbp]
+	\centering
+	\subfigure[#5]{ % Top figure = first figure
+	   \epsfxsize=#3
+	   \epsfysize=#4
+	   \epsfbox{eps/#1.eps}
+  	   \label{fig:#1}
+	}
+	\subfigure[#6]{ % Bot figure = 2nd figure
+	   \epsfxsize=#3
+	   \epsfysize=#4
+	   \epsfbox{eps/#2.eps}
+  	   \label{fig:#2}
+	}
+%	\caption{#7}
+	\end{figure}
+}
+
+%======================== TABLE SUPPORT ========================
+
+% Usage: \myTable{Num[table prefix added]}{MultiLineCaption.}{table}
+\newcommand{\myTable}[3]{
+	\begin{table}[htbp]
+	\begin{center}
+	#3 \\
+	\parbox{5in}{#2}
+	\end{center}
+	\end{table}
+}
+
+% Usage: \myTableHere{MultiLineCaption.}{table}
+\newcommand{\myTableHere}[2]{
+	\begin{table}[h]
+	\begin{center}
+	#2 \\
+	\parbox{5in}{#1}
+	\end{center}
+	\end{table}
+}
+
+% =================== CODE LISTING SUPPORT ===================
+
+% The code env creates a code-listing box.
+%USAGE:
+%  \begin{code}{name}{caption}
+%  \begin{verbatim}
+%  ...
+%  \end{verbatim}
+%  \end{code}
+%
+% REQUIRES:
+% \usepackage{boxedminipage} % See p. 277 of LaTeX Companion
+
+\newenvironment{code}[2]{%LATEX VERSION
+\begin{figure}[htbp]
+\centering
+\gdef\currLabel{#1}\gdef\currCap{#2}
+\setlength{\fboxsep}{3mm}
+\begin{boxedminipage}{\captionwidth}
+\small  % 9/23/03
+}%
+{
+\end{boxedminipage}
+\parbox{\captionwidth}{{\small\caption{\currCap}\label{code:\currLabel}}}
+\end{figure}
+}

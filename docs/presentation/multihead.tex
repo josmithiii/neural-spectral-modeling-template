@@ -1,0 +1,35 @@
+\scalebox{0.7}{
+\begin{tikzpicture}[
+    node distance=0.8cm,
+    box/.style={rectangle, draw, thick, minimum width=2.5cm, minimum height=1.2cm, align=center, font=\Large\bfseries},
+    arrow/.style={-{Stealth[scale=1.5]}, thick},
+    input/.style={box, fill=cyan!30},
+    feature/.style={box, fill=green!60},
+    shared/.style={box, fill=yellow!30},
+    head1/.style={box, fill=red!60},
+    head2/.style={box, fill=pink!60},
+    head3/.style={box, fill=cyan!30}
+]
+
+% Main vertical chain
+\node[input] (input) {Input\\Image};
+\node[feature, below=of input] (feature) {Feature\\Extractor\\(CNN/ViT)};
+\node[shared, below=of feature] (shared) {Shared\\Features};
+
+% Three heads
+\node[head1, below left=1.5cm and 1.8cm of shared] (head1) {Head 1\\Digit\\Classification};
+\node[head2, below=1.5cm of shared] (head2) {Head 2\\Thickness\\Regression};
+\node[head3, below right=1.5cm and 1.8cm of shared] (head3) {Head 3\\Style\\Classification};
+
+% Arrows
+\draw[arrow] (input) -- (feature);
+\draw[arrow] (feature) -- (shared);
+\draw[arrow] (shared) -- (head1);
+\draw[arrow] (shared) -- (head2);
+\draw[arrow] (shared) -- (head3);
+
+% Title
+% \node[font=\LARGE\bfseries, above=0.5cm of input] {Multi-Head Neural Network Architecture};
+
+\end{tikzpicture}
+}

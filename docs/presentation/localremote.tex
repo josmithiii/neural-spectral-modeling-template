@@ -1,0 +1,41 @@
+% USAGE: Must have the following before including this:
+% \usepackage{etoolbox} % for \newtoggle et al
+% \newtoggle{local}
+% \toggletrue{local}
+% or
+% \togglefalse{local}
+
+
+% Works Acrobat Pro (fails Preview) using default \playcmd:
+%  \renewcommand{\soundpathroot}[1]{file:///k/s/}
+% Fails Acrobat Pro and Preview using default \playcmd:
+%   \renewcommand{\soundpathroot}[1]{../../s/}
+
+% Fails Mac OS X Acrobat Pro:
+% \renewcommand{\soundpathroot}[1]{../../s/} % or /k/s
+% \renewcommand{\playcmd}{run:play }
+
+% TRY \url:
+%\togglefalse{local} % AUDIO PLAYBACK NOT YET FIGURED OUT FOR THIS CASE - at least maybepause is turned off
+
+
+\iftoggle{local}{%
+  % See also /w/latex/stdprescommon.tex:617
+  \message{*** COMPILING IN LOCAL MODE for ACROBAT READER ***}
+  \newcommand{\maybepause}{\pause}
+  \renewcommand{\soundpathroot}{/w/s/}
+}{
+  % See also /w/latex/stdprescommon.tex:617
+   \message{*** COMPILING IN REMOTE MODE ***}
+   \newcommand{\maybepause}{}
+   \renewcommand{\soundpathroot}{https://ccrma.stanford.edu/~jos/wav/}
+   \renewcommand{\soundexamplewav}[2]{\href{\soundpathroot #2.wav}{#1}}
+  % Already have in /w/latex/stdprescommon.tex
+  % Global version (for posted PDF on arbitrary websites):
+  % \newcommand{\soundpathroot}[1]{http://ccrma.stanford.edu/~jos/}
+  % NOTE: You DO need the trailing slash above - don't know why
+  % \providecommand{\playcmd}{} % just use a bare URL, no ``command''
+}
+
+\newcommand{\mpause}{\maybepause}
+\newcommand{\mpitem}{\maybepause\item}

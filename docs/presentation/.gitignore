@@ -1,0 +1,22 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.bm
+*.dvi
+*.idx
+*.log
+*.pdf
+*.ps
+*.toc
+*.out
+*.nav
+*.snm
+
+# Temporary files
+*~
+*-autopp.*
+
+# OS files
+.DS_Store
+Thumbs.db

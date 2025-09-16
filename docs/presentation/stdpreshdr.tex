@@ -1,0 +1,161 @@
+% This file is included by each presentation
+
+%PRESENTATION:
+% POWERDOT HOME PAGE: https://ctan.org/pkg/powerdot?lang=en
+% POWERDOT DOC: https://ctan.math.utah.edu/ctan/tex-archive/macros/latex/contrib/powerdot/doc/powerdot.pdf
+%!\documentclass[style=fymajos,display=slides,mode=present]{powerdot}
+% PAPER=SMARTBOARD SOLVES THE CUTOFF-ON-THE-RIGHT PROBLEM but too much whitespace:
+% \documentclass[style=fymajos,paper=smartboard,mode=present]{powerdot}
+% Cut off on the right (maybe the default): \documentclass[style=fymajos,paper=screen,mode=present]{powerdot}
+% GOOD, but too wide: \documentclass[style=fymajos,paper=169,mode=present]{powerdot}
+% BEST SO FAR (not stretched wide, no cut-off on right):
+% Until 2023-08-26: \documentclass[style=fymajos,paper=a4paper,mode=present]{powerdot}
+% For 16:9 ratio needed by ADC:
+% Nice but probably wrong: \documentclass[style=fymajos,paper=smartboard,mode=present]{powerdot}
+%!
+\documentclass[style=fymajos,paper=smartboard,mode=present]{powerdot-jos}
+%\documentclass[style=fymajos-adcxg24,paper=smartboard,mode=present]{powerdot-jos} % ../inputs/powerdot-fymajos-adcxg24.sty
+%
+% WHEN ONLY BOTTOM-LEFT QUARTER OF SLIDE IS DISPLAYED:
+% cd /opt/local/etc/texmf/dvips/config/
+% sudo mv config.ps config.ps-prv
+% sudo cp -p /Users/jos/jos2p8/etc/macbookpro/config.ps .
+%
+% SHEESH!!
+%
+%HANDOUTS (about 2 pages per page):
+%!\documentclass[style=fymajos,mode=handout,display=slidesnotes]{powerdot}
+%POSTER (one per page, in color):
+% [NOTE: For DAFx09, I made "slide" equal "wideslide" for all]
+% Handouts: \documentclass[style=fymajos,mode=handout]{powerdot}
+% Color Handouts: \documentclass[style=fymajos,mode=print,display=slidesnotes,clock]{powerdot}
+%
+% VARIATIONS TRIED:
+%
+% Results in portrait-format page instead of landscape-format:
+%\documentclass[style=fymajos,landscape]{powerdot}
+%
+% Adapted from default:
+%\documentclass[style=jos,hlsections=true,clock]{powerdot}
+%
+% Kind of cool - toc on right, big EKS page too big, but really OK:
+%\documentclass[style=tycja,hlsections=true,clock]{powerdot}
+%
+% colors far too intense, robo-flashy dividers:
+%\documentclass[style=ikeda,hlsections=true,clock]{powerdot}
+%
+% Very nice - fonts and colors like my website
+% blue-white gradient does not make white fills stand out too much.
+% I like it!  Prefer not to use red for highlighted text, but darker blue.
+% I think I rank it #2 after adapted default
+%\documentclass[style=fymajos,clock]{powerdot}
+%
+% awful horizontal lines in background, red titles:
+%\documentclass[style=ciment,hlsections=true,clock]{powerdot}
+%
+% Yellow background (white fills stick out), rjust slide titles
+% nice pastel colors:
+%\documentclass[style=elcolors,hlsections=true,clock]{powerdot}
+%
+% Good, but quite red (could change):
+%\documentclass[style=husky,hlsections=true,clock]{powerdot}
+%
+% Very nice: CLIPS TOC NAV COL OVERFLOW BELOW!
+% No logo; top strip thicker => less vertical slide space
+% NEED LOGO and THINNER TOP STRIP:
+%\documentclass[style=horatio,hlsections=true,clock]{powerdot}
+%
+% No toc nav col, yellow-brown-green, white fills jump out in figs:
+%\documentclass[style=klope,hlsections=true,clock]{powerdot}
+\pdsetup{
+%  lf=\theTitle --- \theEvent,
+  lf=\theShortAuthor,
+  rf=\theShortEvent,
+%  theslide=\arabic{slide}~/~\pageref*{lastslide},
+%  theslide=\arabic{slide},
+%  trans=Wipe,
+%  trans=Glitter,
+%  trans=Fade,
+%  list={itemsep=2pt},
+% -noturn case: rf=\rotatebox{0}{\includegraphics[scale=.4]{ccrmalogo}},
+% -turn case:  rf=\rotatebox{-90}{\includegraphics[scale=.3]{ccrmalogo}},
+%  palette=Spring,
+%  randomdots,
+%  dprop={dotstyle=ocircle,linewidth=.25pt},
+%  dmindots=5,dmaxdots=5,
+%  dminsize=600pt,dmaxsize=700pt,
+%  dbright=50,
+  logohook=c,
+  logohook=tl,
+% original logopos={.505\slidewidth,.08\slideheight},
+% about centered:
+  logopos={.4\slidewidth,.08\slideheight},
+% left after name: logopos={.18\slidewidth,.08\slideheight},
+% about 3x char height:
+  logocmd={\includegraphics[scale=.5]{ccrmalogo}}
+% Smaller but upshifted a bit: logocmd={\includegraphics[scale=.3]{ccrmalogo}}
+}
+
+%\usepackage{fullpage}
+%\usepackage{makeidx}
+%\lefthand blank:
+\usepackage{fourier-orns}
+%Totally destroys PDF, although root can compile it: \usepackage{fourier}
+
+%\usepackage{helvet} % did not seem to help eps trouble: '-' is a box, as is \rho, etc.
+
+\input stdprescommon.tex % stdprescommon.tex
+\input stdlecfigures.tex % stdlecfigures.tex
+%\input stdmath.tex     % stdmath.tex
+%\input cktdefs.tex     % cktdefs.tex
+%\input operators.tex   % operators.tex
+
+% --- Add subtitle support on the title slide ---
+% Usage in main tex: \subtitle{Your subtitle}
+% This appends a styled subtitle below the main title on \maketitle.
+\makeatletter
+\providecommand{\@subtitle}{}
+\newcommand{\subtitle}[1]{\gdef\@subtitle{#1}}
+\let\pd@title@orig\pd@title
+\renewcommand{\pd@title}[1]{%
+  \pd@title@orig{#1}%
+  \par
+  \ifx\@subtitle\@empty\else
+    {\Large\itshape \@subtitle\par}%
+  \fi
+}
+\makeatother
+
+\title{\theTitle}
+
+\author{\otherFirstAuthors \ccrmahomepage{Julius O. Smith III}{jos}
+(\josemail)
+\otherTrailingAuthors \\
+\htmladdnormallink{Center for Computer Research in Music
+	and Acoustics (CCRMA)}{http://ccrma.stanford.edu/} \\
+\htmladdnormallink{Department of Music}{http://www.stanford.edu/group/Music/},
+	\htmladdnormallink{Stanford University}{http://www.stanford.edu/} \\
+Stanford, California 94305}
+
+\renewcommand{\fixme}[1]{}
+\renewcommand{\FIXME}[1]{}
+
+\renewcommand{\bookonly}[1]{} % book only; override stdcommon
+\renewcommand{\leconly}[1]{#1} % lecture overheads (or reader) only (not book)
+\renewcommand{\lcite}[1]{} % Suppress citation for lecture overheads
+\renewcommand{\lcitepp}[2]{}
+\renewcommand{\lecbook}[2]{#1}
+
+\newcommand{\oursection}[1]{\begin{slide}[\slideopts]{#1}}
+\newcommand{\oursubsection}[1]{\begin{slide}[\slideopts]{#1}}
+\newcommand{\oursubsubsection}[1]{\textbf{#1}}
+
+%\newcommand{\oursubsection}[1]{#1}
+%\providecommand{\sectops}{template=wideslide}
+%\providecommand{\sectops}{template=sectionwideslide}
+\providecommand{\sectopts}{}
+%\providecommand{\slideopts}{toc=} % no room for slide titles in nav col
+\providecommand{\slideopts}{}
+
+\newcommand{\CCRMA}{\htmladdnormallink{CCRMA}{https://ccrma.stanford.edu}}
+\newcommand*{\vcenteredhbox}[1]{\begingroup \setbox0=\hbox{#1}\parbox{\wd0}{\box0}\endgroup}

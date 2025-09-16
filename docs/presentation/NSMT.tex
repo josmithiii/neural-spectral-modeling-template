@@ -1,0 +1,166 @@
+%&latex
+
+\newcommand{\theTitle}{Python Templates for Neural Image Classification and Spectral Audio Processing}
+%\newcommand{\theSubTitle}{Lightning Hydra Template Extended}
+\newcommand{\theSubTitle}{Neural Spectral Modeling Template}
+\newcommand{\theShortTitle}{NSMT}
+\newcommand{\theEvent}{Audio Developer Conference Online (ADCxGather-2025)}
+\newcommand{\theShortEvent}{ADCxGather-2025} % --- September 26
+% NO ROOM: \newcommand{\theDate}{September 26, 2025}
+
+\input stdpreshdr.tex
+% WEAN: \input ../latex/wgtmac.tex
+\usepackage{xcolor}
+\usepackage{psfrag}
+\usepackage{graphicx}
+\usepackage{etoolbox} % for \newtoggle et al
+\newtoggle{paper}
+\togglefalse{paper}
+\usepackage{amsmath, amssymb}
+\usepackage[most]{tcolorbox}
+\usepackage{booktabs}
+\usepackage{tikz,pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta, positioning}
+
+\usepackage{makecell}
+
+\iftoggle{paper}{%
+\message{*** Using IEEE Reference format ***}
+\bibliographystyle{ieeetr} % Normal IEEE Transactions (in order of citation)
+}{
+}
+
+\newcommand{\theAuthor}{Julius O. Smith III}
+\newcommand{\theShortAuthor}{Julius O. Smith III}
+
+%\renewcommand{\mpause}{\pause} % maybe pause
+%\renewcommand{\mpause}{} % or not
+%\newcommand{\pitem}{\mpause\item}
+
+%HANDOUTS (includes \begin{note} envs - about 2 pages per page):
+%!\documentclass[style=fymajos,mode=handout,display=slidesnotes]{powerdot}
+
+\newtoggle{local}
+%\toggletrue{local} % presentation mode
+\togglefalse{local} % handout mode
+\input localremote.tex
+
+% NO ROOM: \date{\theDate}
+\date{}
+
+% Notation:
+\input macros.tex
+
+%\toggletrue{paper}
+\togglefalse{paper}
+\iftoggle{paper}{%
+  \message{*** COMPILING PAPER ***}
+  \newcommand{\papersection}{\section}
+  \newcommand{\mycite}{\cite} % normal LaTeX (for paper)
+}{
+  \message{*** COMPILING PRESENTATION ***}
+  \newcommand{\papersection}[2]{\begin{slide}{#1}#2\end{slide}}
+  \newcommand{\papersectionalt}[3]{\begin{slide}[toc=#1]{#2}#3\end{slide}}
+  \newcommand{\papersectionaltalt}[3]{\begin{slide}[toc=#2]{#1}#3\end{slide}}
+  \newcommand{\papersectionwide}[2]{\begin{wideslide}{#1}#2\end{wideslide}}
+  \newcommand{\papersectionwidewhite}[2]{\begin{wideslidewhite}{#1}#2\end{wideslidewhite}}
+  \newcommand{\papersectionHidden}[2]{\begin{slide}{#1}#2\end{slide}}
+  \newcommand{\mycite}{} % Disable citations for presentation
+}
+
+\title{\theTitle}
+
+\subtitle{\theSubTitle}
+
+\vspace{-1em}
+
+\author{\theAuthor\\
+CCRMA, Stanford University \\[8pt]
+\theEvent \\[10pt]
+\includegraphics[width=2cm]{eps/nsmt_qr_code.eps}\\[2pt]
+{\scriptsize github.com/josmithiii/neural-spectral-modeling-template}
+}
+
+\begin{document}
+
+\maketitle
+
+% ~8-10 slides planned:
+
+%\input LHTE-contents.tex
+\input NSMT-contents.tex
+
+%% % FIGURE EXAMPLE
+
+%% \begin{slide}[\slideopts,toc={CCRMA}]{\CCRMA\ occupies The Knoll on Stanford Campus}
+%%   \vspace{-2em}
+%%   \myFigureRotateToWidth{knoll}{-90}{0.7\twidth}{}
+%%   \centerline{(Originally home of the Stanford University President)}
+%%   \centerline{Stanford Campus Map}
+%% \end{slide}
+
+%% % SAME FIGURE WITH WHITE BACKGROUND
+
+%% \begin{slidewhite}[\slideopts,toc={CCRMA}]{\CCRMA\ occupies The Knoll on Stanford Campus}
+%%   \vspace{-2em}
+%%   \myFigureRotateToWidth{knoll}{-90}{0.7\twidth}{}
+%%   \centerline{(Originally home of the Stanford University President)}
+%%   \centerline{Stanford Campus Map}
+%% \end{slidewhite}
+
+%% % WIDE FIGURE EXAMPLE
+
+%% \begin{wideslide}[\slideopts,toc={McDermott}]{McDermott Lab Example: Kell et al., Neuron 2018}
+%%   \twocolumn{
+%%   \vspace{-2em}
+%%   \myFigureRotateToWidth{McDermottKell2018}{-90}{\twidth}{}
+%%   }{
+%%   \vspace{-2em}
+%%   \begin{itemize}
+%%     \mpitem \emph{Cochleagram} presented as an image input to the convolutional neural network (CNN)
+%%     \mpitem For word recognition and music genre classification, this 12-layer network emerged as best (out of 180 tried)
+%%     \mpitem The 1st 7 \emph{shared} layers were found to perform comparably with separate 12-layer networks
+%%     \mpitem Performs at human level, with similar errors
+%%     \mpitem Predicts fMRI responses in the audio cortex
+%%     \mpitem Outperforms previous spectrotemporal filter models of the audio cortex
+%%     \mpitem Cochleagram required for predicting human responses\\
+%%     \mpitem Perhaps the cochleagram can be replaced by vastly more natural data and training (evolution-equivalent)
+%%   \end{itemize}
+%% }
+%% \end{wideslide}
+
+%% \papersection{References}{
+%%   \BIT
+%%   \item
+%%   \item
+%%   \item
+%%   \EIT
+%% }
+
+%\bibliographystyle{ieeetr} % Already set in stdprescommon.tex
+
+% This does not work to split the references onto multiple successive slides - they all come out on one page:
+%% \papersection{References (2018-2021)}{
+%% \nocite{YeeKing2018,Barkan2019,Esling2019,MasudaSaito2021,Martinez2021}
+%% \bibliography{jos,ASA-2025-SynthMatch}
+%% }
+%% \papersection{References (2022-2024)}{
+%% \nocite{Steinmetz2022,Chen2022,MasudaSaito2023,Uzrad2024,Bruford2024}
+%% \bibliography{ASA-2025-SynthMatch}
+%% }
+
+\iftoggle{paper}{%
+  \nocite{*}
+  \bibliography{NSTM}
+}{
+  \message{*** REFERENCES SUPPRESSED FOR POWERDOT PRESENTATION ***}
+  % But if you really want some:
+  %% \papersection{References}{
+  %%   \nocite{YeeKing2018,Bruford2024}
+  %%   \bibliography{ASA-2025-SynthMatch}
+  %% }
+}
+
+\end{document}
+

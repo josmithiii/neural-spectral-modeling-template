@@ -1,0 +1,741 @@
+% FIXME: Unify with stdcommon.tex by creating
+% ./stdreallycommon.tex
+% and including it both here and there.
+
+% \batchmode
+
+% ------------------------ graphics -----------------------
+
+% Workaround for l2h-2K1 bug (incompatible with graphics package
+% resulting in images.tex lines with null arguments to includegraphics, e.g.,
+%       \includegraphics[]{eps/file.eps}
+%powerdot:\usepackage[dvips]{graphicx}
+%powerdot: jos: why was this commented out on 1/26/2010?:
+\graphicspath{{./eps/}{./fig/}}
+
+% Alternate workaround (according to l2h email)
+% = revert to older /l/l2h/styles/graphics.perl:
+%\usepackage[dvips]{graphics}
+
+\usepackage{subfigure} % New 4/2/05
+
+% ------------------------ index -----------------------
+
+\usepackage{makeidx} % I don't like the HTML version of this (keyword AND target title)
+
+% ------------------------ Misc -----------------------
+
+\usepackage{latexsym} % for \Box, \Diamond etc. See p. 42-43 of Lamport
+\usepackage{calc} % e.g., in mdftp/complex-problems.tex
+
+% Package order before 9/13/02 was
+%   makeidx,html,latexsym,boxedminipage, hyperref
+% However, html needs to go after hyperref, in principle.
+% BUT, then \url{} doesn't work, and \~{} comes out as ~{} unless it is used.
+% For now, let's not worry about broken links in PDF (or unwrapped captions
+% in the LOF).  I think the links that DO work outweigh the lost captions,
+% plus we can become more familiar with the quirks of hyperref.
+% OOPS - contents lines no longer wrap.  Suppressing hyperref for now.
+% Since comment env. defined in html.sty, order is reverted.
+
+% ------------------------ html -----------------------
+
+\usepackage{html}
+
+% From Ross Moore:
+% Supports ~jos and \~jos but not \~{}jos :
+%begin{latexonly}
+\newcommand{\htmladdnormallinkfootNewAPI}[2]{#1{\footnote{\htmlurl{#2}}}}
+%end{latexonly}
+
+% From Ross Moore:
+% Supports ~jos and \~jos AND \~{}jos :
+% Unfortunately, '_' must NOT be quoted as `\_'
+%begin{latexonly}
+\newcommand{\testtilde}[1]{%
+  \ifx\relax#1\relax\noexpand~\else\noexpand\~#1\fi}
+%
+\renewcommand{\htmladdnormallinkfoot}[2]{#1{\bgroup
+   \def~{\noexpand~}\let\~\testtilde
+   \edef\next{\egroup \def\noexpand\thisurl{#2}}\next
+  \expandafter\footnote\expandafter{\expandafter\htmlurl\expandafter
+    {\thisurl}}}}
+
+%\renewcommand{\htmladdnormallink}[2]{#1}
+
+%end{latexonly}
+
+%\renewcommand{\textunderscore}{_} % Needed when above is used
+
+% ------------------------ hyperref -----------------------
+\begin{comment} % NOT COMPATIBLE WITH pdfetex USING OPTIONS BELOW
+                % Error = ``missing \begin{document}''
+\usepackage[
+%	\latexhtml{dvips}{latex2html},
+	dvips,
+	linktocpage, % link only page number in TOC (dvips does not support breaking links across lines)
+% said to be obsolete now:
+%       latex2html,
+	bookmarks,
+        hidelinks, % REQUIRED 2019-11-12 to prevent links being buried under block of color (html.sty must go AFTER this or edited)
+        % colorlinks=false, % not enough to bypass above bug
+        % colorlinks=true, % how to make gray?
+	bookmarksopen=true, %open all bookmark folders
+%	bookmarksnumbered, %use section numbers with bookmarks
+ 	pdfpagemode=UseOutlines, %show bookmarks
+	pdfstartview={FitV 0}
+%       pdfstartview={FitV \hypercalcbp{\oddsidemargin+1in}}
+%	\Acrobatmenu{GoBack}{$\Longleftarrow$}
+%	\Acrobatmenu{FitWidth}{$\Longleftrightarrow$}
+%	\Acrobatmenu{FitPage}{$\updownarrow$}
+%	\Acrobatmenu{GoForward}{$\Longrightarrow$}
+	]{hyperref}
+\end{comment}
+
+% hyperref defines \slabel in connection with subequation labels,
+% which I don't use.  (See /usr/share/texmf/tex/latex/hyperref/nameref.sty )
+% If ever we need them, must rename \slabel
+% to \seclabel or something like that.
+%\renewcommand{\slabel}[1]{\label{sec:#1}} % doesn't work
+%\providecommand{\thesubequation}{} % CHANGE \slabel to \seclabel !!
+
+% ------------------------ multicol -----------------------
+
+\usepackage{multicol} % See p. 76 of LaTeX Companion
+\setlength{\columnseprule}{0.4pt}
+\setlength{\columnsep}{10pt} % plus 1000pt}
+
+% ------------------------ boxes -----------------------
+
+%begin{latexonly}
+\usepackage{boxedminipage} % See p. 277 of LaTeX Companion
+%\usepackage{tex4ht} % See LaTeX Web Companion
+%end{latexonly}
+%NOTE:
+%Package fancybox INCOMPATIBLE WITH TABLE OF CONTENTS in ``Article'' mode.
+%(causes only the word ``Contents'' to appear)
+%This is a KNOWN BUG! See /usr/share/texmf/tex/latex/misc/fancybox.sty
+%It does not seem to strike in book mode.
+%See stdfigs-*.tex / \newenvirontment{code}... for where we need it.
+%Working around it results in code-figure captions PRECEDING the code figure.
+%\usepackage{fancybox} % VerbatimEnvironment (see p. 278 of LaTeX Companion)
+
+% SELECT FONT
+%\renewcommand{\familydefault}{cmss}
+%%\renewcommand{\familydefault}{grarial}
+
+% ========== DEFAULT CASE =============
+%! IEEE STYLE, SORTED BY AUTHOR:
+% joscv comments this out:
+%ASA25:
+%\bibliographystyle{ieeetrsort} % refs420, refs421, all books, etc.
+% WARNING: When this is commented out, books will have empty footnode.html files
+
+% THIS CAN NO LONGER BE HERE BECAUSE IT DEPENDS ON A TOGGLE:
+%% \iftoggle{paper}{%
+%% \message{*** Using IEEE Reference format ***}
+%% \bibliographystyle{ieeetr} % Normal IEEE Transactions (in order of citation)
+%% }{
+%% }
+
+%\def\dodoi#1{doi: \href{https://doi.org/#1}{\nolinkurl{#1}}}
+%\bibliographystyle{jasaauthyear2} % JASA
+%\bibliographystyle{jasanum2} % JASA
+
+% Standard IEEE STYLE: SORTED BY DATE:
+%!\bibliographystyle{ieee} % Faculty Report
+%\newcommand{\citename}[1]{#1} % needed with article.sty
+
+% Other Bibliography and citation styles:
+%TEMP\usepackage{apalike}
+%TEMP\bibliographystyle{apalike}
+
+%\bibliographystyle{cmj}
+%\newcommand{\citename}[1]{#1} % needed to use cmj.bst with article.sty
+
+%begin{latexonly}
+\newcommand{\makenavtoc}{}
+%end{latexonly}
+\begin{htmlonly}
+\newcommand{\makenavtoc}{
+{\bfseries Detailed Contents (and Navigation)}
+\tableofchildlinks
+}
+\end{htmlonly}
+
+
+\begin{latexonly}
+\hyphenation{wave-guide wave-guides im-ped-ance arc-tangent re-verb-er-a-tion pro-posed sin-u-soid proj-ect-ion exp-on-ent-ially comp-u-ta-tion-al sin-u-soid-al-ly damp-ers dif-fers amp-li-tude band-limited band-limit dis-crete}
+\end{latexonly}
+
+%defined in stddefs.tex
+%\newcommand{\ccrmahomepage}[2]{\htmladdnormallink{#1}{http://ccrma.stanford.edu/~#2}}
+
+%begin{latexonly}
+\newcommand{\josemail}{\texttt{jos@ccrma.stanford.edu}}
+%end{latexonly}
+\begin{htmlonly}
+\newcommand{\josemail}{jos at ccrma} % {http://www.w3k.org/cgi-bin/register.cgi?email\_jos}
+\end{htmlonly}
+
+\newcommand{\Comment}[1]{}
+% \renewcommand{\Comment}[1]{\emph{$\ll$ COMMENT: #1$\gg$}}
+\providecommand{\rmk}[1]{\emph{$\ll$ REMARK: #1 $\gg$ }}
+\providecommand{\fixme}[1]{\emph{$\ll$ FIXME: #1$\gg$}}
+%\newcommand{\rmk}[1]{}
+%\newcommand{\fixme}[1]{}
+
+\makeindex
+
+%\providecommand{\isdeftext}{\buildrel{\lower5pt\mbox{\scriptscriptstyle\mathrm{\Delta}}}}\over{\scriptstyle=}}
+\providecommand{\isdeftext}{\mathrel{\stackrel{\scriptscriptstyle\mathrm{\Delta}}{\scriptstyle=}}}
+\providecommand{\isdef}{\mathrel{\stackrel{\mathrm{\Delta}}{=}}}
+\providecommand{\isdefs}{\;\isdef\;}
+\providecommand{\eqsp}{\;=\;}
+%Absurd in lecture overheads in which current fontsize is huge:
+% \providecommand{\isdef}{\buildrel\mbox{\tiny $\Delta$}\over=}
+
+% Chapter label and index entry: Due to l2h bug, these
+% must be defined only when chapters are actually used.
+% See ./stdbookhdr.tex
+
+% For referring to itemized list items:
+\newcommand{\ilabel}[1]{\label{item:#1}}
+\providecommand{\iref}[1]{\ref{item:#1}}
+
+% Specifically for problems ( = items ):
+\newcommand{\plabel}[1]{\label{item:#1}}
+\providecommand{\pref}[1]{Problem~\ref{item:#1}}
+\newcommand{\ppageref}[1]{page~\pageref{item:#1}}
+\providecommand{\ppref}[1]{\pref{#1}\latex{\ on \ppageref{#1}}}
+% FIXME: We would prefer a hyperlink in the HTML case:
+\providecommand{\sppref}[1]{\latex{\ (see \ppref{#1})}}
+\providecommand{\Sppref}[1]{\latex{(See \ppref{#1}.)}}
+
+% section label and index entry
+\newcommand{\seclabel}[1]{\label{sec:#1}}
+\newcommand{\slabel}[1]{\label{sec:#1}} % deprecated (used by hyperref)
+\newcommand{\kslabel}[2]{\seclabel{#1}\index{#2|textbf}}
+%\newcommand{\kslabel}[2]{\index{\protect\label{index#1}#2|textbf}}
+%%\newcommand{\kslabel}[2]{\label{sec:#1}{\index{{\bfseries #2}}}}
+
+% \ksection{slabel}{index entry}{title}
+% USAGE: \ksection{delayeffects}{delay effects}{Delay Effects}
+%JOS:TEMP HACK:\newcommand{\ksection}[3]{\section{#3}\seclabel{#1}\index{#2|textbf}}
+%GETS EXTRA <BR>:\newcommand{\ksection}[3]{\section{#3}\index{#2|textbf}}
+\newcommand{\ksection}[3]{\section{#3}\seclabel{#1}}
+\newcommand{\ksectionalt}[4]{\section[#4]{#3}\seclabel{#1}\index{#2|textbf}}
+
+% subsection label and index entry
+\newcommand{\sslabel}[1]{\label{sec:#1}}
+\newcommand{\ksslabel}[2]{\sslabel{#1}\index{#2|textbf}}
+%\newcommand{\ksslabel}[2]{\sslabel{#1}\index{\protect\label{index#1}#2|textbf}}
+% \ksubsection{sslabel}{index entry}{title}
+% USAGE: \ksubsection{delayeffects}{delay effects}{Delay Effects}
+\newcommand{\ksubsection}[3]{\subsection{#3}\seclabel{#1}\index{#2|textbf}}
+\newcommand{\ksubsectionstar}[2]{\subsection*{#2}\index{#1|textbf}}
+\newcommand{\ksubsectionalt}[4]{\subsection[#4]{#3}\seclabel{#1}\index{#2|textbf}}
+\newcommand{\ksubsubsection}[3]{\subsubsection{#3}\seclabel{#1}\index{#2|textbf}}
+\newcommand{\ksubsubsectionalt}[4]{\subsubsection[#4]{#3}\seclabel{#1}\index{#2|textbf}}
+% vpsace & noindent added 2/10/04:
+\newcommand{\ksubsubsectionstar}[2]{\vspace{\baselineskip}\noindent\subsubsection*{#2}\index{#1|textbf}}
+% vpsace & noindent added 2/10/04:
+%DON'T USE *subsubsub* BECAUSE IT LOOKS BAD AND ISN'T NEEDED.  JUST USE MORE *subsub* (not in contents)
+%\newcommand{\ksubsubsubsection}[3]{\vspace{\baselineskip}\noindent\subsubsubsection{#3}\seclabel{#1}\index{#2|textbf}}
+
+%NEED TO STRIP OUT BLANKS:\newcommand{\kdef}[1]{\emph{#1}\index{\label{index#1}#1}}
+\newcommand{\kemph}[1]{\emph{#1}\index{#1}} % secondary ``usage''
+\newcommand{\kdef}[1]{\emph{#1}\index{#1|textbf}}  % primary definition
+\newcommand{\kdefl}[2]{\emph{#1}\index{#1}} % Arg 2 = ``level''
+	% Levels: hs = highschool
+\newcommand{\kdefprepend}[2]{\emph{#2}\index{#1#2}}
+\newcommand{\kdefappend}[2]{\emph{#1}\index{#1#2}}
+\newcommand{\kdefne}[1]{#1\index{#1}}
+\newcommand{\addindex}[1]{#1\index{#1}} % will not change, kdefne might
+\newcommand{\kdefneq}[1]{\index{#1}}
+\newcommand{\kdefq}[1]{\index{#1|textbf}}
+\newcommand{\kdefgeneral}[2]{#1\index{#2}}
+%Usage: \kdef[ models]{lumped} => \emph{lumped}\index{lumped models}
+\newcommand{\xkdef}[2][]{\emph{#2}\index{#1#2}}
+\newcommand{\kindex}[1]{\index{#1}} % CHANGE TO \krefiq
+\newcommand{\kwish}[1]{#1\message{*** Please define '#1' somewhere ***}}
+\newcommand{\kwishq}[1]{\message{*** Please define '#1' somewhere ***}}
+\newcommand{\kref}[1]{#1}
+\newcommand{\krefe}[1]{\emph{#1}}
+%
+% If cannot ignore non-bold indices in l2h:
+%\newcommand{\krefi}[1]{#1}
+%\newcommand{\krefiq}[1]{}
+%\newcommand{\krefei}[1]{\emph{#1}}
+\newcommand{\krefi}[1]{#1\index{#1}}
+\newcommand{\krefiq}[1]{\index{#1}}
+\newcommand{\krefei}[1]{\emph{#1}\index{#1}}
+%
+\newcommand{\ksetcontext}[1]{\fixme{How to set K context?}}
+
+% knolink - Inhibit linking - FIXME: HTML is correct but appdict does not prevent links
+\newcommand{\knolink}[1]{\html{\begin{rawhtml}<NOLINKS>\end{rawhtml}}#1\html{\begin{rawhtml}</NOLINKS>\end{rawhtml}
+}}
+
+%DON'T USE *subsubsub* BECAUSE IT LOOKS BAD AND ISN'T NEEDED.  JUST USE MORE *subsub* (not in contents)
+%\providecommand{\subsubsubsection}[1]{\vspace{2pt}\textbf{#1.\ }\relax}
+\providecommand{\hlink}[1]{\htmladdnormallink{#1}{#1}}
+
+%2/7/03/jos: \newcommand{\credit}[1]{\latexhtml{\footnotetext{#1}}{(#1)}}
+%begin{latexonly}
+\newcommand{\credit}[1]{\footnotetext{#1}}
+%end{latexonly}
+\begin{htmlonly}
+\newcommand{\credit}[1]{(#1)}
+\end{htmlonly}
+
+\newcommand{\titlecredit}[1]{\latex{\thanks{#1}}}
+
+% Problem: l2h gets fouled up on \BIT, use of \providecommand may be why.
+% See ``filters'' at CCRMA:
+%	http://ccrma.stanford.edu/~jos/filters/Minimum_Phase_MP.html
+
+\newcommand{\BITI}{\begin{itemize}[type=0]}
+\newcommand{\pitem}{\pause\item}
+\newcommand{\BIT}{\begin{itemize}[type=1]}
+%\renewcommand{\BIT}{\begin{itemize}[type=1]}
+\newcommand{\EIT}{\end{itemize}}
+\newcommand{\BNUM}{\begin{enumerate}[type=1]}
+\newcommand{\ENUM}{\end{enumerate}}
+\newcommand{\bnum}{\begin{enumerate}}
+\newcommand{\enum}{\end{enumerate}}
+
+% Compact versions
+
+%begin{latexonly}
+\newcommand{\BITC}{\begin{list}{$\bullet$}{\itemsep0pt\parsep0pt}}
+%\newcommand{\BITC}{\begin{list}{$\bullet$}{\itemsep0pt\parsep0pt\topsep0pt}}
+\newcommand{\EITC}{\end{list}}
+% INSTEAD, USE \BITC \item[1.] ... ETC.:
+\newcommand{\BNUMC}{\begin{enumerate}\itemsep0pt\parsep0pt} % DOES NOT WORK
+\newcommand{\ENUMC}{\end{enumerate}}
+%end{latexonly}
+
+\begin{htmlonly}
+\newcommand{\BITC}{\BIT}
+\newcommand{\EITC}{\EIT}
+\newcommand{\BNUMC}{\BNUM}
+\newcommand{\ENUMC}{\ENUM}
+\end{htmlonly}
+
+% Moved here from stdmath.tex 1/18/00
+%9/13/02/jos: fouls hyperref: \newcommand{\eref}[1]{Eq.~(\protect\ref{eq:#1})}
+\newcommand{\eref}[1]{Eq.~(\ref{eq:#1})}
+\newcommand{\epageref}[1]{page~\pageref{eq:#1}}
+\newcommand{\epref}[1]{\eref{#1}\latex{ on \epageref{#1}}}
+% eqn range:
+\newcommand{\erefs}[2]{Equations~(\protect\ref{eq:#1}--\ref{eq:#2})}
+\newcommand{\Eref}[1]{Equation (\protect\ref{eq:#1})}
+\newcommand{\Erefs}[2]{Equations~(\protect\ref{eq:#1}--\ref{eq:#2})}
+\newcommand{\elabel}[1]{\protect\label{eq:#1}}
+
+% Abbreviations used in jos.bib:
+%
+% Terse versions:
+%	\newcommand{\Appl}{Appl.}
+%	\newcommand{\Trans}{Trans.}
+%	\newcommand{\Int}{Int.}
+%	\newcommand{\Journal}{J.}
+%	\newcommand{\JournalOfThe}{J.}
+%	\newcommand{\JournalP}{J.}
+%	\newcommand{\Lab}{Lab.}
+%	\newcommand{\Eng}{Eng.}
+%	\newcommand{\Elec}{Elec.}
+%	\newcommand{\Soc}{Soc.}
+%	\newcommand{\Proc}{Proc.}
+%	\newcommand{\Conf}{Conf.}
+%	\newcommand{\ConfOn}{Conf.}
+%	\newcommand{\Tech}{Tech.}
+%	\newcommand{\Symp}{Symp.}
+%	\newcommand{\Dept}{Dept.}
+%	\newcommand{\Ama}{Amer.}
+%	\newcommand{\SocOf}{Soc.\ of}
+%	\newcommand{\Acoust}{Acoust.}
+%
+% Expanded versions:
+	\newcommand{\Appl}{Applications of}
+	\newcommand{\Trans}{Transactions on}
+	\newcommand{\Int}{International}
+	\newcommand{\Journal}{Journal of the}
+	\newcommand{\JournalOfThe}{Journal of the}
+	\newcommand{\JournalP}{Journal}
+	\newcommand{\Lab}{Laboratory}
+	\newcommand{\Eng}{Engineering}
+	\newcommand{\Elec}{Electrical}
+	\newcommand{\Soc}{Society}
+	\newcommand{\Proc}{Proceedings of the}
+	\newcommand{\Conf}{Conference}
+	\newcommand{\ConfOn}{Conference on}
+	\newcommand{\Tech}{Technical}
+	\newcommand{\Symp}{Symposium}
+	\newcommand{\Dept}{Department}
+	\newcommand{\Ama}{America}
+	\newcommand{\SocOf}{Society of}
+	\newcommand{\Acoust}{Acoustical}
+
+% The following should be deleted, but wgt still uses them,
+% and possibly others as well.
+%
+% \newcommand{\OS}{OppenheimAndSchafer}
+% \newcommand{\BB}{Belevitch}
+% \newcommand{\DK}{DesoerAndKuh}
+% \newcommand{\MW}{McIntyreF}
+% \newcommand{\RG}{RabinerAndGold}
+% \newcommand{\LS}{LjungAndSoderstrom}
+% \newcommand{\MI}{MorseAndIngard}
+% \newcommand{\Jaffe}{JaffeAndSmith83}
+% \newcommand{\SRCICA}{SmithAndGossett84}
+% \newcommand{\JOSTSTANM}{STAN--M--14}
+% \newcommand{\VDPS}{VanDuynePierceAndSmithWDH}
+
+\newcommand{\qsp}{\ } % So reformatting paragraphs don't give \cr
+
+\newcommand{\work}{article}  % was website
+\newcommand{\thing}{section} % was home page
+\newcommand{\smileyface}{$(\stackrel{\mbox{.\,.}}{\smile})$}
+
+% Figure references
+\providecommand{\fref}[1]{Fig.\,\ref{fig:#1}}
+\providecommand{\fbref}[1]{Fig.\,\ref{figboth:#1}}
+\providecommand{\fpageref}[1]{page~\pageref{fig:#1}}
+\providecommand{\fpref}[1]{\fref{#1}\latex{ on \fpageref{#1}}}
+\providecommand{\Fref}[1]{Figure~\ref{fig:#1}}
+\providecommand{\Fbref}[1]{Figure~\ref{figboth:#1}}
+\providecommand{\Fbpref}[1]{\Fbref{#1}\latex{ on \fpageref{#1}}}
+\providecommand{\Fpref}[1]{\Fref{#1}\latex{ on \fpageref{#1}}}
+\providecommand{\frefs}[2]{Figures~\ref{fig:#1} and \ref{fig:#2}}
+\providecommand{\Frefs}[2]{Figures~\ref{fig:#1} and \ref{fig:#2}}
+\providecommand{\frefss}[3]{Figures~\ref{fig:#1}, \ref{fig:#2}, and \ref{fig:#3}}
+\providecommand{\frefr}[2]{Figures~\ref{fig:#1} through \ref{fig:#2}}
+\providecommand{\Frefr}[2]{Figures~\ref{fig:#1} through \ref{fig:#2}}
+
+% Code-listing references
+\providecommand{\clabel}[1]{\label{code:#1}}
+\providecommand{\cref}[1]{Fig.\,\ref{code:#1}}
+\providecommand{\crefs}[2]{Figures~\ref{code:#1} and \ref{code:#2}}
+\providecommand{\Cref}[1]{Figure~\ref{code:#1}}
+\providecommand{\crefr}[2]{Figures~\ref{code:#1} through \ref{code:#2}}
+\providecommand{\cpageref}[1]{page \pageref{code:#1}}
+\providecommand{\cpref}[1]{\cref{#1}\latex{\ on \cpageref{#1}}}
+\providecommand{\Cpref}[1]{\Cref{#1}\latex{\ on \cpageref{#1}}}
+
+% Section references (see also \kslabel)
+%needed?\providecommand{\secref}[1]{\S\ref{sec:#1}}
+\providecommand{\sref}[1]{\S\protect\ref{sec:#1}}
+\providecommand{\spageref}[1]{page \pageref{sec:#1}}
+\providecommand{\spref}[1]{\sref{#1}\latex{\ on \spageref{#1}}}
+\providecommand{\Sref}[1]{Section~\ref{sec:#1}}
+\providecommand{\Spref}[1]{\Sref{#1}\latex{\ on \spageref{#1}}}
+\providecommand{\ssref}[1]{Subsection \ref{sec:#1}}
+\providecommand{\srefs}[2]{Sections~\ref{sec:#1} and \ref{sec:#2}}
+\providecommand{\Srefs}[2]{Sections~\ref{sec:#1} and \ref{sec:#2}}
+
+% Chapter references (see also \kchlabel)
+% Nice idea but l2h gets it wrong (renewcommand has no effect):
+%\providecommand{\chref}[1]{\thing~\ref{chap:#1}}
+%\providecommand{\Chref}[1]{\thing~\ref{chap:#1}}
+\providecommand{\chref}[1]{Chapter~\ref{chap:#1}}
+\providecommand{\chrefs}[2]{Chapters~\ref{chap:#1} and \ref{chap:#2}}
+\providecommand{\Chref}[1]{Chapter~\ref{chap:#1}}
+\providecommand{\chlabel}[1]{\label{chap:#1}} % set chapter label
+\providecommand{\chpageref}[1]{page \pageref{chap:#1}}
+\providecommand{\chpref}[1]{Chapter~\ref{chap:#1}\protect\latex{\ starting on \chpageref{#1}}}
+
+\newcommand{\kappendix}[3]{\chapter{#3}\alabel{#1}\index{#2|textbf}}
+\newcommand{\kappendixalt}[4]{\chapter[#4]{#3}\alabel{#1}\index{#2|textbf}}
+\providecommand{\aref}[1]{Appendix~\ref{app:#1}}
+\providecommand{\Aref}[1]{Appendix~\ref{app:#1}}
+\providecommand{\arefs}[2]{Appendices~\ref{app:#1} and \ref{app:#2}}
+\providecommand{\alabel}[1]{\label{app:#1}}
+\providecommand{\apageref}[1]{page \pageref{app:#1}}
+\providecommand{\apref}[1]{Appendix~\ref{app:#1}\protect\latex{\ starting on \apageref{#1}}}
+
+\newcommand{\Tref}[1]{Table \ref{table:#1}}
+\newcommand{\tref}[1]{Table \ref{table:#1}}
+\providecommand{\tpageref}[1]{page \pageref{table:#1}}
+\providecommand{\tpref}[1]{\tref{#1}\latex{\ on \tpageref{#1}}}
+
+\newcommand{\ds}[1]{\downarrow\!\!#1} % downsampler symbol
+\newcommand{\us}[1]{\uparrow\!\!#1} % upsampler symbol
+
+% kchlabel(label,indexentry):
+%   Make chapter label from arg1 and issue ``important'' index entry for arg2
+%This version sets the label (arg1) to the anchor for the index entry itself:
+\newcommand{\kchlabel}[2]{\chlabel{#1}\index{\protect\label{index#1}#2|textbf}}
+%In this version, the index entry gets a randomly generated anchor, as does its target. :-(
+%\newcommand{\kchlabel}[2]{\chlabel{#1}\index{\protect\label{index#1}#2|textbf}}
+% \kchapter{chlabel}{index entry}{title}
+% USAGE: \kchapter{delayeffects}{delay effects}{Delay Effects}
+\newcommand{\kchapter}[3]{\chapter{#3}\chlabel{#1}\index{#2|textbf}}
+\newcommand{\kchapteralt}[4]{\chapter[#4]{#3}\chlabel{#1}\index{#2|textbf}}
+
+\newcommand{\parinset}{}
+%\newcommand{\parinset}{\newline\hspace*{1em}\hangindent=\the\parindent}
+%\newcommand{\parinset}{\newline\hspace*{1em}}
+%\newcommand{\parcenterline}[1]{[PARCENTERLINE TEMPORARILY SUPPRESSED]}
+\newcommand{\parcenterline}[1]{\newline\centerline{#1}}
+
+% === toggles for book vs. local website / lecture overheads / course reader
+% The default is book mode.  Each lecture or reader needs to 'renew' these:
+
+\newcommand{\localonly}[1]{}  % suppress references to local courses, e.g.
+\newcommand{\bookonly}[1]{#1} % book only; override in lechdr.tex
+\newcommand{\leconly}[1]{} % lecture overheads (or reader) only (not book)
+\newcommand{\lcite}[1]{\cite{#1}} % Suppress citation for lecture overheads
+\newcommand{\lcitepp}[2]{\cite[#2]{#1}}
+\newcommand{\lecbook}[2]{#2}  % Choose #1 in lecture or course reader
+
+% === BOXES AROUND THINGS ===
+
+% \mybox
+% **** 9/22/05: THE BOX CUTS THROUGH THE TEXT! USE \quotebox INSTEAD ***
+%USAGE: \mybox{w}{text_text_text_text}
+% where w defines the width of the box (e.g. w=80em).
+%begin{latexonly}
+\newcommand{\mybox}[2]{
+% Contributed by Thomas Icking:
+\fbox{\begin{minipage}[c]{#1}
+\vspace{-1em} % Why is this needed?
+#2
+\end{minipage}}
+}
+%end{latexonly}
+\begin{htmlonly}
+\newcommand{\mybox}[2]{
+\[  % Math mode added 11/29/04
+#2
+\]
+} % no box, sorry
+\end{htmlonly}
+
+\newcommand{\quotenobox}[1]{\begin{quote}#1\end{quote}}
+% These both fail:
+%\newcommand{\quotebox}[1]{\mybox{\captionwidth}{#1}}
+%\newcommand{\quotedbox}[1]{\begin{quote}\mybox{0.82\textwidth}{#1}\end{quote}}
+\newcommand{\quotedbox}[1]{\quotebox{#1}\message{Change quotedbox to quotebox}}
+
+\providecommand{\zbox}[1]{\ensuremath{\fbox{$\displaystyle #1$}}}
+\newcommand{\quoteboxfracw}[2]{\quotedzbox{\parbox{#1\textwidth}{#2}}}
+\newcommand{\quotebox}[1]{\quotedzbox{\parbox{0.8\textwidth}{#1}}}
+
+%\begin{latexonly}
+\newcommand{\quotedzbox}[1]{\begin{quote}\zbox{#1}\end{quote}}
+%\end{latexonly}
+\begin{htmlonly}
+\newcommand{\quotedzbox}[1]{ % PROBLEM: MUST FIT ON ONE LINE
+\begin{quote}
+#1
+\end{quote}
+}
+\end{htmlonly}
+
+%DO NOT DEFINE sectionstar, chapterstar, etc., as L2H USES THESE NAMES
+%\newcommand{\sectionstar}[1]{\section{\latexonly{($\ast$)\ }#1}}
+
+\providecommand{\solution}[1]{} % Include solutions or not
+%\newcommand{\solution}[1]{\par\textbf{Solution: }#1} % Include solutions or not
+
+\newcommand{\solutionsee}[2]{\par\textbf{Solution:} See
+\htmladdnormallink{\texttt{http://ccrma.stanford.edu/\~{}jos/#2/}}{http://ccrma.stanford.edu/\~{}jos/#2/}}
+
+% Problem points:
+\newcommand{\twop}{}
+\newcommand{\twope}{}
+\newcommand{\threep}{}
+\newcommand{\fourp}{}
+\newcommand{\fivep}{}
+\newcommand{\fpe}{}
+\newcommand{\tenp}{}
+\newcommand{\ftp}{}
+\newcommand{\fifteenp}{}
+\newcommand{\sevenp}{}
+\newcommand{\twp}{}
+\newcommand{\twentyp}{}
+\newcommand{\twfp}{}
+\newcommand{\thirtyp}{}
+\newcommand{\fiftyp}{}
+
+\newcommand{\wh}{{\hat \omega}}
+
+%FIXME:
+%Need flushed right:
+%Does not work (hfill tossed): \newcommand{\eqlabel}[1]{\hfill\hbox{(#1)}}
+%Temporary solution: \newcommand{\eqlabel}[1]{}
+%Temporary HACK:
+\newcommand{\eqlabel}[1]{\qquad\hbox{(#1)}}
+
+\newcommand{\ie}{\textit{i.e.}}
+\newcommand{\Ie}{\textit{I.e.}}
+\newcommand{\Eg}{\textit{E.g.}}
+\newcommand{\eg}{\textit{e.g.}}
+\newcommand{\cf}{\textit{c.f.}}
+\newcommand{\viz}{\textit{viz.}}
+
+\newcommand{\zi}{z^{-1}}
+\newcommand{\zmt}{z^{-2}}
+\newcommand{\ejoT}{e^{j\omega T}}
+\newcommand{\emjoT}{e^{-j\omega T}}
+\newcommand{\TM}{$^{\hbox{\tiny \textsc{TM}}}$}
+\newcommand{\RM}{$^{\hbox{\scriptsize\circleR}}$}
+\newcommand{\circleR}{\textcircled{\tiny R}}
+
+% FIGURE stuff
+% See also ./stdfigs*.tex
+\newcommand{\maxheight}{6.5in} % GUESSED!  \textheight - ...
+\newcommand{\wassevenin}{\textwidth}
+\newcommand{\wassixpfivein}{\textwidth} % was 5in
+\newcommand{\wassixin}{\textwidth} % was 4.5in
+\newcommand{\wasfpfin}{4in}
+\newcommand{\wasfivein}{3.5in}
+\newcommand{\wasfourpfivein}{3.5in}
+\newcommand{\wasfourin}{3in}
+\newcommand{\wasthreepfivein}{2.75in}
+\newcommand{\wasthreein}{2.25in}
+\newcommand{\smallmbox}[1]{\mbox{\small #1}} % for text
+\newcommand{\smallmboxVG}[1]{\mbox{\large #1}} % for lecture overheads
+
+\newcommand{\FIXME}[1]{\message{#1}}  % TEMP HACK
+
+%\newcommand{hlink}[2]{\htmladdnormallink{#1}{#2}}
+%\newcommand{hlinkf}[2]{\htmladdnormallinkfoot{#1}{#2}}
+
+\newcommand{\exsection}[1]{\section{#1}}
+%\newcommand{\exsection}{\section{Exercises}}
+\newcommand{\labsection}[1]{\section{#1}}
+%\newcommand{\labsection}{\section{Laboratory Exercise}}
+\newcommand{\exsubsection}[1]{\subsection*{#1}}
+\newcommand{\labsubsection}[1]{\subsection*{#1}}
+
+\newcommand{\grad}{\nabla} % gradient symbol
+\newcommand{\gradv}{\underline{\grad}} % gradient symbol as a vector
+
+\newcommand{\googlesearch}[2]{\texttt{Google} search:
+	\htmladdnormallink{\textit{#1}}{#2}}
+
+% ================  hyperref PDF API =================
+
+% Local (for laptop, /josn, etc.):
+%\renewcommand{\soundpathroot}[1]{../../s/}
+%\renewcommand{\playcmd}{run:play } % linux (does this work for sure?)
+%\renewcommand{\playcmd}{run:} % Windows (tested and works)
+
+% Global version (for posted PDF on arbitrary websites):
+\providecommand{\soundpathroot}[1]{http://ccrma.stanford.edu/~jos/}
+% NOTE: You DO need the trailing slash above - don't know why
+
+\providecommand{\playcmd}{} % just use a bare URL, no ``command''
+
+% ================  hyperref PDF API =================
+
+\newcommand{\wavpath}[1]{\soundpathroot/wav/#1.wav}
+\newcommand{\aiffpath}[1]{\soundpathroot/aiff/#1.aiff}
+\newcommand{\mptpath}[1]{\soundpathroot/mp3/#1.mp3}
+\newcommand{\soundpath}[1]{\soundpathroot/mp3/#1.mp3}
+
+\newcommand{\soundexample}[2]{#1:
+\href{\playcmd\wavpath{#2}}{(WAV)}\message{===#2.wav+++}
+\href{\playcmd\mptpath{#2}}{(MP3)}
+}
+\newcommand{\soundexampleaiffmpt}[2]{#1:
+\href{\playcmd\aiffpath{#2}}{(AIFF)}\message{===#2.aiff+++}
+\href{\playcmd\mptpath{#2}}{(MP3)}
+}
+\newcommand{\soundexamplewavmpt}[2]{#1:
+\href{\playcmd\wavpath{#2}}{(WAV)}\message{===#2.wav+++}
+\href{\playcmd\mptpath{#2}}{(MP3)}
+}
+\newcommand{\soundexamplewav}[2]{\href{\playcmd \wavpath{#2}}{#1}\message{===#2.wav+++}}
+\newcommand{\soundexamplewavwithpath}[3]{\href{\playcmd #3/#2.wav}{#1}}
+\newcommand{\soundexampleaiff}[2]{\href{\playcmd \aiffpath{#2}}{#1}\message{===#2.aiff+++}}
+\newcommand{\soundexamplempt}[2]{\href{\playcmd \mptpath{#2}}{#1}\message{===#2.mp3+++}}
+\newcommand{\soundexamplemptwithpath}[3]{\href{\playcmd #3/#2.mp3}{#1}}
+
+% html.sty API
+\begin{comment}
+\newcommand{\soundexample}[2]{#1:
+\htmladdnormallink{(WAV)}{\wavpath{#2}}\message{===#2.wav+++}
+\htmladdnormallink{(MP3)}{\mptpath{#2}}
+}
+\newcommand{\soundexampleaiffmpt}[2]{#1:
+\htmladdnormallink{(AIFF)}{\aiffpath{#2}}\message{===#2.aiff+++}
+\htmladdnormallink{(MP3)}{\mptpath{#2}}
+}
+\newcommand{\soundexamplewavmpt}[2]{#1:
+\htmladdnormallink{(WAV)}{\wavpath{#2}}\message{===#2.wav+++}
+\htmladdnormallink{(MP3)}{\mptpath{#2}}
+}
+\newcommand{\soundexamplewav}[2]{\htmladdnormallink{#1}{\wavpath{#2}}\message{===#2.wav+++}}
+\newcommand{\soundexampleaiff}[2]{\htmladdnormallink{#1}{\aiffpath{#2}}\message{===#2.aiff+++}}
+\newcommand{\soundexamplempt}[2]{\htmladdnormallink{#1}{\mptpath{#2}}\message{===#2.mp3+++}}
+\end{comment}
+
+\newcommand{\STKs}{\STK\ }
+\newcommand{\STK}{\htmladdnormallink{\texttt{STK}}{http://ccrma.stanford.edu/CCRMA/Software/STK/}}
+\newcommand{\STKfn}{\htmladdnormallinkfoot{\texttt{STK}}{http://ccrma.stanford.edu/CCRMA/Software/STK/}}
+
+\newcommand{\stkclass}[1]{\htmladdnormallink{\texttt{#1}}{http://ccrma.stanford.edu/software/stk/class#1.html}}
+\newcommand{\stkclassfoot}[1]{\htmladdnormallinkfoot{\texttt{#1}}{http://ccrma.stanford.edu/software/stk/class#1.html}}
+
+\newcommand{\allpassfilterfoot}{\htmladdnormallinkfoot{allpass filter}{http://ccrma.stanford.edu/~jos/filters/Allpass_Filters.html}}
+
+\newcommand{\mdftfoot}{\footnote{\htmladdnormallink{\texttt{http://ccrma.stanford.edu/\~{}jos/mdft/}}{http://ccrma.stanford.edu/\~{}jos/mdft/}}}
+
+\newcommand{\stkintrofoot}{\footnote{\htmladdnormallink{\texttt{http://ccrma.stanford.edu/\~{}jos/pasp/Getting\_Started\_Synthesis\_Tool.html}}{http://ccrma.stanford.edu/\~{}jos/pasp/Getting_Started_Synthesis_Tool.html}}}
+
+% This one gives correct typesetting in PDF as well as working PDF links (HTML maybe not?).
+% Underbars must be quoted, while tilde must NOT be quoted:
+% NO LINE-BREAKS ALLOWED IN URLs (they must fit on one line):
+\newcommand{\footurl}[1]{\footnote{\htmlurl{#1}}}
+
+% \quotedtilde should be used ONLY in the 1st argument to \htmladdnormallinkfoot
+% and \htmladdnormallink. - it should give '~' as desired for PDF printing.
+% DOES NOT WORK IN 2nd ARGUMENT OF \htmladdnormallinkfoot for PDF LINKS
+% (must use a plain ~ there --- \~{} does not work either for PDF links)
+%
+% \baretilde CANNOT BE USED due to l2h bug in handling Bibliographies that
+% results in a space after the '~'. The workaround is to really type a bare
+% tilde (~) in the bib entry.
+% \baretilde SHOULD be the right thing in the 2nd argument to
+% \htmladdnormallinkfoot and \htmladdnormallink.
+%
+\newcommand{\mytexttilde}{\char`\~} % deprecated
+\newcommand{\quotedtilde}{\char`\~} % NEW name
+% Cannot use in bibliography entries (l2h bug): \newcommand{\baretilde}{~}
+
+\newcommand{\planetccrma}{Planet CCRMA} % Let OD link it (have popup)
+\newcommand{\planetccrmafoot}{Planet CCRMA\footnote{\htmladdnormallink{\texttt{http://ccrma.stanford.edu/planetccrma/software/}}{http://ccrma.stanford.edu/planetccrma/software/}}}
+\newcommand{\planetccrmalink}{Planet CCRMA distribution (\htmladdnormallink{\texttt{http://ccrma.stanford.edu/planetccrma/software/}}{http://ccrma.stanford.edu/planetccrma/software/})}
+\newcommand{\faustlabstr}[1]{\htmladdnormallinkfoot{#1}{http://ccrma.stanford.edu/realsimple/faust/}}
+
+%\newcommand{\Cpp}{\textsc{C}{\small $++$}}
+%\newcommand{\Clang}{\texttt{C}}
+%\newcommand{\Cpp}{\texttt{C++}}
+%\newcommand{\Clang}{\textsc{C}}
+%\newcommand{\Cpp}{\textsc{C++}}
+\newcommand{\Clang}{C}
+\newcommand{\Cpp}{C++}
+\newcommand{\pd}{\texttt{pd}}
+\providecommand{\docyear}{2009} % in case not defined
+
+\newcommand{\Faust}{\textsc{Faust}}
+\newcommand{\Faustsp}{\Faust{} }
+\newcommand{\faust}{\textsc{Faust}} % NEEDED for jos.bib which downcases
+\newcommand{\faustsp}{\Faust{} }
+
+%\newcommand{\beqnopt}{\[}
+%\newcommand{\eeqnopt}{\]}
+\newcommand{\beqnopt}{\beqn}
+\newcommand{\eeqnopt}{\eeqn{}}
+
+% New from sasp/fftfb.tex
+\newcommand{\tx}[1]{\texttt{#1}}
+
+\providecommand{\incldate}[1]{#1}
+%\providecommand{\incldate}[1]{}
+
+\newenvironment{contentsmall}{\small}{}
