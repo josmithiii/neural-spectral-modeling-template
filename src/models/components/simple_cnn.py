@@ -5,7 +5,7 @@ from torch import nn
 
 
 class SimpleCNN(nn.Module):
-    """A simple convolutional neural network for MNIST classification."""
+    """Lightweight convolutional network for VIMH spectrogram inputs."""
 
     def __init__(
         self,
@@ -25,14 +25,14 @@ class SimpleCNN(nn.Module):
     ) -> None:
         """Initialize a SimpleCNN module.
 
-        :param input_channels: Number of input channels (1 for grayscale MNIST).
+        :param input_channels: Number of input channels (spectrogram representations, default 1).
         :param conv1_channels: Number of output channels for first conv layer.
         :param conv2_channels: Number of output channels for second conv layer.
         :param fc_hidden: Number of hidden units in fully connected layer.
         :param output_size: Number of output classes (backward compatibility).
         :param heads_config: Dict mapping head names to number of classes for multihead.
         :param dropout: Dropout probability.
-        :param input_size: Input image size (28 for MNIST, 32 for CIFAR).
+        :param input_size: Input spectrogram size (e.g., 32 for default wah datasets).
         :param output_mode: Output mode - "classification" or "regression".
         :param parameter_names: List of parameter names for regression mode.
         :param parameter_ranges: Dict mapping parameter names to (min, max) ranges.
@@ -64,7 +64,7 @@ class SimpleCNN(nn.Module):
                 if output_size is not None:
                     heads_config = {"digit": output_size}
                 else:
-                    heads_config = {"digit": 10}  # Default MNIST
+                    heads_config = {"digit": 10}  # Legacy default for backward compatibility
 
         self.heads_config = heads_config
         self.is_multihead = len(heads_config) > 1
@@ -73,9 +73,9 @@ class SimpleCNN(nn.Module):
         # After two MaxPool2d with stride 2: input_size -> input_size/4
         pooled_size = input_size // 4
         # Choose adaptive pool size that divides evenly into pooled_size
-        if pooled_size == 7:  # 28/4 = 7 (MNIST)
+        if pooled_size == 7:  # Example: 28px height inputs
             self.adaptive_pool_size = (7, 7)
-        elif pooled_size == 8:  # 32/4 = 8 (CIFAR)
+        elif pooled_size == 8:  # Example: 32px height wah spectrograms
             self.adaptive_pool_size = (4, 4)  # 8 is divisible by 4
         else:
             # For other sizes, use a safe default
@@ -272,18 +272,15 @@ class SimpleCNN(nn.Module):
 
 
 if __name__ == "__main__":
-    # Test backward compatibility (single head)
-    print("Testing single head mode (backward compatibility):")
-    model_single = SimpleCNN()
-    x = torch.randn(2, 1, 28, 28)  # Batch of 2 MNIST images
-    output_single = model_single(x)
-    print(f"Input shape: {x.shape}")
-    print(f"Single head output shape: {output_single.shape}")
+    # Quick smoke tests using VIMH-style spectrogram tensors
+    batch = torch.randn(2, 1, 32, 32)  # Batch of 32x32 spectrograms
 
-    # Test multihead mode
-    print("\nTesting multihead mode:")
-    model_multi = SimpleCNN(heads_config={"digit": 10, "thickness": 5, "smoothness": 3})
-    output_multi = model_multi(x)
-    print(f"Multihead output type: {type(output_multi)}")
-    for head_name, logits in output_multi.items():
-        print(f"  {head_name}: {logits.shape}")
+    model_multi = SimpleCNN(
+        input_channels=1,
+        heads_config={"log10_decay_time": 96, "wah_position": 96},
+        input_size=32,
+    )
+    outputs = model_multi(batch)
+    print(f"Input shape: {batch.shape}")
+    for head, tensor in outputs.items():
+        print(f"{head}: {tensor.shape}")

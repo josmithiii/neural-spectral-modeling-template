@@ -26,14 +26,14 @@ make h
 
 # ===== DATASET GENERATION =====
 
-# Generate small synthetic dataset (256 samples)
-make sds    # or: python generate_vimh.py --config-name=synth/generate_saw_wah
+# Generate small synthetic wah dataset (256 samples)
+make gds    # wraps gdws; or: python generate_vimh.py --config-name=synth/generate_saw_wah
 
-# Generate large synthetic dataset (16k samples)
-make sdl    # or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
+# Generate large synthetic wah dataset (16k samples)
+make gdl    # wraps gdwl; or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
 
-# Generate all Moog VCF datasets (basic, envelope, resonance)
-make sdma
+# Generate Moog VCF datasets (basic/envelope/resonance)
+make gdmb && make gdme && make gdmr
 
 # ===== DATASET DISPLAY =====
 

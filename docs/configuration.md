@@ -151,6 +151,23 @@ python src/train.py model=vit_tiny | model=cnn_tiny
 python src/train.py model.optimizer.lr=0.0005
 ```
 
+### Canonical Override Patterns
+
+```bash
+# Wah experiment with ordinal loss heads
+python src/train.py experiment=wah_cnn_tiny model=cnn_64k_ordinal trainer=mps
+
+# Wah regression experiment with auxiliary inputs enabled
+python src/train.py experiment=wah_cnn_tiny_regression model=cnn_64k_auxiliary trainer=mps \
+    model.net.auxiliary_input_size=1 model.net.output_mode=regression
+
+# Disable preflight checks for rapid iteration (not recommended for releases)
+python src/train.py preflight.enabled=false
+
+# Point to a custom dataset directory
+python src/train.py data.data_dir=data/vimh-custom-wah
+```
+
 ## Debugging & Introspection
 
 ```bash

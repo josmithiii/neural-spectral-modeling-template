@@ -1,160 +1,95 @@
-# Tutorial Sequence: From Setup to VIMH Experiments
+# Tutorial Sequence: From Setup to Wah Experiments
 
-This walkthrough focuses on the VIMH workflow used in this repository: generating datasets, training CNN/ViT models, and evaluating with audio reconstruction.
+Follow this sequence to go from a clean checkout to the supported wah-pedal experiments. Commands assume the project root.
 
-## Prerequisites
+## Phase 0: Environment
 
 ```bash
-# In project root, activate your environment
-source .venv/bin/activate.csh  # or your shell’s activate
+sh setup.sh                 # Create uv-based virtualenv and install deps
+source .venv/bin/activate    # Or activate.csh for csh/tcsh users
 ```
 
----
-
-## Phase 1: Validate Setup
-
-### Example 1 — Sanity check
+## Phase 1: Verify the Stack
 
 ```bash
-make test         # Fast pytest path
-make clean        # Optional: clear caches
-make trq          # 1-epoch quick train to verify stack
+make test         # Fast pytest subset
+make format       # Optional: confirm formatting hooks succeed
+make trq          # One-epoch smoke train (writes logs/train/runs/...)
 ```
 
-What you get: end‑to‑end run, logs in `logs/train/runs/`, and a checkpoint.
+You should see a Lightning summary and a checkpoint created inside `logs/train/runs/`.
 
----
-
-## Phase 2: Create and Inspect VIMH Data
-
-### Example 2 — Generate a small dataset (256 samples)
+## Phase 2: Build and Inspect Data
 
 ```bash
-make sds          # Synth small SawSynth VIMH dataset
-make dds          # Visualize recent dataset
+make gds          # Generate 256-sample wah dataset (wraps gdws)
+make dds          # Visualize the recent dataset
+make vds          # Inspect metadata and parameter ranges
 ```
 
-### Example 3 — Generate a larger dataset (16k)
+For larger runs:
 
 ```bash
-make sdl
-make ddl
+make gdl          # 16K-sample wah dataset (wraps gdwl)
+make ddl          # Visualize large dataset samples
+make vpl          # Verify parameter distributions (chi-square summary)
 ```
 
----
-
-## Phase 3: Train on VIMH
-
-### Example 4 — Default training (uses configs/train.yaml defaults)
+## Phase 3: Train Models
 
 ```bash
-make tr           # or: python src/train.py
-```
-
-### Example 5 — Train on specific datasets
-
-```bash
-make trs          # Small dataset (creates if missing)
-make trl          # Large dataset (creates if missing)
-```
-
-### Example 6 — Run the example experiment
-
-```bash
-python src/train.py experiment=example
+make tr           # Default training config (cnn_64k on VIMH defaults)
+make trs          # Train on the small dataset
+make trl          # Train on the large dataset
+python src/train.py experiment=wah_cnn_tiny trainer=mps
 ```
 
 Tips:
+- Append `trainer=mps data.num_workers=0` on Apple Silicon.
+- Override epochs inline: `trainer.max_epochs=25`.
+- Switch models via `model=cnn_tiny` or `model=vit_tiny`.
 
-- Mac: add `trainer=mps` for Metal acceleration
-- Adjust epochs: `trainer.max_epochs=10`
-- Switch models: `model=cnn_64k` | `model=cnn_64k_ordinal` | `model=vit_tiny`
-
----
-
-## Phase 4: Audio Evaluation
-
-### Example 7 — Hear reconstructions
+## Phase 4: Wah Reference Experiments
 
 ```bash
-make ae                                # Auto-discovers latest checkpoint
-python src/audio_reconstruction_eval.py # Equivalent; see configs/audio_eval.yaml
+make ewt          # Wah CNN tiny (classification heads)
+make ewtr         # Wah CNN tiny regression
+make evwt         # Evaluate latest classification checkpoint
+make evwtr        # Evaluate latest regression checkpoint
 ```
 
-Use `interactive=true` for a widget, and `save_audio=true` to export WAVs.
+Good runs produce per-head accuracies above 0.85 (classification) or MAE below 0.05 (regression) on the validation set. Sample logs live in `logs/train/runs/<timestamp>/`.
 
----
-
-## Phase 5: Moog VCF Experiments
-
-### Example 8 — Generate datasets and train CNNs
+## Phase 5: Audio Reconstruction Evaluation
 
 ```bash
-make sdmb && make emb    # Basic (4 params)
-make sdme && make eme    # Envelope (10 params)
-make sdmr && make emr    # Resonance (8 params)
+make ae                                # Interactive playback + plots
+python src/audio_reconstruction_eval.py interactive=false save_audio=true
 ```
 
-### Example 9 — Train ViTs on Moog datasets (experimental)
+Inspect the generated WAV files and plots under `audio_eval_results/`.
+
+## Phase 6: Moog Experiments (Optional)
 
 ```bash
-make emvitb | make emvite | make emvitr
+make gdmb && make emb      # Basic Moog CNN (4 params)
+make gdme && make eme      # Moog envelope CNN (10 params)
+make gdmr && make emr      # High-resonance Moog CNN
 ```
 
----
-
-## Phase 6: Visualize Architectures
-
-### Example 10 — Generate diagrams
+## Phase 7: Visualize Architectures
 
 ```bash
-make tds          # Simple text diagrams (default config)
-make td           # Enhanced diagrams for all architectures
+make tds          # Simple diagrams (text)
+make td           # Enhanced diagrams (graphviz if installed)
 make tdsa         # Simple diagrams for all configs
 ```
 
----
+## Troubleshooting Checklist
 
-## Appendix: Troubleshooting
+- Dataset generation fails → ensure `data/` writable and disk space > 2 GB.
+- MPS runtime errors → add `data.num_workers=0` or fall back to CPU.
+- Training diverges → confirm dataset metadata matches model heads via `make vdr`.
+- Audio eval finds no checkpoint → pass `ckpt_path=` explicitly to the script.
 
-### Environment Issues
-
-```bash
-# If you see "No module named 'rootutils'"
-source .venv/bin/activate.csh
-
-# Clean slate
-make clean && make clean-logs
-```
-
-### Training Issues
-
-```bash
-# For MPS/Mac users
-python src/train.py trainer=mps data.num_workers=0
-
-# Memory issues — reduce batch size
-python src/train.py data.batch_size=32
-```
-
-### Debugging
-
-```bash
-# Run tests to verify everything works
-make test
-
-# Quick sanity check
-make trq
-
-# Check logs
-ls logs/train/runs/
-```
-
----
-
-## Additional Resources
-
-- Architecture details: `docs/architectures.md`
-- VIMH format: `docs/vimh.md`
-- Losses for VIMH: `docs/vimh_loss_functions.md`
-- Configuration patterns: `docs/configuration.md`
+Refer to [audio_developer_primer.md](audio_developer_primer.md) for more background on the signal-processing steps used throughout this workflow.

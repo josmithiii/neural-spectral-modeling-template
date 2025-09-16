@@ -425,6 +425,9 @@ trl train-vimh-large: gdl ## Train the large example VIMH dataset using the defa
 f format: ## Run pre-commit hooks
 	pre-commit run -a
 
+verify-docs: ## Run documentation checks (links, headings, deprecated commands)
+	python scripts/verify_docs.py
+
 fp format-preview: ## Preview docformatter actions
 	docformatter -c -d -r --black --wrap-summaries=99 --wrap-descriptions=99 --style=sphinx src tests
 

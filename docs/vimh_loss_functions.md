@@ -131,21 +131,21 @@ criteria:
 ### Training with Ordinal Regression Loss
 
 ```bash
-# Use the new distance-aware loss
-python src/train.py experiment=cnn_16kdss_ordinal
+# Enable ordinal losses on the wah tiny experiment
+python src/train.py experiment=wah_cnn_tiny model=cnn_64k_ordinal trainer=mps
 
-# Or use the make target
-make evimho
+# Regression variant (direct normalized regression)
+python src/train.py experiment=wah_cnn_tiny_regression model=cnn_64k_regression trainer=mps
 ```
 
 ### Comparison with Original Loss
 
 ```bash
-# Original classification loss
-python src/train.py experiment=cnn_16kdss
+# Original classification loss (cross-entropy heads)
+python src/train.py experiment=wah_cnn_tiny trainer=mps
 
-# New distance-aware loss
-python src/train.py experiment=cnn_16kdss_ordinal
+# Ordinal loss for distance awareness
+python src/train.py experiment=wah_cnn_tiny model=cnn_64k_ordinal trainer=mps
 ```
 
 ## Implementation Details

@@ -1,402 +1,74 @@
 # VIMH Dataset Format
 
-**Variable Image MultiHead (VIMH)** is a generalized dataset format designed for training multihead neural networks on images with multiple varying parameters per sample. Originally inspired by CIFAR-100, VIMH extends beyond fixed dimensions to support any image size with a self-describing variable-length label format.
+Variable Image MultiHead (VIMH) is the dataset format used throughout NSMT. It packages spectrogram-like tensors and quantized synthesis parameters in a self-describing binary layout so models can auto-configure heads, ranges, and loss types.
 
-## Key Features
+## Audio-Centric Design
 
-- **Variable Image Dimensions**: Supports any image size (height×width×channels)
-- **Self-Describing**: Each sample includes metadata (height, width, channels)
-- **MultiHead Ready**: Encodes 0-255 varying parameters per sample
-- **Efficient**: 8-bit quantization with ~100 perceptual resolution steps
-- **Format Flexible**: Works with RGB (32x32x3), grayscale (28x28x1), and custom sizes
+- **Variable resolution**: Height = frequency bins, width = time frames, channels = alternate representations (e.g., magnitude, instantaneous frequency).
+- **Quantized parameters**: Each sample stores up to 255 varying synthesis parameters (0–255 codes) with metadata describing min/max/step for dequantization.
+- **Self-contained metadata**: `vimh_dataset_info.json` records dimensions, audio settings, parameter names, and perceptual scaling choices.
 
-## Output Formats
-
-- **Binary**: Self-describing binary format for efficient loading
-- **Pickle**: Python-friendly format with `vimh_labels` field
-- **Both**: Default - creates both formats
-
-## Format Specification
-
-### Binary Layout Per Sample
+## Binary Layout per Sample
 
 ```
-Metadata: 6 bytes (height, width, channels) - three 16-bit unsigned integers, little-endian
-Label Data: 1 + 2N bytes
-  - Byte 0: N (number of varying parameters, 0-255)
-  - Bytes 1,2: param1_id (0-255), param1_val (0-255)
-  - Bytes 3,4: param2_id (0-255), param2_val (0-255)
-  - ...
-  - Bytes 2N-1,2N: paramN_id (0-255), paramN_val (0-255)
-Image Data: height*width*channels bytes (raw pixel values, typically 0-255)
-Total size: 6 + 1 + 2N + height*width*channels bytes per sample
+[height:uint16][width:uint16][channels:uint16]
+[N:uint8][param_0_id:uint8][param_0_val:uint8] ... [param_N-1_id][param_N-1_val]
+[pixel_data:uint8^(height*width*channels)]
 ```
 
-### Example: 2-Parameter Dataset (32x32x3 like CIFAR-100)
+Parameter IDs map into `parameter_mappings` inside the JSON file, which also provides the value range and quantization step. De/quantization follows:
 
-```
-Metadata: [32, 32, 3] (height=32, width=32, channels=3) - 6 bytes
-Labels: [2, 0, 191, 1, 127] (N=2 parameters) - 5 bytes
-Image: 3072 bytes (32*32*3 RGB spectrogram/image data)
-Total: 6 + 5 + 3072 = 3083 bytes per sample
-```
-
-If note_number=51.5 (range 50-52) and note_velocity=81.0 (range 80-82):
-
-```
-Complete sample: [32, 32, 3, 2, 0, 191, 1, 127, <3072 image bytes>]
-  Metadata: height=32, width=32, channels=3 (6 bytes)
-  Labels: N=2 parameters (1 byte)
-  param_0 (note_number): id=0, val=191 → dequantized to 51.5 (2 bytes)
-  param_1 (note_velocity): id=1, val=127 → dequantized to 81.0 (2 bytes)
-  Image data: 3072 bytes of RGB pixel values
-```
-
-### Example: VIMH Metadata for MNIST Images (28x28x1)
-
-```
-Metadata: [28, 28, 1] (height=28, width=28, channels=1) - 6 bytes
-Labels: [1, 0, 128] (N=1 parameter) - 3 bytes
-Image: 784 bytes (28*28*1 grayscale)
-Total: 6 + 3 + 784 = 793 bytes per sample
-
-Sample breakdown:
-  Metadata: height=28, width=28, channels=1 (6 bytes)
-  Labels: N=1 parameter (1 byte)
-  param_0: id=0, val=128 (2 bytes) - could represent digit thickness/style
-  Image data: 784 bytes of grayscale pixel values
+```python
+normalized = (actual - param_min) / (param_max - param_min)
+quantized = int(round(normalized * 255))
+actual = param_min + (quantized / 255.0) * (param_max - param_min)
 ```
 
 ## Dataset Structure
 
-Each VIMH dataset includes binary or pickle format, or both:
-
 ```
-data/vimh-32x32x3_8000Hz_1p0s_256dss_resonarium_2p/
-├── train          # Binary training data
-├── test           # Binary test data
-├── train_batch    # Pickle training data
-├── test_batch     # Pickle test data
-└── vimh_dataset_info.json  # Dataset information
+data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/
+├── train/                     # Binary training data
+├── test/                      # Binary test data
+├── train_batch                # Optional pickle cache
+├── test_batch                 # Optional pickle cache
+└── vimh_dataset_info.json     # Metadata
 ```
 
-### Dataset Info JSON Example
+`vimh_dataset_info.json` fields you should pay attention to:
 
-```json
-{
-  "format": "VIMH",
-  "version": "1.0",
-  "height": 32,
-  "width": 32,
-  "channels": 3,
-  "varying_parameters": 2,
-  "parameter_names": ["note_number", "note_velocity"],
-  "label_encoding": {
-    "format": "[height] [width] [channels] [N] [param1_id] [param1_val] [param2_id] [param2_val] ...",
-    "metadata_bytes": 3,
-    "N_range": [0, 255],
-    "param_id_range": [0, 255],
-    "param_val_range": [0, 255]
-  },
-  "parameter_mappings": {
-    /* full parameter info */
-  }
-}
-```
+- `height`, `width`, `channels`: Input tensor shape (C,H,W after torch conversion).
+- `parameter_names`: Ordered list matching the varying heads.
+- `parameter_mappings`: Dict describing `min`, `max`, `step`, optional `num_classes`, and textual notes.
+- `audio_settings`: STFT/mel configuration used during synthesis (present for generated datasets).
 
-## Benefits
+## Tooling
 
-- **Fully generalized**: Height, width, and channels metadata allows any image size
-- **Self-describing**: N tells you how many parameters each sample has
-- **Scalable**: Supports 0-255 varying parameters per synthesizer
-- **Efficient**: 8-bit quantization provides ~100 perceptual resolution steps
-- **Multihead CNN ready**: Enables training CNNs with multiple output heads
-- **Format flexible**: Supports spectrograms (32x32x3), MNIST (28x28x1), and custom sizes
+- Generate datasets: `make gds` (256-sample wah), `make gdl` (16K-sample wah), `make gdmb|gdme|gdmr` (Moog variants).
+- Inspect metadata: `make vdr` (latest), `make vds` (small wah), `make vdl` (large wah).
+- Analyze parameter coverage: `make vpr|vps|vpl` – emits stats, ranges, and chi-square uniformity heuristics.
+- Visualize samples: `make ddr|dds|ddl` – renders spectrogram grids for quick sanity checks.
 
-## Use Cases
-
-### Audio Synthesis
-
-- **Spectrograms**: 32x32x3 mel spectrograms from synthesizers
-- **Parameters**: Varying synthesis parameters (frequency, amplitude, filters)
-- **Training**: Multihead CNNs to predict synthesis parameters from audio
-
-### Computer Vision
-
-- **MNIST Extension**: 28x28x1 images with varying parameters (digit style, thickness)
-- **Custom Vision**: Any image size with associated continuous parameters
-- **Multi-task Learning**: Train models with multiple regression outputs
-
-### Scientific Data
-
-- **Simulations**: Images from physics/chemistry simulations with varying conditions
-- **Measurements**: Experimental data with multiple measured parameters
-- **Analysis**: Train models to predict experimental conditions from images
-
-## Compatibility
-
-### Parameter Types
-
-- **Varying parameters**: Different min/max values, encoded in labels
-- **Fixed parameters**: min=max, not encoded in labels (stored in metadata)
-
-### Limitations
-
-- Maximum 255 varying parameters per sample
-- Parameter values quantized to 0-255 range (8-bit resolution)
-- Image dimensions limited to 65,535×65,535 (16-bit metadata fields)
-- Maximum 65,535 channels per image (16-bit metadata field)
-- Parameter precision: ~100 perceptual steps (8-bit quantization)
-
-## Makefile Targets
-
-| Target                     | Description                                                          |
-| -------------------------- | -------------------------------------------------------------------- |
-| `synth-dataset-small`      | Synthesize a small example VIMH dataset with SawSynth (256 samples)  |
-| `synth-dataset-large`      | Synthesize a larger example VIMH dataset with SawSynth (16k samples) |
-| `synth-dataset-moog-basic` | Synthesize VIMH dataset with basic Moog VCF (256 samples)            |
-|                            |                                                                      |
-| `display-dataset-recent`   | Display the most recently created dataset (default)                  |
-| `display-dataset-small`    | Display the small example VIMH dataset (256 samples)                 |
-| `display-dataset-large`    | Display the larger example VIMH dataset (16k samples)                |
-|                            |                                                                      |
-| `vimh-dump-recent`         | Display metadata of the most recently created VIMH dataset           |
-| `vimh-dump-small`          | Display metadata of the small example dataset (256 samples)          |
-| `vimh-dump-large`          | Display metadata of the larger example dataset (16k samples)         |
-
-All training-related make targets expect a VIMH dataset in `./data/` created as above.
-
-## Technical Implementation
-
-### Label Encoding
-
-Each sample's parameters are encoded as a sequence of (parameter_id, parameter_value) pairs:
-
-- **parameter_id**: Index into the varying parameters list (0-255)
-- **parameter_value**: Quantized parameter value (0-255)
-
-### Parameter Quantization
-
-```python
-# Normalize to [0,1], then quantize to [0,255]
-normalized_value = (actual_value - param_min) / (param_max - param_min)
-quantized_value = int(normalized_value * 255)
-```
-
-### Parameter Dequantization
-
-```python
-# Dequantize from [0,255] back to actual parameter range
-normalized_value = quantized_value / 255.0
-actual_value = param_min + normalized_value * (param_max - param_min)
-```
-
-## Version History
-
-- **v2.0**: Added height, width, channels metadata for full generalization
-- **v1.0**: Initial implementation based on CIFAR-100 structure
-
-## Dataset Metadata Utility
-
-### VIMH Metadata Display (`vimhd.py`)
-
-The `vimhd.py` utility provides a comprehensive view of VIMH dataset metadata without loading the actual data:
+`vimhd.py` powers the `vd*` and `vp*` targets. Run it directly to point at custom paths:
 
 ```bash
-# Display metadata for the most recently created dataset
-python vimhd.py
-
-# Display metadata for a specific dataset
-python vimhd.py data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
-
-# Using make targets
-make vdr    # recent dataset metadata
-make vds    # small dataset metadata
-make vdl    # large dataset metadata
+python vimhd.py data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
+python vimhd.py -p data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 ```
 
-#### Output Example
+## Auto-Configuration Pipeline
 
-```
-> make vds
-python vimhd.py
-VIMH Dataset: vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
-============================================================
-Format: VIMH v2.1
-Output format: binary
+1. **DataModule** (`src/data/vimh_datamodule.py`) reads metadata to size transforms and loaders.
+2. **`_configure_vimh_model_config`** (in `src/train.py`) injects head definitions, regression ranges, and JND-based loss weights before instantiating the model.
+3. **`VIMHLitModule`** builds the Lightning module with the supplied criteria.
 
-Image dimensions: 32×32×1
-Channel labels: Gray
+As long as `vimh_dataset_info.json` is present, new datasets will automatically map to the correct head counts and ranges without editing YAML.
 
-Samples: 204 train, 52 test, 256 total
+## Tips
 
-Audio: 8000 Hz, 1.0s duration
-Synth type: simple
+- Keep dataset directories under `data/` to avoid path overrides.
+- When crafting new generators, populate `parameter_mappings`—the auto-config relies on it.
+- Use the parameter distribution report after generation to catch skewed sampling before training.
+- For regression workflows, prefer quantization steps that reflect perceptual just noticeable differences (JNDs); loss weighting normalizes by the number of JND steps.
 
-Varying parameters: 2
-Parameter names: log10_decay_time, filter_cutoff
-
-Parameter Details:
-  Varying:
-    log10_decay_time: -2.0 to 0.3 (step: 0.1), classes: 24
-      simple parameter: log10_decay_time
-    filter_cutoff: 200.0 to 2000.0 (step: 100.0), classes: 19
-      simple parameter: filter_cutoff
-  Fixed:
-    note_number: 43.35 (fixed)
-      MIDI note number (fixed at 100 Hz)
-    note_velocity: 120.0 (fixed)
-      MIDI velocity (amplitude)
-    filter_enabled: 1.0 (fixed)
-      Enable Moog VCF filter
-
-Spectrogram Configuration:
-  Type: stft
-  Method: efficient_leaf
-  FFT size: 80
-  Window: rectangular (80 samples)
-  Hop length: 80
-  Frequency bins: 32
-  Bins per harmonic: 1.0
-
-Mel Configuration:
-  Freq min: 40.0 Hz
-  Freq max ratio: 0.9
-
-Pre-emphasis coefficient: 0.0
-
-File sizes: train: 0.2 MB, test: 0.1 MB
-```
-
-#### Features
-
-- **Auto-discovery**: Defaults to the most recently created dataset in `./data/vimh-*`
-- **Comprehensive info**: Shows all dataset metadata including parameters, audio settings, and file sizes
-- **Parameter analysis**: Distinguishes between varying and fixed parameters with detailed ranges
-- **Spectrogram details**: Displays STFT/mel spectrogram configuration when available
-- **Error handling**: Clear error messages for missing files or invalid JSON
-
-### Parameter Distribution Analysis (`-p` flag)
-
-The `vimhd.py` utility includes powerful parameter distribution analysis capabilities via the `-p` flag. This extracts actual parameter values from VIMH binary files and provides detailed statistical analysis:
-
-```bash
-# Analyze parameter distributions in the most recent dataset
-python vimhd.py -p
-
-# Analyze distributions in a specific dataset
-python vimhd.py -p data/vimh-32x32x1_8000Hz_1p0s_256dss_simple_2p
-
-# Using make targets
-make vpr    # recent dataset parameter analysis
-make vps    # small dataset parameter analysis
-make vpl    # large dataset parameter analysis
-```
-
-#### Analysis Output Example
-
-```
-Parameter Distribution Analysis:
-==================================================
-
-log10_decay_time:
-  Expected range: [-1.000, 0.300]
-  Actual range:   [-0.995, 0.295]
-  Mean: -0.366
-  Std:  0.372
-  Median: -0.342
-  Uniformity test (chi-square like): 12.67
-    (Lower values indicate more uniform distribution)
-  Histogram (10 bins):
-    [-0.995--0.866]:  29 ████████████████████████████████████████
-    [-0.866--0.737]:  13 █████████████████
-    [-0.737--0.608]:  23 ███████████████████████████████
-    [-0.608--0.479]:  18 ████████████████████████
-    [-0.479--0.350]:  18 ████████████████████████
-    [-0.350--0.221]:  22 ██████████████████████████████
-    [-0.221--0.092]:  28 ██████████████████████████████████████
-    [-0.092-0.037]:  16 ██████████████████████
-    [0.037-0.166]:  22 ██████████████████████████████
-    [0.166-0.295]:  15 ████████████████████
-
-filter_cutoff:
-  Expected range: [1000.000, 4000.000]
-  Actual range:   [1000.000, 3988.235]
-  Mean: 2456.401
-  Std:  821.375
-  Median: 2470.588
-  Uniformity test (chi-square like): 10.51
-    (Lower values indicate more uniform distribution)
-  Histogram (10 bins):
-    [1000.000-1298.824]:  24 ███████████████████████████████████
-    [1298.824-1597.647]:  16 ███████████████████████
-    [1597.647-1896.471]:  17 █████████████████████████
-    [1896.471-2195.294]:  21 ███████████████████████████████
-    [2195.294-2494.118]:  27 ████████████████████████████████████████
-    [2494.118-2792.941]:  25 █████████████████████████████████████
-    [2792.941-3091.765]:  21 ███████████████████████████████
-    [3091.765-3390.588]:  15 ██████████████████████
-    [3390.588-3689.412]:  25 █████████████████████████████████████
-    [3689.412-3988.235]:  13 ███████████████████
-```
-
-#### Analysis Features
-
-- **Distribution visualization**: ASCII histograms for quick visual assessment
-- **Statistical measures**: Mean, standard deviation, median, min/max ranges
-- **Uniformity testing**: Chi-square-like metric to detect sampling bias
-- **Split analysis**: Separate analysis for train and test sets
-- **Binary format parsing**: Direct extraction from VIMH binary files without loading images
-- **Quantization awareness**: Properly handles parameter quantization and denormalization
-
-## File Reading/Writing
-
-### Python Usage
-
-```python
-from src.data.vimh_dataset import VIMHDataset, VIMHDataModule
-
-# Load existing VIMH dataset
-dataset = VIMHDataset(data_dir="data/my_dataset", format="binary")
-
-# Access samples
-sample = dataset[0]  # Returns (image, labels) tuple
-image, labels = sample
-# image: torch.Tensor of shape (C, H, W)
-# labels: dict with parameter names and values
-
-# Use with DataModule for training
-datamodule = VIMHDataModule(data_dir="data/my_dataset")
-datamodule.setup()
-train_loader = datamodule.train_dataloader()
-```
-
-### Dataset Auto-Configuration
-
-VIMH datasets automatically configure neural network models based on their metadata:
-
-```python
-# Model automatically configures from VIMH dataset info
-python src/train.py experiment=cnn_16kdss
-# Reads data/*/vimh_dataset_info.json to determine:
-# - Input image dimensions (height, width, channels)
-# - Number of output heads (equal to varying_parameters)
-# - Parameter names for head naming
-# - Loss function selection based on parameter types
-```
-
-### Performance Considerations
-
-- **Binary format**: Fastest loading, smallest file size
-- **Pickle format**: Python-friendly but larger files
-- **Memory usage**: ~793 bytes per MNIST sample, ~3083 bytes per CIFAR-100 sample
-- **Loading speed**: ~10x faster initialization compared to traditional formats
-
-## Related Formats
-
-VIMH was originally inspired by CIFAR-100 but extends it significantly:
-
-- **CIFAR-100**: Fixed 32x32x3 images, 2 labels (coarse/fine classes)
-- **VIMH**: Variable image dimensions, 0-255 continuous parameters with self-describing metadata
-- **HDF5**: Alternative format, but VIMH is more compact and self-describing
-- **TFRecord**: Similar concept, but VIMH uses simpler binary format
+For background on how these datasets feed the loaders, see [multihead_data_architecture.md](multihead_data_architecture.md).

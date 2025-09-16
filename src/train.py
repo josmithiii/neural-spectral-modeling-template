@@ -79,123 +79,92 @@ log = RankedLogger(__name__, rank_zero_only=True)
 
 
 def _configure_vimh_model_config(cfg: DictConfig) -> None:
-    """Configure model config for VIMH datasets before instantiation.
-
-    This is a cleaner approach adopted from /l/av that modifies the config
-    before model instantiation rather than rebuilding the model afterward.
-    """
+    """Configure model config for VIMH datasets before instantiation."""
     try:
         from src.utils.vimh_utils import (
             get_heads_config_from_metadata,
             get_parameter_names_from_metadata,
+            get_parameter_ranges_from_metadata,
             load_vimh_metadata,
         )
+    except ImportError as exc:
+        log.warning(f"VIMH utilities unavailable; skipping auto-configuration: {exc}")
+        return
 
-        parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
-        if parameter_names and hasattr(cfg.model, "net"):
-            log.info(f"Configuring model with parameter names from dataset: {parameter_names}")
+    if not getattr(cfg, "data", None) or not getattr(cfg.data, "data_dir", None):
+        return
+    if not getattr(cfg, "model", None) or not hasattr(cfg.model, "net"):
+        return
 
-            # Configure model based on output mode
-            if hasattr(cfg.model, "output_mode") and cfg.model.output_mode == "regression":
-                # For regression mode, set parameter_names in the network config
-                # Use open_dict to allow adding dynamic keys under structured configs
-                with open_dict(cfg.model):
-                    cfg.model.net.parameter_names = parameter_names
-                    # Ensure output_mode is set at network level too
-                    cfg.model.net.output_mode = "regression"
-                    # Clear any existing heads_config to prevent classification head creation
-                    cfg.model.net.heads_config = None
-            else:
-                # For classification/ordinal mode, use heads_config
-                heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
-                with open_dict(cfg.model):
-                    cfg.model.net.heads_config = heads_config
+    parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
+    if not parameter_names:
+        log.debug("No VIMH parameter names discovered; skipping auto-configuration.")
+        return
 
-            # Auto-configure regression loss functions for each parameter
-            if hasattr(cfg.model, "output_mode") and cfg.model.output_mode == "regression":
-                try:
-                    from src.utils.vimh_utils import get_parameter_ranges_from_metadata
+    log.info(f"Configuring model with parameter names from dataset: {parameter_names}")
+    output_mode = getattr(cfg.model, "output_mode", None)
 
-                    param_ranges = get_parameter_ranges_from_metadata(cfg.data.data_dir)
-                    # Build a Hydra-instantiable criteria dict instead of inserting objects
-                    base_criteria_cfg: Dict[str, Any] = {}
-                    for param_name in parameter_names:
-                        param_range = param_ranges.get(param_name, (0.0, 1.0))
-                        base_criteria_cfg[param_name] = {
-                            "_target_": "src.models.losses.NormalizedRegressionLoss",
-                            "param_range": (
-                                tuple(param_range)
-                                if isinstance(param_range, (list, tuple))
-                                else (0.0, float(param_range))
-                            ),
-                        }
+    if output_mode == "regression":
+        with open_dict(cfg.model):
+            cfg.model.net.parameter_names = parameter_names
+            cfg.model.net.output_mode = "regression"
+            cfg.model.net.heads_config = None
+    else:
+        heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
+        with open_dict(cfg.model):
+            cfg.model.net.heads_config = heads_config
 
-                    # If user provided extra kwargs for criteria (e.g., loss_type), merge them per head
-                    merged_criteria_cfg: Dict[str, Any] = {}
-                    user_criteria = getattr(cfg.model, "criteria", None)
-                    for head, base_cfg in base_criteria_cfg.items():
-                        merged = dict(base_cfg)
-                        try:
-                            if user_criteria and head in user_criteria:
-                                for k, v in user_criteria[head].items():
-                                    if k not in ("_target_", "param_range"):
-                                        merged[k] = v
-                        except Exception:
-                            # If user_criteria isn't a mapping, ignore gracefully
-                            pass
-                        merged_criteria_cfg[head] = merged
+    if output_mode == "regression":
+        param_ranges = get_parameter_ranges_from_metadata(cfg.data.data_dir)
+        base_criteria_cfg: Dict[str, Any] = {}
+        for param_name in parameter_names:
+            if param_name not in param_ranges:
+                raise KeyError(f"Missing parameter range for '{param_name}' in metadata")
+            param_range = param_ranges[param_name]
+            base_criteria_cfg[param_name] = {
+                "_target_": "src.models.losses.NormalizedRegressionLoss",
+                "param_range": tuple(param_range),
+            }
 
-                    with open_dict(cfg.model):
-                        cfg.model.criteria = OmegaConf.create(merged_criteria_cfg)
+        merged_criteria_cfg: Dict[str, Any] = {}
+        user_criteria = getattr(cfg.model, "criteria", None)
+        for head, base_cfg in base_criteria_cfg.items():
+            merged = dict(base_cfg)
+            if user_criteria and head in user_criteria:
+                for key, value in user_criteria[head].items():
+                    if key not in ("_target_", "param_range"):
+                        merged[key] = value
+            merged_criteria_cfg[head] = merged
 
-                    log.info(
-                        f"Auto-configured regression loss functions for: {list(merged_criteria_cfg.keys())}"
-                    )
-                except Exception as e:
-                    log.warning(f"Failed to configure regression losses: {e}")
+        with open_dict(cfg.model):
+            cfg.model.criteria = OmegaConf.create(merged_criteria_cfg)
 
-            # Auto-configure loss_weights using JND-based approach from /l/av
-            if (
-                not hasattr(cfg.model, "loss_weights")
-                or not cfg.model.loss_weights
-                or len(cfg.model.loss_weights) == 0
-            ):
-                try:
-                    metadata = load_vimh_metadata(cfg.data.data_dir)
-                    param_mappings = metadata.get("parameter_mappings", {})
-                    loss_weights = {}
+        log.info(
+            f"Auto-configured regression loss functions for: {list(merged_criteria_cfg.keys())}"
+        )
 
-                    for param_name in parameter_names:
-                        if param_name in param_mappings:
-                            mapping = param_mappings[param_name]
-                            param_range = mapping["max"] - mapping["min"]
-                            step = mapping.get("step", 1.0)
-                            # Weight proportional to number of JND steps
-                            jnd_steps = param_range / step
-                            loss_weights[param_name] = float(jnd_steps)
-                        else:
-                            loss_weights[param_name] = 1.0
+    configure_loss_weights = not getattr(cfg.model, "loss_weights", None)
+    if configure_loss_weights:
+        metadata = load_vimh_metadata(cfg.data.data_dir)
+        param_mappings = metadata.get("parameter_mappings", {})
+        loss_weights = {}
+        for param_name in parameter_names:
+            if param_name not in param_mappings:
+                raise KeyError(f"Parameter '{param_name}' missing from parameter_mappings")
+            mapping = param_mappings[param_name]
+            step = float(mapping["step"])
+            if step <= 0:
+                raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
+            param_range = float(mapping["max"]) - float(mapping["min"])
+            loss_weights[param_name] = float(param_range / step)
 
-                    # Normalize weights so maximum weight is 1.0
-                    if loss_weights:
-                        max_weight = max(loss_weights.values())
-                        loss_weights = {
-                            name: weight / max_weight for name, weight in loss_weights.items()
-                        }
+        if loss_weights:
+            max_weight = max(loss_weights.values()) or 1.0
+            loss_weights = {name: weight / max_weight for name, weight in loss_weights.items()}
 
-                    with open_dict(cfg.model):
-                        cfg.model.loss_weights = loss_weights
-                    log.info(
-                        f"Auto-configured JND-based loss_weights (normalized): {cfg.model.loss_weights}"
-                    )
-                except Exception as e:
-                    # Fallback to equal weights
-                    with open_dict(cfg.model):
-                        cfg.model.loss_weights = {name: 1.0 for name in parameter_names}
-                    log.warning(f"Failed to calculate JND-based weights, using equal weights: {e}")
-                    log.info(f"Auto-configured loss_weights: {cfg.model.loss_weights}")
-    except Exception as e:
-        log.warning(f"Failed to auto-configure model from dataset metadata: {e}")
+        with open_dict(cfg.model):
+            cfg.model.loss_weights = loss_weights
+        log.info(f"Auto-configured JND-based loss_weights (normalized): {cfg.model.loss_weights}")
 
 
 def _setup_datamodule_with_transforms(cfg: DictConfig) -> LightningDataModule:

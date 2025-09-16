@@ -2,48 +2,42 @@
 
 ## Overview
 
-This repository is a practical template for neural spectral modeling built on Lightning + Hydra. It centers on the VIMH dataset format and provides ready‑to‑run experiments, models, losses, and tools for audio‑parameter prediction from images.
+NSMT is a Lightning + Hydra template optimized for VIMH spectrogram datasets. It ships ready-to-run experiments, auto-configuring models, and evaluation tools for predicting audio synthesis parameters.
 
 ## Key Capabilities
 
-- VIMH dataset support
-  - Variable image size and channels with embedded metadata
-  - Multihead labels for 1–255 quantized continuous parameters
-  - Auto‑configuration of heads and ranges from `vimh_dataset_info.json`
+- **VIMH dataset workflow**
+  - Variable image dimensions with metadata-driven auto-configuration
+  - Multihead labels spanning classification, ordinal, and regression outputs
+  - Tooling for generation (`make gd*`), visualization (`make dd*`), and inspection (`make vd*`, `make vp*`)
 
-- Distance‑aware loss functions (for quantized targets)
-  - OrdinalRegressionLoss: continuous, distance‑aware predictions
-  - QuantizedRegressionLoss: direct regression on quantized values
-  - WeightedCrossEntropyLoss: classification with distance weighting
+- **Distance-aware loss stack**
+  - Ordinal regression, quantized regression, and weighted cross-entropy variants
+  - Automatic parameter range wiring from `vimh_dataset_info.json`
 
-- Ready model configs
-  - CNN families: `cnn_micro`, `cnn_tiny`, `cnn_64k` (+ auxiliary/regression/ordinal variants)
-  - ViT families: `vit_micro`, `vit_tiny`
-  - Auto‑head wiring via `VIMHLitModule` with dataset introspection
+- **Model zoo**
+  - CNN variants: `cnn_micro`, `cnn_tiny`, `cnn_64k` (+ auxiliary/regression/ordinal options)
+  - ViT variants: `vit_micro`, `vit_tiny`
+  - Auto head configuration through `VIMHLitModule`
 
-- Dataset generation utilities
-  - `generate_vimh.py` for small/large synthetic sets (Saw + Moog VCF)
-  - Make targets for small (`sds`) and large (`sdl`) datasets and Moog variants
+- **Evaluation and analysis**
+  - Audio reconstruction evaluator (`make ae`)
+  - Architecture diagrams (`make td*`)
+  - Parameter distribution reporting (chi-square heuristic via `make vp*`)
 
-- Evaluation and analysis
-  - Audio reconstruction evaluation (`src/audio_reconstruction_eval.py`)
-  - Model diagram generation (`viz/` make targets)
-  - TensorBoard logging via `make tensorboard`
-
-- Developer experience
+- **Developer experience**
   - Hydra config packs under `configs/`
-  - Pytest test suite with fast and slow markers
-  - Pre‑commit formatting and linting via `make format`
+  - Pytest suite with fast/slow markers (`make test`, `make test-all`)
+  - Pre-commit formatting + lint (`make format`)
 
 ## Helpful Make Targets
 
-- Datasets: `sds`, `sdl`, `sdmb`, `sdme`, `sdmr`, `sdma`
+- Datasets: `gds`, `gdl`, `gdmb`, `gdme`, `gdmr`, `gdas`
 - Display datasets: `dds`, `ddl`, `ddr`
-- Train: `tr` (defaults), `trq` (quick), `trs` (small), `trl` (large), `ex` (example)
-- Experiments: `emb`, `eme`, `emr`, `emvit*`
-- Diagrams: `td`, `tds`, `tdsa`, `tdv`
-- Eval audio: `ae`
-- Utilities: `lc`, `tensorboard`, `format`, `test`, `test-all`
+- Train: `tr`, `trq`, `trs`, `trl`, `ex`
+- Wah reference experiments: `ewt`, `ewtr`, `evwt`, `evwtr`
+- Diagrams: `td`, `tds`, `tdsa`, `tdsc`
+- Utilities: `lc`, `tensorboard`, `format`, `test`, `test-all`, `verify-docs`, `ae`
 
 ## Common Patterns
 
@@ -51,15 +45,14 @@ This repository is a practical template for neural spectral modeling built on Li
 # Quick sanity check (1 epoch)
 python src/train.py trainer.max_epochs=1
 
-# Example experiment (uses VIMH + CNN 64k by default)
-python src/train.py experiment=example
+# Preferred wah experiment (classification)
+python src/train.py experiment=wah_cnn_tiny trainer=mps
 
-# Choose model/data/trainer explicitly
-python src/train.py model=cnn_64k data=vimh trainer=mps
+# Switch to regression mode
+python src/train.py experiment=wah_cnn_tiny_regression trainer=mps
 
-# Switch loss style (ordinal or regression variants)
-python src/train.py model=cnn_64k_ordinal
-python src/train.py model=cnn_64k_regression
+# Override optimizer details
+python src/train.py model.optimizer.lr=0.0005 trainer.gradient_clip_val=0.5
 ```
 
 See also:
@@ -67,3 +60,4 @@ See also:
 - [vimh.md](vimh.md) for dataset details
 - [vimh_loss_functions.md](vimh_loss_functions.md) for loss design
 - [architectures.md](architectures.md) for available model configs
+- [experiments/wah.md](experiments/wah.md) for expected metrics and troubleshooting

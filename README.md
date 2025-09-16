@@ -49,7 +49,7 @@ adds CIFAR and VIMH support to that.) The CIFAR and MNIST support are
 dropped here because VIMH can support those image resolutions,
 channel depths, and metadata, as special cases.
 
-### 📚 Docs
+### Docs
 
 - Overview: [docs/index.md](docs/index.md)
 - Features: [docs/features.md](docs/features.md)
@@ -61,7 +61,7 @@ channel depths, and metadata, as special cases.
 - Configuration: [docs/configuration.md](docs/configuration.md)
 - Audio Evaluation: [docs/audio_eval.md](docs/audio_eval.md)
 
-### 🚀 Quick Start
+### Quick Start
 
 ```bash
 # Set up the environment (uv)
@@ -126,6 +126,8 @@ make evitall # Run all ViT trivial experiments
 # Wah Pedal experiments
 make ew     # CNN training on dataset gdws (sawtooth + wah + decay envelope)
 make ewe    # CNN training on dataset gdwe (gdw + ADSR wah control)
+make ewt    # Production wah CNN tiny (classification); expect >0.85 per-head accuracy
+make ewtr   # Production wah CNN tiny regression; expect <0.05 MAE per head
 
 # Moog VCF experiments using CNN architecture
 make emb    # Basic Moog VCF (4 params)
@@ -202,7 +204,7 @@ make lc     # list all model, data, experiment configs
 
 ```
 
-### 📊 Dataset Format
+### Dataset Format
 
 VIMH datasets use a structured format with:
 
@@ -211,7 +213,7 @@ VIMH datasets use a structured format with:
 - **Metadata**: JSON file with parameter mappings and dataset info
 - **Validation**: Cross-validation across directory name, JSON, and binary sources
 
-### 🔧 Configuration
+### Configuration
 
 ```yaml
 # configs/data/vimh_256dss.yaml
@@ -239,14 +241,14 @@ defaults:
   - override /model: cnn_64k
 ```
 
-### 📈 Performance
+### Performance
 
 - **Loading Optimization**: 10x faster initialization with efficient dimension detection
 - **Memory Efficiency**: Optimized transform adjustment for different image sizes
 - **Training Speed**: Comparable to single-head models with minimal overhead
 - **Scalability**: Supports datasets up to 1M+ samples
 
-### 🛠️ Use Cases
+### Use Cases
 
 - **Audio Effects Modeling**: Predict Moog VCF and wah pedal parameters from spectrograms
 - **Audio Synthesis**: Image-to-audio parameter mapping with configurable filter types
