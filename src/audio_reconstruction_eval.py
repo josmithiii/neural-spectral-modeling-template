@@ -469,6 +469,25 @@ class AudioReconstructionEvaluator:
         self.duration = self.dataset_info.get("duration", 1.0)
         self.dataset_name = self.dataset_info.get("dataset_name", "")
 
+        # Extract training steps from checkpoint if available
+        self.training_steps = None
+        self.total_epochs = None
+        if ckpt_path:
+            try:
+                checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+                # Try different keys that might contain step/epoch information
+                self.training_steps = (
+                    checkpoint.get("global_step") or
+                    checkpoint.get("step") or
+                    checkpoint.get("trainer", {}).get("global_step")
+                )
+                self.total_epochs = (
+                    checkpoint.get("epoch") or
+                    checkpoint.get("trainer", {}).get("current_epoch")
+                )
+            except Exception as e:
+                log.warning(f"Could not extract training metadata from checkpoint: {e}")
+
         # Initialize synthesizer
         self.synth = SimpleSawSynth(sample_rate=self.sample_rate)
 
@@ -1450,6 +1469,14 @@ class InteractiveAudioEvaluator:
             self.status_text.set_text(self._build_status_string())
             # Optional secondary line for run/dataset/ckpt details
             detail = self._build_status_detail_string()
+
+            # Determine color based on training steps (red if undertrained)
+            text_color = "black"
+            e = self.evaluator
+            if hasattr(e, 'training_steps') and e.training_steps is not None:
+                if e.training_steps < 100:
+                    text_color = "red"
+
             if not hasattr(self, "status_text2"):
                 self.status_text2 = self.fig.text(
                     0.01,
@@ -1459,9 +1486,11 @@ class InteractiveAudioEvaluator:
                     va="top",
                     ha="left",
                     family="monospace",
+                    color=text_color,
                 )
             else:
                 self.status_text2.set_text(detail)
+                self.status_text2.set_color(text_color)
         except Exception:
             # Avoid UI breakage on any unexpected attribute
             pass
@@ -1678,9 +1707,19 @@ class InteractiveAudioEvaluator:
         sr_str = f"{sr}" if sr is not None else "?"
         dur_str = f"{dur}" if dur is not None else "?"
 
+        # Training progress info with warning for undertrained models
+        training_info = ""
+        if hasattr(e, 'training_steps') and e.training_steps is not None:
+            steps = e.training_steps
+            steps_str = f"steps={steps}"
+            # Add epoch info if available
+            if hasattr(e, 'total_epochs') and e.total_epochs is not None:
+                steps_str += f" epoch={e.total_epochs}"
+            training_info = f" | {steps_str}"
+
         return (
             f"run={run or '-'} | dataset={dataset or '-'} ({dims}) | sr={sr_str} Hz, dur={dur_str}s | "
-            f"arch={net_name} params={params_str} | ckpt={ckpt_short or '-'}"
+            f"arch={net_name} params={params_str}{training_info} | ckpt={ckpt_short or '-'}"
         )
 
     def copy_status_info(self, event):
