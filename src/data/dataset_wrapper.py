@@ -47,36 +47,32 @@ class TransformWrapper(Dataset):
                 if hasattr(sub_dataset, "get_heads_config") and callable(
                     getattr(sub_dataset, "get_heads_config")
                 ):
-                    try:
-                        result = sub_dataset.get_heads_config()
-                        if result:  # Only return if not empty
-                            return result
-                    except Exception as e:
-                        continue
+                    result = sub_dataset.get_heads_config()
+                    if result:  # Only return if not empty
+                        return result
                 elif hasattr(sub_dataset, "heads_config") and sub_dataset.heads_config:
                     result = sub_dataset.heads_config
                     return result
 
-            return {}
+            raise AttributeError(
+                "Unable to determine heads_config from ConcatDataset components."
+            )
 
         # First try calling the method (for VIMH and other multihead datasets)
         if hasattr(dataset, "get_heads_config"):
             method = getattr(dataset, "get_heads_config")
             if callable(method):
-                try:
-                    result = dataset.get_heads_config()
-                    return result
-                except Exception as e:
-                    import traceback
-
-                    traceback.print_exc()
+                result = dataset.get_heads_config()
+                return result
 
         # Fallback to attribute access (for backwards compatibility)
         if hasattr(dataset, "heads_config"):
             result = dataset.heads_config
             return result
 
-        return {}
+        raise AttributeError(
+            "Unable to determine heads_config from wrapped dataset or its components."
+        )
 
     def __getattr__(self, name: str):
         """Forward attribute access to the underlying dataset."""

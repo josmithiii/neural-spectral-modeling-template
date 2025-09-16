@@ -259,17 +259,14 @@ class VIMHDataModule(LightningDataModule):
         :param data_dir: Path to dataset directory
         :return: (height, width, channels) tuple or None if file not found or invalid
         """
-        try:
-            metadata_file = Path(data_dir) / "vimh_dataset_info.json"
-            if metadata_file.exists():
-                with open(metadata_file) as f:
-                    metadata = json.load(f)
-                    h = metadata["height"]
-                    w = metadata["width"]
-                    c = metadata["channels"]
-                    return h, w, c
-        except (FileNotFoundError, KeyError, json.JSONDecodeError):
-            pass
+        metadata_file = Path(data_dir) / "vimh_dataset_info.json"
+        if metadata_file.exists():
+            with open(metadata_file) as f:
+                metadata = json.load(f)
+            h = metadata["height"]
+            w = metadata["width"]
+            c = metadata["channels"]
+            return h, w, c
         return None
 
     def _validate_binary_metadata(self, data_dir: str) -> Optional[Tuple[int, int, int]]:
@@ -313,9 +310,9 @@ class VIMHDataModule(LightningDataModule):
         :param data_dir: Path to dataset directory
         :return: (height, width, channels) tuple
         """
-        temp_dataset = VIMHDataset(data_dir, train=True)
-        c, h, w = temp_dataset.get_image_shape()  # PyTorch format (C, H, W)
-        return h, w, c
+        raise ValueError(
+            "Unable to determine dataset dimensions; metadata and binary headers are unavailable."
+        )
 
     def _detect_and_validate_image_dimensions(self, data_dir: str) -> Tuple[int, int, int]:
         """Detect image dimensions with cross-validation across all sources.
@@ -348,8 +345,10 @@ class VIMHDataModule(LightningDataModule):
         all_dims = [dim for dim in [dir_dims, json_dims, binary_dims] if dim is not None]
 
         if len(all_dims) == 0:
-            # No metadata found, use fallback
-            return self._fallback_dimension_detection(data_dir)
+            # No metadata found anywhere – cannot infer dimensions reliably
+            raise ValueError(
+                f"No dimension information found for dataset '{data_dir}'."
+            )
 
         if len(set(all_dims)) == 1:
             # All sources agree (or only one source available)
@@ -368,51 +367,47 @@ class VIMHDataModule(LightningDataModule):
         :param data_dir: Path to dataset directory
         :return: Dictionary mapping head names to number of classes
         """
-        try:
-            # Try to load from JSON first (fastest)
-            metadata_file = Path(data_dir) / "vimh_dataset_info.json"
-            if metadata_file.exists():
-                with open(metadata_file) as f:
-                    metadata = json.load(f)
+        metadata_file = Path(data_dir) / "vimh_dataset_info.json"
+        if not metadata_file.exists():
+            raise FileNotFoundError(
+                f"Metadata file required to load heads configuration: {metadata_file}"
+            )
 
-                # Calculate heads config from parameter mappings using min/max/step
-                heads_config = {}
-                if "parameter_names" in metadata and "parameter_mappings" in metadata:
-                    param_names = metadata["parameter_names"]
-                    param_mappings = metadata["parameter_mappings"]
+        with open(metadata_file) as f:
+            metadata = json.load(f)
 
-                    for param_name in param_names:
-                        if param_name in param_mappings:
-                            info = param_mappings[param_name]
-                            if (
-                                all(k in info for k in ("min", "max", "step"))
-                                and float(info["step"]) > 0
-                            ):
-                                pmin, pmax, step = (
-                                    float(info["min"]),
-                                    float(info["max"]),
-                                    float(info["step"]),
-                                )
-                                num = (pmax - pmin) / step
-                                steps = int(round(num))
-                                if abs(num - steps) > 1e-3:
-                                    print(
-                                        f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}"
-                                    )
-                                heads_config[param_name] = steps + 1
-                            else:
-                                raise ValueError(
-                                    f"Parameter '{param_name}' missing min/max/step or invalid step in metadata"
-                                )
+        if "parameter_names" not in metadata or "parameter_mappings" not in metadata:
+            raise KeyError(
+                "Metadata missing 'parameter_names' or 'parameter_mappings' entries."
+            )
 
-                return heads_config
+        heads_config: Dict[str, int] = {}
+        param_names = metadata["parameter_names"]
+        param_mappings = metadata["parameter_mappings"]
 
-        except (FileNotFoundError, KeyError, json.JSONDecodeError):
-            pass
+        for param_name in param_names:
+            if param_name not in param_mappings:
+                raise KeyError(f"Parameter '{param_name}' missing from parameter_mappings")
+            info = param_mappings[param_name]
+            if not all(k in info for k in ("min", "max", "step")):
+                raise KeyError(
+                    f"Parameter '{param_name}' metadata missing min/max/step values."
+                )
+            step = float(info["step"])
+            if step <= 0:
+                raise ValueError(
+                    f"Parameter '{param_name}' has non-positive step value: {step}"
+                )
+            pmin, pmax = float(info["min"]), float(info["max"])
+            num = (pmax - pmin) / step
+            steps = int(round(num))
+            if abs(num - steps) > 1e-3:
+                raise ValueError(
+                    f"Parameter '{param_name}' step {step} does not evenly divide range ({pmin}, {pmax})."
+                )
+            heads_config[param_name] = steps + 1
 
-        # No metadata JSON; attempt to construct from dataset directly (strict checks occur there)
-        temp_dataset = VIMHDataset(data_dir, train=True)
-        return temp_dataset.get_heads_config()
+        return heads_config
 
     def _load_parameter_ranges(self, data_dir: str) -> Dict[str, float]:
         """Load parameter ranges for perceptual loss calculation.
@@ -420,27 +415,30 @@ class VIMHDataModule(LightningDataModule):
         :param data_dir: Path to dataset directory
         :return: Dictionary mapping parameter names to their ranges (max - min)
         """
-        parameter_ranges = {}
+        parameter_ranges: Dict[str, float] = {}
 
-        try:
-            # Try to load from JSON metadata
-            metadata_file = Path(data_dir) / "vimh_dataset_info.json"
-            if metadata_file.exists():
-                with open(metadata_file) as f:
-                    metadata = json.load(f)
+        metadata_file = Path(data_dir) / "vimh_dataset_info.json"
+        if not metadata_file.exists():
+            raise FileNotFoundError(
+                f"Metadata file required to load parameter ranges: {metadata_file}"
+            )
 
-                if "parameter_names" in metadata and "parameter_mappings" in metadata:
-                    param_names = metadata["parameter_names"]
-                    param_mappings = metadata["parameter_mappings"]
+        with open(metadata_file) as f:
+            metadata = json.load(f)
 
-                    for param_name in param_names:
-                        if param_name in param_mappings:
-                            param_info = param_mappings[param_name]
-                            param_range = param_info["max"] - param_info["min"]
-                            parameter_ranges[param_name] = param_range
+        if "parameter_names" not in metadata or "parameter_mappings" not in metadata:
+            raise KeyError(
+                "Metadata missing 'parameter_names' or 'parameter_mappings' entries."
+            )
 
-        except (FileNotFoundError, KeyError, json.JSONDecodeError):
-            pass
+        param_names = metadata["parameter_names"]
+        param_mappings = metadata["parameter_mappings"]
+
+        for param_name in param_names:
+            if param_name not in param_mappings:
+                raise KeyError(f"Parameter '{param_name}' missing from parameter_mappings")
+            param_info = param_mappings[param_name]
+            parameter_ranges[param_name] = param_info["max"] - param_info["min"]
 
         return parameter_ranges
 
@@ -450,26 +448,30 @@ class VIMHDataModule(LightningDataModule):
         :param data_dir: Path to dataset directory
         :return: Dictionary mapping parameter names to their (min, max) bounds
         """
-        parameter_bounds = {}
+        parameter_bounds: Dict[str, Tuple[float, float]] = {}
 
-        try:
-            # Try to load from JSON metadata
-            metadata_file = Path(data_dir) / "vimh_dataset_info.json"
-            if metadata_file.exists():
-                with open(metadata_file) as f:
-                    metadata = json.load(f)
+        metadata_file = Path(data_dir) / "vimh_dataset_info.json"
+        if not metadata_file.exists():
+            raise FileNotFoundError(
+                f"Metadata file required to load parameter bounds: {metadata_file}"
+            )
 
-                if "parameter_names" in metadata and "parameter_mappings" in metadata:
-                    param_names = metadata["parameter_names"]
-                    param_mappings = metadata["parameter_mappings"]
+        with open(metadata_file) as f:
+            metadata = json.load(f)
 
-                    for param_name in param_names:
-                        if param_name in param_mappings:
-                            param_info = param_mappings[param_name]
-                            parameter_bounds[param_name] = (param_info["min"], param_info["max"])
+        if "parameter_names" not in metadata or "parameter_mappings" not in metadata:
+            raise KeyError(
+                "Metadata missing 'parameter_names' or 'parameter_mappings' entries."
+            )
 
-        except (FileNotFoundError, KeyError, json.JSONDecodeError):
-            pass
+        param_names = metadata["parameter_names"]
+        param_mappings = metadata["parameter_mappings"]
+
+        for param_name in param_names:
+            if param_name not in param_mappings:
+                raise KeyError(f"Parameter '{param_name}' missing from parameter_mappings")
+            param_info = param_mappings[param_name]
+            parameter_bounds[param_name] = (param_info["min"], param_info["max"])
 
         return parameter_bounds
 

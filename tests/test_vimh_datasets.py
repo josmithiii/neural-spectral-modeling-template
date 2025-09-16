@@ -336,9 +336,8 @@ class TestVIMHDataset:
         with open(train_file, "wb") as f:
             pickle.dump(mock_vimh_data, f)
 
-        # Should work with default metadata
-        dataset = VIMHDataset(str(temp_dir), train=True)
-        assert len(dataset) > 0
+        with pytest.raises(FileNotFoundError):
+            VIMHDataset(str(temp_dir), train=True)
 
     def test_create_vimh_datasets(self, temp_dir, mock_vimh_data, mock_vimh_metadata):
         """Test factory function for creating train/test datasets."""
@@ -396,6 +395,8 @@ class TestVIMHDataset:
                 },
             }
         )
+        mock_metadata["train_samples"] = len(images)
+        mock_metadata["n_samples"] = len(images)
 
         train_file = temp_dir / "train_batch"
         metadata_file = temp_dir / "vimh_dataset_info.json"

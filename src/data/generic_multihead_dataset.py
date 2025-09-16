@@ -59,43 +59,40 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
         data_path = Path(data_path)
 
         # Look for metadata files
-        metadata_candidates = ["dataset_info.json", "metadata.json", "format.json"]
+        metadata_candidates = [
+            "dataset_info.json",
+            "metadata.json",
+            "format.json",
+            "vimh_dataset_info.json",
+        ]
 
         if data_path.is_dir():
             # Check for metadata files in directory
             for candidate in metadata_candidates:
                 metadata_file = data_path / candidate
                 if metadata_file.exists():
-                    try:
-                        with open(metadata_file) as f:
-                            config = json.load(f)
-                        print(f"Auto-detected format from {metadata_file}")
+                    with open(metadata_file) as f:
+                        config = json.load(f)
+                    print(f"Auto-detected format from {metadata_file}")
 
-                        # Ensure required fields are present
-                        if "label_encoding" not in config:
-                            config["label_encoding"] = {
-                                "format": "[N] [param_id] [param_val] ...",
-                                "N_range": [0, 255],
-                                "param_id_range": [0, 255],
-                                "param_val_range": [0, 255],
-                            }
+                    # Ensure required fields are present
+                    if "label_encoding" not in config:
+                        # Fill with canonical multihead defaults when omitted
+                        config["label_encoding"] = {
+                            "format": "[N] [param_id] [param_val] ...",
+                            "N_range": [0, 255],
+                            "param_id_range": [0, 255],
+                            "param_val_range": [0, 255],
+                        }
 
-                        return config
-                    except (json.JSONDecodeError, OSError):
-                        continue
+                    return config
 
-            # Check for standard dataset files
-            if (data_path / "train_batch").exists() or (data_path / "test_batch").exists():
-                # Use default format for batch files
-                return self._get_default_format()
+            raise FileNotFoundError(
+                f"No metadata file found in directory {data_path} for auto-detection."
+            )
 
-        else:
-            # Single file - try to detect format from content
-            return self._detect_from_content(data_path)
-
-        # Default fallback
-        print("Warning: Could not auto-detect format, using default")
-        return self._get_default_format()
+        # Single file - try to detect format from content
+        return self._detect_from_content(data_path)
 
     def _detect_from_content(self, file_path: Path) -> Dict[str, Any]:
         """Detect format from file content analysis.
@@ -103,59 +100,66 @@ class GenericMultiheadDataset(MultiheadDatasetBase):
         :param file_path: Path to dataset file
         :return: Detected format configuration
         """
-        try:
-            # Try pickle format first
-            import pickle
+        # Try pickle format first
+        import pickle
 
-            with open(file_path, "rb") as f:
-                data = pickle.load(f)
+        with open(file_path, "rb") as f:
+            data = pickle.load(f)
 
-            if isinstance(data, dict) and "data" in data and "labels" in data:
-                # Analyze image and label data
-                images = data["data"]
-                labels = data["labels"]
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"Dataset data must contain 'data' and 'labels' keys; received type {type(data)}."
+            )
+        if "data" not in data or "labels" not in data:
+            raise ValueError(
+                "Dataset data must contain both 'data' and 'labels' keys for auto-detection."
+            )
 
-                if not images or not labels:
-                    return self._get_default_format()
+        images = data["data"]
+        labels = data["labels"]
 
-                # Get image dimensions from actual data
-                first_image = images[0]
-                image_size = len(first_image)
+        if not images or not labels:
+            raise ValueError(
+                f"Dataset {file_path} contains no image or label data for auto-detection."
+            )
 
-                # Try to infer dimensions from common image sizes
-                if image_size == 784:  # 28x28x1 (MNIST-like)
-                    height, width, channels = 28, 28, 1
-                elif image_size == 3072:  # 32x32x3
-                    height, width, channels = 32, 32, 3
-                else:
-                    # Default assumption for generic format
-                    height, width, channels = 32, 32, 3
+        # Get image dimensions from actual data
+        first_image = images[0]
+        image_size = len(first_image)
 
-                # Analyze label structure
-                first_label = labels[0] if labels else []
+        # Try to infer dimensions from common image sizes
+        if image_size == 784:  # 28x28x1 (MNIST-like)
+            height, width, channels = 28, 28, 1
+        elif image_size == 3072:  # 32x32x3
+            height, width, channels = 32, 32, 3
+        else:
+            raise ValueError(
+                f"Unable to infer image dimensions from sample length {image_size} in {file_path}."
+            )
 
-                # Check if it's the standard multihead format [N, param_id, param_val, ...]
-                if len(first_label) >= 3:
-                    num_heads = first_label[0]
-                    expected_length = 1 + (num_heads * 2)
+        # Analyze label structure
+        first_label = labels[0] if labels else []
 
-                    if len(first_label) >= expected_length:
-                        return {
-                            "format": "auto-detected",
-                            "label_encoding": {
-                                "format": "[N] [param_id] [param_val] ...",
-                                "detected_dimensions": [height, width, channels],
-                                "detected_heads": num_heads,
-                            },
-                            "parameter_names": [f"param_{i}" for i in range(num_heads)],
-                            "image_size": f"{height}x{width}x{channels}",
-                        }
+        # Check if it's the standard multihead format [N, param_id, param_val, ...]
+        if len(first_label) >= 3:
+            num_heads = first_label[0]
+            expected_length = 1 + (num_heads * 2)
 
-        except Exception:
-            pass
+            if len(first_label) >= expected_length:
+                return {
+                    "format": "auto-detected",
+                    "label_encoding": {
+                        "format": "[N] [param_id] [param_val] ...",
+                        "detected_dimensions": [height, width, channels],
+                        "detected_heads": num_heads,
+                    },
+                    "parameter_names": [f"param_{i}" for i in range(num_heads)],
+                    "image_size": f"{height}x{width}x{channels}",
+                }
 
-        # Binary format detection could be added here
-        return self._get_default_format()
+        raise ValueError(
+            f"Unable to infer multihead format from labels in dataset {file_path}."
+        )
 
     def _get_default_format(self) -> Dict[str, Any]:
         """Get default format configuration.

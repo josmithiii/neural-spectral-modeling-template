@@ -363,14 +363,9 @@ class VIMHLitModule(LightningModule):
             param_range = param_ranges[head_name]
             if isinstance(param_range, (tuple, list)) and len(param_range) == 2:
                 return tuple(param_range)
-            elif isinstance(param_range, (int, float)):
-                # If it's a single value, assume it's the range (max-min)
-                print(
-                    f"Warning: {head_name} param_range is single value {param_range}, using (0, {param_range})"
-                )
-                return (0.0, float(param_range))
-            else:
-                print(f"Warning: Unexpected param_range format for {head_name}: {param_range}")
+            raise ValueError(
+                f"Parameter range for '{head_name}' must be a (min, max) tuple; received {param_range}."
+            )
 
         # Try to get from dataset metadata if it's a VIMH dataset
         if hasattr(dataset, "_metadata") and dataset._metadata:
@@ -379,10 +374,11 @@ class VIMHLitModule(LightningModule):
                 mapping = param_mappings[head_name]
                 if "min" in mapping and "max" in mapping:
                     return (mapping["min"], mapping["max"])
+                raise KeyError(
+                    f"Parameter '{head_name}' metadata missing 'min' or 'max' bounds."
+                )
 
-        # Fallback to default range
-        print(f"Warning: No parameter range found for {head_name}, using default (0.0, 1.0)")
-        return (0.0, 1.0)
+        raise KeyError(f"No parameter range information available for head '{head_name}'.")
 
     def _is_regression_loss(self, criterion) -> bool:
         """Check if a loss function is regression-based."""
@@ -413,11 +409,12 @@ class VIMHLitModule(LightningModule):
                 # No trainer attached, use fallback
                 param_bounds = None
 
-            if param_bounds and head_name in param_bounds:
+            if not param_bounds or head_name not in param_bounds:
+                # Fall back to normalized predictions when bounds are unavailable
+                preds = normalized_preds
+            else:
                 param_min, param_max = param_bounds[head_name]
                 preds = param_min + normalized_preds * (param_max - param_min)
-            else:
-                preds = normalized_preds  # Fallback to normalized values
         elif self._is_regression_loss(criterion):
             if isinstance(criterion, OrdinalRegressionLoss):
                 # For ordinal regression, use weighted average of class probabilities

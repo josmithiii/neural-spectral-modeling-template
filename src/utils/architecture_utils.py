@@ -417,7 +417,8 @@ def configure_vimh_model(model, datamodule, cfg) -> None:
                 ):
                     model.net._rebuild_auxiliary_and_heads()
     except Exception as e:
-        log.warning(f"Failed to auto-configure model from dataset metadata: {e}")
+        log.error(f"Failed to auto-configure model from dataset metadata: {e}")
+        raise
 
 
 def _configure_regression_criteria(model, data_dir: str, parameter_names: list) -> None:
@@ -436,40 +437,30 @@ def _configure_regression_criteria(model, data_dir: str, parameter_names: list) 
         # Clear old criteria and configure new ones for each parameter
         model.criteria = {}
 
+        metadata = load_vimh_metadata(data_dir)
+        param_mappings = metadata.get("parameter_mappings", {})
+
         for param_name in parameter_names:
             if param_name in param_ranges:
                 param_range = param_ranges[param_name]
                 model.criteria[param_name] = NormalizedRegressionLoss(param_range=param_range)
                 log.info(f"Configured {param_name} regression loss with range: {param_range}")
-            else:
-                # Fallback if range not available - get from full metadata
-                metadata = load_vimh_metadata(data_dir)
-                if (
-                    "parameter_mappings" in metadata
-                    and param_name in metadata["parameter_mappings"]
-                ):
-                    param_info = metadata["parameter_mappings"][param_name]
-                    if "min" in param_info and "max" in param_info:
-                        param_range = (param_info["min"], param_info["max"])
-                        model.criteria[param_name] = NormalizedRegressionLoss(
-                            param_range=param_range
-                        )
-                        log.info(
-                            f"Configured {param_name} regression loss with range: {param_range}"
-                        )
-                    else:
-                        log.warning(
-                            f"No min/max range found for {param_name}, using default (0,1)"
-                        )
-                        model.criteria[param_name] = NormalizedRegressionLoss(
-                            param_range=(0.0, 1.0)
-                        )
-                else:
-                    # Fallback if no mapping available
-                    log.warning(
-                        f"No parameter mapping found for {param_name}, using default (0,1)"
-                    )
-                    model.criteria[param_name] = NormalizedRegressionLoss(param_range=(0.0, 1.0))
+                continue
+
+            if param_name not in param_mappings:
+                raise KeyError(
+                    f"Parameter mapping for '{param_name}' not found in metadata at {data_dir}."
+                )
+
+            param_info = param_mappings[param_name]
+            if "min" not in param_info or "max" not in param_info:
+                raise KeyError(
+                    f"Parameter '{param_name}' metadata missing 'min' or 'max' bounds."
+                )
+
+            param_range = (param_info["min"], param_info["max"])
+            model.criteria[param_name] = NormalizedRegressionLoss(param_range=param_range)
+            log.info(f"Configured {param_name} regression loss with range: {param_range}")
 
         # Update multihead flag
         if hasattr(model, "is_multihead"):

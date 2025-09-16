@@ -91,8 +91,8 @@ def _estimate_decay_time(profile: np.ndarray, times: np.ndarray) -> float:
             return log10_decay_time
         else:
             return -1.0  # No decay detected
-    except:
-        return -1.0  # Fitting failed
+    except np.linalg.LinAlgError:
+        return -1.0  # Fitting failed due to ill-conditioned system
 
 
 def compute_temporal_envelope_from_spectrogram(

@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -92,10 +93,7 @@ class VIMHDataset(MultiheadDatasetBase):
         self._validate_dataset()
 
         # Enrich metadata with num_classes entries derived from min/max/step
-        try:
-            self._ensure_num_classes_in_metadata(write_back=True)
-        except Exception as e:
-            print(f"Warning: failed to enrich num_classes in metadata: {e}")
+        self._ensure_num_classes_in_metadata(write_back=True)
 
     def _ensure_num_classes_in_metadata(self, write_back: bool = True) -> None:
         """Ensure each parameter mapping has a correct 'num_classes' field.
@@ -111,23 +109,23 @@ class VIMHDataset(MultiheadDatasetBase):
         changed = False
         for name, info in self.metadata_format["parameter_mappings"].items():
             if not all(k in info for k in ("min", "max", "step")):
-                continue
+                raise KeyError(
+                    f"Parameter '{name}' metadata is missing one of min/max/step entries."
+                )
             step = float(info["step"])
             if step <= 0:
-                continue
+                continue  # Constant parameters do not contribute to heads or class counts
             pmin, pmax = float(info["min"]), float(info["max"])
             num = (pmax - pmin) / step
             steps = int(round(num))
-            if abs(num - steps) > 1e-3:
-                print(
-                    f"Warning: parameter '{name}' (max-min)/step = {num} not integer; rounding to {steps}"
+            if not math.isclose(num, steps, rel_tol=1e-3, abs_tol=1e-3):
+                raise ValueError(
+                    f"Parameter '{name}' step {step} does not evenly divide range ({pmin}, {pmax})."
                 )
             computed = steps + 1
             if "num_classes" not in info or int(info["num_classes"]) != computed:
-                prev = info.get("num_classes", None)
                 self.metadata_format["parameter_mappings"][name]["num_classes"] = computed
                 changed = True
-                print(f"Info: set num_classes for '{name}': {prev} -> {computed}")
 
         if (
             changed
@@ -135,20 +133,16 @@ class VIMHDataset(MultiheadDatasetBase):
             and hasattr(self, "metadata_file")
             and self.metadata_file.exists()
         ):
-            try:
-                with open(self.metadata_file) as f:
-                    meta = json.load(f)
-                if "parameter_mappings" in meta:
-                    for name, info in self.metadata_format["parameter_mappings"].items():
-                        if name in meta["parameter_mappings"]:
-                            meta["parameter_mappings"][name]["num_classes"] = info.get(
-                                "num_classes"
-                            )
-                with open(self.metadata_file, "w") as f:
-                    json.dump(meta, f, indent=2)
-                print(f"Updated num_classes in metadata file: {self.metadata_file}")
-            except Exception as e:
-                print(f"Warning: could not write updated metadata to {self.metadata_file}: {e}")
+            with open(self.metadata_file) as f:
+                meta = json.load(f)
+            if "parameter_mappings" in meta:
+                for name, info in self.metadata_format["parameter_mappings"].items():
+                    if name in meta["parameter_mappings"]:
+                        meta["parameter_mappings"][name]["num_classes"] = info.get(
+                            "num_classes"
+                        )
+            with open(self.metadata_file, "w") as f:
+                json.dump(meta, f, indent=2)
 
     def _load_metadata_config(self) -> Dict[str, Any]:
         """Load dataset metadata configuration from JSON file.
@@ -156,26 +150,17 @@ class VIMHDataset(MultiheadDatasetBase):
         :return: Metadata configuration dictionary
         """
         if not self.metadata_file.exists():
-            # Provide default configuration
-            return {
-                "format": "VIMH",
-                "version": "1.0",
-                "parameter_names": ["param_0", "param_1"],
-                "label_encoding": {
-                    "format": "[height] [width] [channels] [N] [param1_id] [param1_val] ...",
-                    "metadata_bytes": 6,
-                    "N_range": [0, 255],
-                    "param_id_range": [0, 255],
-                    "param_val_range": [0, 255],
-                },
-            }
+            raise FileNotFoundError(
+                f"Required metadata file missing: {self.metadata_file}."
+            )
 
         try:
             with open(self.metadata_file) as f:
                 metadata = json.load(f)
-            return metadata
         except (json.JSONDecodeError, OSError) as e:
             raise ValueError(f"Failed to load metadata from {self.metadata_file}: {e}")
+
+        return metadata
 
     def _calculate_heads_config_from_metadata(self) -> None:
         """Calculate heads configuration from metadata parameter mappings if available."""
@@ -204,9 +189,9 @@ class VIMHDataset(MultiheadDatasetBase):
                         raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
                     num = (pmax - pmin) / step
                     num_steps = int(round(num))
-                    if abs(num - num_steps) > 1e-3:
-                        print(
-                            f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {num_steps}"
+                    if not math.isclose(num, num_steps, rel_tol=1e-3, abs_tol=1e-3):
+                        raise ValueError(
+                            f"Parameter '{param_name}' step {step} does not evenly divide range ({pmin}, {pmax})."
                         )
                     self.heads_config[param_name] = num_steps + 1
 
@@ -221,21 +206,25 @@ class VIMHDataset(MultiheadDatasetBase):
             expected_format = "VIMH"
             actual_format = self.metadata_format.get("format")
             if actual_format != expected_format:
-                print(f"Warning: Expected format '{expected_format}', got '{actual_format}'")
+                raise ValueError(
+                    f"Expected metadata format '{expected_format}', got '{actual_format}'."
+                )
 
         # Validate sample count matches metadata
         if "train_samples" in self.metadata_format and self.train:
             expected_samples = self.metadata_format["train_samples"]
             actual_samples = len(self.samples)
             if actual_samples != expected_samples:
-                print(
-                    f"Warning: Expected {expected_samples} training samples, got {actual_samples}"
+                raise ValueError(
+                    f"Expected {expected_samples} training samples, got {actual_samples}."
                 )
         elif "test_samples" in self.metadata_format and not self.train:
             expected_samples = self.metadata_format["test_samples"]
             actual_samples = len(self.samples)
             if actual_samples != expected_samples:
-                print(f"Warning: Expected {expected_samples} test samples, got {actual_samples}")
+                raise ValueError(
+                    f"Expected {expected_samples} test samples, got {actual_samples}."
+                )
 
     def _create_soft_targets(
         self, class_index: int, num_classes: int, target_width: float

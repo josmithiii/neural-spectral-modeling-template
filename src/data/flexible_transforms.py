@@ -123,14 +123,10 @@ class ChannelAwareCompose:
             if max_channels is not None and num_channels > max_channels:
                 continue
 
-            try:
-                tensor = transform(tensor)
-                # Update channel count after transform (e.g., ToTensor changes shape)
-                if hasattr(tensor, "shape"):
-                    num_channels = tensor.shape[0]
-            except Exception as e:
-                # Skip transforms that can't handle the tensor type/shape
-                continue
+            tensor = transform(tensor)
+            # Update channel count after transform (e.g., ToTensor changes shape)
+            if hasattr(tensor, "shape"):
+                num_channels = tensor.shape[0]
 
         return tensor
 

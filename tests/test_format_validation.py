@@ -48,6 +48,10 @@ class TestFormatAutodetection:
             "width": 32,
             "channels": 3,
             "parameter_names": ["param_0", "param_1"],
+            "parameter_mappings": {
+                "param_0": {"min": 0.0, "max": 9.0, "step": 0.0352941176},
+                "param_1": {"min": 0.0, "max": 19.0, "step": 0.0745098039},
+            },
         }
 
         # Save files
@@ -97,7 +101,7 @@ class TestFormatAutodetection:
             pickle.dump(invalid_data, f)
 
         # Test that it raises appropriate error
-        with pytest.raises(ValueError, match="data.*must contain.*data.*key"):
+        with pytest.raises(ValueError, match="must contain both 'data' and 'labels'"):
             GenericMultiheadDataset(str(data_file), auto_detect=True)
 
 
@@ -240,9 +244,8 @@ class TestMetadataValidation:
         with open(metadata_file, "w") as f:
             json.dump(metadata, f)
 
-        # Should show warning but not fail
-        dataset = VIMHDataset(str(temp_dir), train=True)
-        assert len(dataset) == 3
+        with pytest.raises(ValueError, match="Expected metadata format"):
+            VIMHDataset(str(temp_dir), train=True)
 
     def test_validate_metadata_sample_count(self, temp_dir):
         """Test validation of metadata sample count."""
@@ -272,9 +275,8 @@ class TestMetadataValidation:
         with open(metadata_file, "w") as f:
             json.dump(metadata, f)
 
-        # Should show warning but not fail
-        dataset = VIMHDataset(str(temp_dir), train=True)
-        assert len(dataset) == 3
+        with pytest.raises(ValueError, match="Expected 5 training samples, got 3"):
+            VIMHDataset(str(temp_dir), train=True)
 
     def test_validate_metadata_parameter_names(self, temp_dir):
         """Test validation of parameter names in metadata."""
@@ -292,6 +294,10 @@ class TestMetadataValidation:
             "width": 32,
             "channels": 3,
             "parameter_names": ["note_number", "note_velocity"],
+            "parameter_mappings": {
+                "note_number": {"min": 0.0, "max": 1.0, "step": 1.0},
+                "note_velocity": {"min": 0.0, "max": 1.0, "step": 1.0},
+            },
         }
 
         train_file = temp_dir / "train_batch"
