@@ -165,24 +165,6 @@
   \end{itemize}
 \end{slide}
 
-%% \begin{slidewhite}[\slideopts,toc={Problem}]{Example Driving Problem: Real-Time Filter Design in an Audio Plugin}
-%%   \vspace{-2em}
-%%   \myFigureRotateToWidth{pgmeejos}{-90}{0.85\twidth}{(Red-Bordered Buttons Added to
-%%     \textbf{Plugin GUI Magic}'s Equalizer Example)}
-%% \end{slidewhite}
-
-%% Let xxx denote the architecture, e.g., vit_tiny
-%% \begin{slidewhite}[\slideopts,toc={xxx}]{Architecture xxx}
-%% \vspace{-2em}
-%% \myFigureToWidth{fileNameWithoutSuffix}{1.0\twidth}{}
-%% \end{slidewhite}
-
-%% % Let xxx denote the architecture, e.g., vit_tiny
-%% \begin{slidewhite}[\slideopts,toc={xxx}]{Architecture xxx}
-%% \vspace{-2em}
-%% \myFigureToWidth{fileNameWithoutSuffix}{1.0\twidth}{}
-%% \end{slidewhite}
-
 \begin{wideslide}[\slideopts,toc={VIMH Format}]{VIMH Dataset Format --- Self-Describing, Multihead}
   \vspace{-0.75em}
   \begin{itemize}
@@ -198,16 +180,6 @@
   \end{itemize}
   \vspace{-2.5em}
   \begin{center}
-    %1 Old obscure vimh example: \includegraphics[width=0.78\linewidth]{docs/png/sample_data.eps}
-    %2 Better; \myFigureRotateToBox{vimh-proj}{-90}{\twidth}{0.45\theight}{}
-    %3 \vspace{-4em}
-    %3 \myFigureRotateToWidth{McDermottKell2018}{-90}{\twidth}{}
-    %4
-    %\myFigureRotateToBox{McDermottKell2018}{-90}{\twidth}{0.45\theight}{}
-    % CNN diagram for NSMT (dvips-friendly)
-    % Requires:
-    %   \usepackage{tikz}
-    %   \usetikzlibrary{positioning}
 
     \begin{tikzpicture}[x=1mm,y=1mm, line join=round, line cap=round]
 
@@ -363,31 +335,37 @@
 \end{slide}
 
 \begin{slide}[\slideopts,toc={VIMH Display 1}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 1}
+  \vspace{-1em}
   \begin{center}
     \includegraphics[width=\linewidth]{eps/display_vimh_fig1.eps}
   \end{center}
 \end{slide}
 \begin{slide}[\slideopts,toc={VIMH Display 1b}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 1, Higher Wah}
+  \vspace{-1em}
   \begin{center}
-    \includegraphics[width=\linewidth]{eps/display_vimh_fig1b.eps}
+    \includegraphics[width=0.98\linewidth]{eps/display_vimh_fig1b.eps}
   \end{center}
 \end{slide}
 \begin{slide}[\slideopts,toc={VIMH Display 2}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 2}
+  \vspace{-1em}
   \begin{center}
     \includegraphics[width=0.6\linewidth]{eps/display_vimh_fig2.eps}
   \end{center}
 \end{slide}
 \begin{slide}[\slideopts,toc={VIMH Display 2b}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 2, Higher Wah}
+  \vspace{-1em}
   \begin{center}
-    \includegraphics[width=0.6\linewidth]{eps/display_vimh_fig2b.eps}
+    \includegraphics[width=0.57\linewidth]{eps/display_vimh_fig2b.eps}
   \end{center}
 \end{slide}
 \begin{slide}[\slideopts,toc={VIMH Display 3}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 3}
+  \vspace{-1em}
   \begin{center}
-    \includegraphics[width=0.6\linewidth]{eps/display_vimh_fig3.eps}
+    \includegraphics[width=0.58\linewidth]{eps/display_vimh_fig3.eps}
   \end{center}
 \end{slide}
 \begin{slide}[\slideopts,toc={VIMH Display 3b}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 3, Higher Wah}
+  \vspace{-1em}
   \begin{center}
     \includegraphics[width=0.6\linewidth]{eps/display_vimh_fig3b.eps}
   \end{center}
@@ -438,52 +416,21 @@
   \end{itemize}
 \end{slide}
 
-\begin{slide}[\slideopts,toc={Evaluation}]{Evaluation \& Audio Reconstruction Tools}
+\begin{slide}[\slideopts,toc={Evaluation}]{Evaluation \& Audio Reconstruction Tool \texttt{audio\_reconstruction\_eval.py}}
   \vspace{-0.75em}
   \begin{itemize}
     \mpitem \texttt{python src/audio\_reconstruction\_eval.py} or \texttt{make ae} re-synthesizes audio from predictions
     \mpitem Auto-discovers latest checkpoint, launches interactive widget for A/B playback
+    \mpitem Compares audio synthesized from true vs predicted parameters
     \mpitem Metrics: SNR, correlation, RMSE, per-parameter errors with exportable tables
     \mpitem Batch comparisons push snapshots and notes back to \texttt{logs/}
   \end{itemize}
   \vspace{0.25em}
   \begin{center}
     \setlength{\fboxsep}{6pt}\fbox{\parbox{0.88\linewidth}{
-        spectrogram $\to$ model $\to$ predicted params $\to$ \textit{synth} $\to$ audio $\leftrightarrow$ compare with ground truth
+        spectrogram $\to$ model $\to$ $\approx$params $\to$ \textit{synth} $\to$ audio $\leftrightarrow$ compare to \emph{truth}
     }}
   \end{center}
-\end{slide}
-
-\begin{slide}[\slideopts,toc={Experiments}]{Moog VCF Case Studies — Basic, Envelope, Resonance}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem \textbf{Datasets:} \texttt{sdmb} (4 params), \texttt{sdme} (10 params), \texttt{sdmr} (8 params)
-    \mpitem \textbf{Runs:} \texttt{emb}, \texttt{eme}, \texttt{emr} with CNN/ViT variants (\texttt{emvit*})
-    \mpitem Study generalization across parameter spaces, envelopes, and resonance settings
-    \mpitem Findings: ordinal losses stabilize extrapolation; ViTs shine on envelopes, CNNs win on jittered resonance
-  \end{itemize}
-  \vspace{0.25em}
-  \begin{center}
-    \setlength{\fboxsep}{4pt}\fbox{\parbox{0.9\linewidth}{
-        Color map: parameter sweeps $\to$ spectral patterns $\to$ multihead predictions for downstream control
-    }}
-  \end{center}
-\end{slide}
-
-\begin{slide}[\slideopts,toc={Practices}]{Engineering Practices, Reproducibility, Next Steps}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem Hydra configs capture overrides; each run logs command + git SHA in \texttt{logs/train/runs/}
-    \mpitem Preflight scripts audit label diversity and dataset integrity before training
-    \mpitem Style guardrails: \texttt{make format} (black, isort, flake8, bandit); tests via \texttt{pytest}
-    \mpitem Contribution checklist: document configs, attach sample logs/audio, link issues, verify smoke tests
-    \mpitem Roadmap: expand VIMH converters, add lightweight diffusion head, refine interactive eval UX
-  \end{itemize}
-  \vspace{0.25em}
-  \begin{center}
-    \includegraphics[width=0.65\linewidth]{eps/confusion_matrices.eps}
-  \end{center}
-\label{lastslide}
 \end{slide}
 
 
@@ -508,58 +455,6 @@
     \includegraphics[width=\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
   \end{center}
 \end{slide}
-
-%% DOWN IN THE WEEDS AND NEEDING TOO MUCH WORK - ALL ``64K'' NEED TO BECOME ``Medium'' OR SUCH
-%% \begin{slide}[\slideopts,toc={Models}]{Model Families — Small, Accurate, and Fast}
-%%   \vspace{-0.75em}
-%%   \begin{itemize}
-%%     \mpitem \textbf{CNN variants:} \texttt{cnn\_micro} ($\approx 2$K), \texttt{cnn\_tiny} ($\approx 8$K), \texttt{cnn\_medium} ($\approx 1400$K)
-%%     \vspace{-0.25em}
-%%     \begin{itemize}
-%%       \mpitem Multihead heads auto-wired from VIMH metadata
-%%       \mpitem Options: \texttt{cnn\_medium\_ordinal}, \texttt{cnn\_medium\_regression}, \texttt{cnn\_medium\_auxiliary}
-%%     \end{itemize}
-%%     \mpitem \textbf{ViT variants:} \texttt{vit\_micro}, \texttt{vit\_tiny} (lightweight, patch-based)
-%%     \mpitem \textbf{Design goal:} practical models that train fast, generalize well
-%%   \end{itemize}
-%%   \vspace{0.25em}
-%%   \begin{center}
-%%     \begin{minipage}{0.95\linewidth}
-%%       \centering
-%%       \setlength{\fboxsep}{4pt}\fbox{\parbox{0.9\linewidth}{
-%%           CNN: Conv $\to$ Conv $\to$ Pool $\to$ MLP $\to$ \textit{heads} (1/head) \hfill
-%%           ViT: Patches $\to$ Transformer Blocks $\to$ \textit{heads}
-%%       }}
-%%     \end{minipage}
-%%   \end{center}
-%% \end{slide}
-
-%% TOO CODE BASED - COVERED ELSEWHERE
-%% \begin{slide}[\slideopts,toc={Auto-Config}]{Auto-Configuration from Data to Model}
-%%   \vspace{-0.75em}
-%%   \begin{itemize}
-%%     \mpitem \textbf{One dataset $\to$ complete model wiring:}
-%%     \vspace{-0.25em}
-%%     \begin{itemize}
-%%       \mpitem Read \texttt{vimh\_dataset\_info.json} $\to$ infer H, W, C, head names, ranges
-%%       \mpitem DataModule passes shapes + parameter ranges to module
-%%       \mpitem \texttt{VIMHLitModule} configures heads, losses, and metrics
-%%     \end{itemize}
-%%   \end{itemize}
-%%   \vspace{-0.25em}
-%%   \begin{center}
-%%     \begin{tikzpicture}[>=stealth, node distance=1.8cm]
-%%       \tikzstyle{box}=[draw, rounded corners, fill=blue!7, inner sep=6pt]
-%%       \node[box] (json) {VIMH JSON (H,W,C, names, ranges)};
-%%       \node[box, right=of json] (dm) {DataModule (transforms, loaders)};
-%%       \node[box, right=of dm] (lit) {VIMHLitModule (auto-heads, losses)};
-%%       \node[box, right=of lit] (train) {Trainer (callbacks, logs)};
-%%       \draw[->] (json) -- (dm);
-%%       \draw[->] (dm) -- (lit);
-%%       \draw[->] (lit) -- (train);
-%%     \end{tikzpicture}
-%%   \end{center}
-%% \end{slide}
 
 \begin{slide}[\slideopts,toc={Workflow}]{Hands-On Workflow --- Datasets, Training, Diagrams}
   \vspace{-0.75em}
@@ -587,45 +482,6 @@
   \end{center}
 \end{slide}
 
-\begin{slide}[\slideopts,toc={Audio Eval}]{Audio Reconstruction Evaluation --- Hear the Difference}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem \texttt{python src/audio\_reconstruction\_eval.py} (or \texttt{make ae})
-    \mpitem Auto-discovers latest checkpoint, launches interactive widget
-    \mpitem Compares audio synthesized from true vs predicted parameters
-    \mpitem Metrics: SNR, correlation, RMSE + parameter errors
-  \end{itemize}
-  \vspace{0.25em}
-  \begin{center}
-    \setlength{\fboxsep}{6pt}\fbox{\parbox{0.88\linewidth}{
-        spectrogram $\to$ model $\to$ predicted params $\to$ \textit{synth} $\to$ audio $\leftrightarrow$ compare with ground truth
-    }}
-  \end{center}
-\end{slide}
-
-\begin{slide}[\slideopts,toc={Moog VCF}]{Moog VCF Experiments --- Basic, Envelope, Resonance}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem \textbf{Datasets}
-    \vspace{-0.25em}
-    \begin{itemize}
-      \mpitem \texttt{sdmb} (4 params), \texttt{sdme} (10 params), \texttt{sdmr} (8 params)
-    \end{itemize}
-    \mpitem \textbf{Training}
-    \vspace{-0.25em}
-    \begin{itemize}
-      \mpitem \texttt{emb}, \texttt{eme} (ordinal and regression), \texttt{emr}; ViT variants via \texttt{emvit*}
-    \end{itemize}
-    \mpitem \textbf{Purpose:} control complexity, probe generalization across parameter spaces
-  \end{itemize}
-  \vspace{0.25em}
-  \begin{center}
-    \setlength{\fboxsep}{4pt}\fbox{\parbox{0.9\linewidth}{
-        Color map: parameter sweeps across time $\to$ spectral patterns $\to$ multihead predictions
-    }}
-  \end{center}
-\end{slide}
-
 \begin{slide}[\slideopts,toc={Reproducibility}]{Reproducibility, Configs, and Takeaways}
   \vspace{-0.75em}
   \begin{itemize}
@@ -644,4 +500,49 @@
   \begin{center}
     \includegraphics[width=0.65\linewidth]{eps/confusion_matrices.eps}
   \end{center}
+\end{slide}
+
+\papersection{Future Work}{
+
+  Next Steps:
+  \begin{itemize}
+  \item Merge PRs
+  \item Chatbot Reviews (GPT, Claude, Gemini, \dots)
+  \mpitem New Architectures Beyond MLP, CNN, and ViT:
+  \begin{itemize}
+    \mpitem RNNs
+    \mpitem Diffusion
+  \end{itemize}
+  \mpitem More Spectral Representations for VIMH channel planes:
+  \begin{itemize}
+    \mpitem Different Time-Frequency Resolution Ratios
+    \mpitem Modulation Spectra (e.g., ``Time-Frequency Scattering'')
+  \end{itemize}
+  \end{itemize}
+
+  \vspace{1em}
+
+  \centerline{\includegraphics[width=2cm]{eps/lhte_qr_code.eps}}
+  \vspace{2pt}
+  \centerline{{\scriptsize github.com/josmithiii/lightning-hydra-template-extended}}
+}
+
+\begin{slide}[\slideopts,toc={}]{Summary of Resources Online}
+  \begin{itemize}
+    \item \emph{Neural Spectral Modeling Template (NSMT):}\\
+      \href{https://github.com/josmithiii/neural-spectral-modeling-template.git}
+           {\texttt{github.com/josmithiii/neural-spectral-modeling-template}}
+    \item[]
+    \item \emph{Lightning Hydra Template Extended (LHTE):}\\
+      \href{https://github.com/josmithiii/lightning-hydra-template-extended.git}
+           {\texttt{github.com/josmithiii/lightning-hydra-template-extended}}
+    \item[]
+    \item \emph{Lightning Hydra Template (LHT):}\\
+      \href{https://github.com/ashleve/lightning-hydra-template}
+           {\texttt{github.com/ashleve/lightning-hydra-template}}
+    \item[]
+    \item JOS Home Page (Videos, Overheads, including these):\\
+      \href{https://ccrma.stanford.edu/~jos/Welcome.html}
+           {\texttt{https://ccrma.stanford.edu/\~{}jos/}}
+  \end{itemize}
 \end{slide}

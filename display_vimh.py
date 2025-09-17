@@ -26,7 +26,7 @@ class VIMHViewer:
         self.dataset_path = Path(dataset_path)
         self.current_idx = 0
         self.channel = channel
-        self.dynamic_range_db = 80  # Default dynamic range in dB
+        self.dynamic_range_db = 40  # Default Figure-2 dynamic range in dB
         self.flip_audio_frames = True
         self.checkbox_flip_frames = None
 
