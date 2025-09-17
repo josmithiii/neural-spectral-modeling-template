@@ -9,6 +9,10 @@ FIGTEX2EPS = figtex2eps
 pngs  := $(wildcard png/*.png)
 pngepss := $(pngs:png/%.png=eps/%.eps)
 
+# Define JPG to EPS conversion variables
+jpgs  := $(wildcard jpg/*.jpg)
+jpgepss := $(jpgs:jpg/%.jpg=eps/%.eps)
+
 # Use latexmk for building (dvips/PSTricks-friendly)
 LATEXMK = latexmk
 # Ghostscript invocation avoiding deprecated .setpdfwrite (escape $ for make)
@@ -32,7 +36,7 @@ $(NAME).dvi: $(NAME).tex *.tex pdf/*.pdf eps/*.eps fig/*.fig
 	@echo $(LATEX) $(NAME).tex
 	$(LATEX) $(NAME).tex
 
-$(NAME).pdf: $(NAME).tex *.tex pdf/*.pdf eps/*.eps fig/*.fig png/*.png $(pngepss)
+$(NAME).pdf: $(NAME).tex *.tex pdf/*.pdf eps/*.eps fig/*.fig png/*.png $(pngepss) jpg/*.jpg $(jpgepss)
 	$(LATEXMK) -pdfps -interaction=nonstopmode -halt-on-error $(LATEXMK_PS2PDF) $(NAME).tex
 
 po: $(NAME).pdf
@@ -67,4 +71,8 @@ eps/%.eps: fig/%.fig
 pngeps: $(pngepss)
 
 eps/%.eps: png/%.png
+	convert $< $@
+
+jpgeps: $(jpgepss)
+eps/%.eps: jpg/%.jpg
 	convert $< $@
