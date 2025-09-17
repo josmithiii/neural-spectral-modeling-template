@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.widgets import Button, TextBox
+from matplotlib.widgets import Button, CheckButtons, TextBox
 from mpl_toolkits.mplot3d import Axes3D
 
 from src.data.vimh_dataset import VIMHDataset
@@ -27,6 +27,8 @@ class VIMHViewer:
         self.current_idx = 0
         self.channel = channel
         self.dynamic_range_db = 80  # Default dynamic range in dB
+        self.flip_audio_frames = True
+        self.checkbox_flip_frames = None
 
         # Load dataset using the existing VIMHDataset class
         try:
@@ -474,6 +476,14 @@ class VIMHViewer:
         self.ax_audio.set_ylabel("Time Frame")
         self.ax_audio.set_zlabel("Amplitude")
 
+        # Checkbox to flip frame order for alternate viewing preference
+        checkbox_ax = self.fig_audio.add_axes([0.02, 0.02, 0.15, 0.08])
+        checkbox_ax.set_facecolor("#f0f0f0")
+        self.checkbox_flip_frames = CheckButtons(
+            checkbox_ax, ["Flip frames"], [self.flip_audio_frames]
+        )
+        self.checkbox_flip_frames.on_clicked(self.on_flip_frames_toggled)
+
         # Connect keyboard events for the audio plot
         self.fig_audio.canvas.mpl_connect("key_press_event", self.on_key_press_audio)
 
@@ -505,30 +515,71 @@ class VIMHViewer:
         num_frames = (len(audio) - n_fft) // hop_length + 1
         frame_indices = np.arange(n_fft)
 
-        # Determine which frame indices to display and plot in reverse order so
-        # the most recent time slices appear first in the 3D view.
-        frame_step = max(1, num_frames // 32)
-        frame_upper_bound = min(num_frames, 32)
-        frame_sequence = list(range(0, frame_upper_bound, frame_step))
-        if not frame_sequence and num_frames > 0:
-            frame_sequence = [0]
+        max_frames_to_show = min(num_frames, 32)
+        if num_frames <= 0 or max_frames_to_show <= 0:
+            self.ax_audio.set_xlabel("Waveform Sample Index")
+            self.ax_audio.set_ylabel("Time Frame")
+            self.ax_audio.set_zlabel("Amplitude")
+            self.ax_audio.set_ylim(0, 1)
+            self.ax_audio.set_yticks([0])
+            self.ax_audio.set_yticklabels(["0"])
+            self.ax_audio.view_init(elev=20, azim=45)
+            self.fig_audio.canvas.draw()
+            self.fig_audio.canvas.flush_events()
+            return
 
-        for frame_idx in reversed(frame_sequence):
+        frame_candidates = np.linspace(0, num_frames - 1, max_frames_to_show, dtype=int)
+        frame_sequence = np.unique(frame_candidates)
+        if frame_sequence.size == 0:
+            frame_sequence = np.array([0], dtype=int)
+
+        max_visible_frame = int(frame_sequence.max())
+
+        plotted_frames = []
+        for frame_idx in frame_sequence:
             start_sample = frame_idx * hop_length
             end_sample = start_sample + n_fft
 
             if end_sample <= len(audio):
                 audio_frame = audio[start_sample:end_sample]
-                frame_line = np.full_like(frame_indices, frame_idx)
-
-                self.ax_audio.plot(
-                    frame_indices,
-                    frame_line,
-                    audio_frame,
-                    color=plt.cm.viridis(frame_idx / max(1, num_frames - 1)),
-                    linewidth=1.0,
-                    alpha=0.8,
+                frame_position = (
+                    frame_idx if not self.flip_audio_frames else max_visible_frame - frame_idx
                 )
+                frame_line = np.full_like(frame_indices, frame_position)
+
+                plotted_frames.append(
+                    (frame_position, frame_idx, audio_frame)
+                )
+
+        # Draw frames from back to front so nearer slices remain visible
+        plotted_frames.sort(key=lambda item: item[0], reverse=True)
+
+        denominator = max(1, num_frames - 1)
+        for frame_position, actual_frame_idx, audio_frame in plotted_frames:
+            self.ax_audio.plot(
+                frame_indices,
+                np.full_like(frame_indices, frame_position),
+                audio_frame,
+                color=plt.cm.viridis(actual_frame_idx / denominator),
+                linewidth=1.0,
+                alpha=0.8,
+            )
+
+        # Configure Time Frame axis ticks/labels to reflect actual indices
+        tick_count = min(6, max_visible_frame + 1)
+        tick_actuals = (
+            np.linspace(0, max_visible_frame, tick_count, dtype=int)
+            if tick_count > 0
+            else np.array([0], dtype=int)
+        )
+        if self.flip_audio_frames:
+            tick_positions = [max_visible_frame - val for val in tick_actuals]
+        else:
+            tick_positions = tick_actuals
+
+        self.ax_audio.set_ylim(-0.5, max_visible_frame + 0.5)
+        self.ax_audio.set_yticks(tick_positions)
+        self.ax_audio.set_yticklabels([str(val) for val in tick_actuals])
 
         # Set labels and title
         self.ax_audio.set_xlabel("Waveform Sample Index")
@@ -558,6 +609,15 @@ class VIMHViewer:
         # Draw the plot
         self.fig_audio.canvas.draw()
         self.fig_audio.canvas.flush_events()
+
+    def on_flip_frames_toggled(self, label):
+        """Invert audio frame ordering when the checkbox is toggled."""
+        if self.checkbox_flip_frames is None:
+            return
+
+        # `get_status()` returns a list of booleans corresponding to labels
+        self.flip_audio_frames = bool(self.checkbox_flip_frames.get_status()[0])
+        self.update_audio_waterfall_display()
 
     def on_key_press_audio(self, event):
         """Handle keyboard shortcuts for audio plot."""
