@@ -275,75 +275,16 @@
   \end{center}
 \end{wideslide}
 
-%% ALTERNATIVE VIMH SLIDE
-
-\begin{slide}[\slideopts,toc={VIMH}]{VIMH Dataset Format — Self-Describing, Multihead}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem \textbf{VIMH} (Variable Image MultiHead) stores H, W, C plus a variable-length label list per sample
-    \mpitem Metadata file \texttt{vimh\_dataset\_info.json} declares label ids and 0--255 ranges
-    \mpitem Supports 0--255 quantized continuous parameters and (0--255) parameter/category names
-  \end{itemize}
-  \vspace{0.25em}
-  \begin{center}
-    \begin{tikzpicture}[x=1mm,y=1mm, line join=round, line cap=round]
-      \def\depthx{3}
-      \def\depthy{1.2}
-      \newcommand{\panel}[6][]{%
-        \begin{scope}[shift={(#2,#3)}]
-          \filldraw[fill=#6, draw=black] (0,0) rectangle (#4,#5);
-          \filldraw[fill=black!20, draw=black]
-            (#4,0) -- ++(\depthx,\depthy) -- ++(0,#5) -- ++(-\depthx,-\depthy) -- cycle;
-          \ifx\\#1\\\else
-            \node[font=\scriptsize, anchor=north] at (#4*0.5,-1.2) {#1};
-          \fi
-        \end{scope}%
-      }
-      \newcommand{\spectro}[6][]{%
-        \begin{scope}[shift={(#2,#3)}]
-          \filldraw[fill=#6, draw=black] (0,0) rectangle (#4,#5);
-          \foreach \xx in {2,4,6,8,10,12,14,16,18}{\draw[gray!60] (\xx,0) -- (\xx,#5);}
-          \foreach \yy in {3,6,9,12,15,18,21,24}{\draw[gray!30] (0,\yy) -- (#4,\yy);}
-          \filldraw[fill=black!20, draw=black]
-            (#4,0) -- ++(\depthx,\depthy) -- ++(0,#5) -- ++(-\depthx,-\depthy) -- cycle;
-          \ifx\\#1\\\else
-            \node[font=\scriptsize, anchor=north] at (#4*0.5,-1.2) {#1};
-          \fi
-        \end{scope}%
-      }
-      \def\xin{0}  \def\yin{0}
-      \def\xbA{40} \def\ybA{-2}
-      \def\xbB{72} \def\ybB{0}
-      \def\xbC{98} \def\ybC{6}
-      \def\xbD{118}\def\ybD{10}
-      \spectro[32$\times$32$\times$4]{\xin}{\yin}{22}{26}{blue!12}
-      \node[font=\scriptsize] at (\xin+10, \yin+30) {Stacked spectra};
-      \filldraw[fill=gray!50, draw=black] (26,10) rectangle (38,16);
-      \panel[Conv1]{\xbA}{\ybA}{18}{32}{orange!20}
-      \filldraw[fill=gray!50, draw=black] (\xbA+18+\depthx,\ybA+12+\depthy) rectangle (\xbB-2,\ybB+18);
-      \panel[Conv2]{\xbB}{\ybB}{16}{28}{green!20}
-      \node[font=\scriptsize, anchor=north] at (\xbB+8,\ybB-2) {Pool};
-      \filldraw[fill=gray!50, draw=black] (\xbB+16+\depthx,\ybB+12+\depthy) rectangle (\xbC-2,\ybC+18);
-      \panel[FC]{\xbC}{\ybC}{12}{20}{violet!20}
-      \filldraw[fill=gray!50, draw=black] (\xbC+12+\depthx,\ybC+9+\depthy) rectangle (\xbD-2,\ybD+14);
-      \panel[Head 1]{\xbD}{\ybD}{6}{14}{gray!20}
-      \panel[Head 2]{\xbD+8}{\ybD-1}{6}{12}{gray!20}
-      \panel[Head 3]{\xbD+16}{\ybD-2}{6}{10}{gray!20}
-      \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+16) {Multihead outputs};
-    \end{tikzpicture}
-  \end{center}
-\end{slide}
-
 \begin{slide}[\slideopts,toc={VIMH Display 1}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 1}
-  \vspace{-1em}
+  \vspace{-2em}
   \begin{center}
-    \includegraphics[width=\linewidth]{eps/display_vimh_fig1.eps}
+    \includegraphics[width=0.9\linewidth]{eps/display_vimh_fig1.eps}
   \end{center}
 \end{slide}
-\begin{slide}[\slideopts,toc={VIMH Display 1b}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 1, Higher Wah}
-  \vspace{-1em}
+\begin{slide}[\slideopts,toc={}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 1, Higher Wah}
+  \vspace{-2em}
   \begin{center}
-    \includegraphics[width=0.98\linewidth]{eps/display_vimh_fig1b.eps}
+    \includegraphics[width=0.9\linewidth]{eps/display_vimh_fig1b.eps}
   \end{center}
 \end{slide}
 \begin{slide}[\slideopts,toc={VIMH Display 2}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 2}
@@ -352,7 +293,7 @@
     \includegraphics[width=0.6\linewidth]{eps/display_vimh_fig2.eps}
   \end{center}
 \end{slide}
-\begin{slide}[\slideopts,toc={VIMH Display 2b}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 2, Higher Wah}
+\begin{slide}[\slideopts,toc={}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 2, Higher Wah}
   \vspace{-1em}
   \begin{center}
     \includegraphics[width=0.57\linewidth]{eps/display_vimh_fig2b.eps}
@@ -364,7 +305,7 @@
     \includegraphics[width=0.58\linewidth]{eps/display_vimh_fig3.eps}
   \end{center}
 \end{slide}
-\begin{slide}[\slideopts,toc={VIMH Display 3b}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 3, Higher Wah}
+\begin{slide}[\slideopts,toc={}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 3, Higher Wah}
   \vspace{-1em}
   \begin{center}
     \includegraphics[width=0.6\linewidth]{eps/display_vimh_fig3b.eps}
@@ -512,23 +453,24 @@
 
 \papersection{Future Work}{
 
-  Next Steps:
+  \vspace{-1em}
+%  Next Steps:
   \begin{itemize}
   \item Merge PRs
   \item Chatbot Reviews (GPT, Claude, Gemini, \dots)
-  \mpitem New Architectures Beyond MLP, CNN, and ViT:
+  \mpitem New Architectures beyond MLP, CNN, and ViT:
   \begin{itemize}
     \mpitem RNNs
     \mpitem Diffusion
   \end{itemize}
   \mpitem More Spectral Representations for VIMH channel planes:
   \begin{itemize}
-    \mpitem Different Time-Frequency Resolution Ratios
+    \mpitem Multiscale Time-Frequency Resolutions
     \mpitem Modulation Spectra (e.g., ``Time-Frequency Scattering'')
   \end{itemize}
   \end{itemize}
 
-  \vspace{1em}
+  \vspace{0.1em}
 
   \centerline{\includegraphics[width=2cm]{eps/lhte_qr_code.eps}}
   \vspace{2pt}
