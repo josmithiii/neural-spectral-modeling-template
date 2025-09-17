@@ -8,6 +8,7 @@ import argparse
 import json
 import pickle
 import struct
+from numbers import Number
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -91,7 +92,8 @@ class VIMHViewer:
             "vimh_labels": sample_metadata.get("labels", {}),
             "sample_index": idx,
             "parameters": self.dataset_info.get("parameter_mappings", {}),
-            "actual_values": self.decode_actual_values(labels_dict),
+            "actual_values": self.decode_actual_values(labels_dict, sample_metadata),
+            "sample_metadata": sample_metadata,
         }
 
         return spectrogram, param_info
@@ -112,29 +114,89 @@ class VIMHViewer:
 
         return varying_params
 
-    def decode_actual_values(self, labels_dict: Dict[str, int]) -> Dict[str, float]:
-        """Decode actual parameter values from labels dictionary."""
-        params = {}
+    def decode_actual_values(
+        self, labels_dict: Dict[str, Any], sample_metadata: Dict[str, Any]
+    ) -> Dict[str, float]:
+        """Decode actual parameter values from labels dictionary using dataset metadata."""
+
+        def _extract_scalar(value: Any) -> float:
+            """Convert assorted label value formats to a scalar class index/normalized value."""
+            # Torch tensors or numpy scalars
+            if hasattr(value, "detach"):
+                value = value.detach()
+            if hasattr(value, "cpu"):
+                value = value.cpu()
+            if hasattr(value, "numpy"):
+                arr = value.numpy()
+                if np.isscalar(arr):
+                    return float(arr)
+                return float(np.argmax(arr))
+
+            if isinstance(value, Number):
+                return float(value)
+
+            if isinstance(value, (list, tuple)):
+                if not value:
+                    return 0.0
+                arr = np.asarray(value)
+                if arr.ndim == 0:
+                    return float(arr)
+                return float(np.argmax(arr))
+
+            return float(value)
+
+        params: Dict[str, float] = {}
         param_mappings = self.dataset_info.get("parameter_mappings", {})
 
-        # Initialize all parameters to their minimum values
         for param_name, param_info in param_mappings.items():
-            params[param_name] = param_info["min"]
+            min_val = float(param_info.get("min", 0.0))
+            max_val = float(param_info.get("max", min_val))
+            step = param_info.get("step")
+            step = float(step) if step is not None else None
+            num_classes = param_info.get("num_classes")
+            if isinstance(num_classes, Number):
+                num_classes = int(num_classes)
 
-        # Decode quantized values back to actual parameter ranges
-        for param_name, quantized_value in labels_dict.items():
-            if param_name in param_mappings:
-                param_info = param_mappings[param_name]
-                min_val = param_info.get("min", 0)
-                max_val = param_info.get("max", 255)
+            # Prefer per-sample metadata when available (contains actual_value)
+            metadata_key = f"{param_name}_info"
+            if metadata_key in sample_metadata:
+                actual_value = sample_metadata[metadata_key].get("actual_value")
+                if actual_value is not None:
+                    params[param_name] = float(actual_value)
+                    continue
 
-                # Convert quantized value (0-255) to normalized (0-1) then to actual range
-                normalized_value = quantized_value / 255.0
-                actual_value = min_val + normalized_value * (max_val - min_val)
-                params[param_name] = actual_value
+            raw_value = labels_dict.get(param_name)
+
+            if raw_value is None:
+                params[param_name] = min_val
+                continue
+
+            scalar_value = _extract_scalar(raw_value)
+
+            # Handle constant parameters explicitly
+            if step is None or step == 0 or (num_classes is not None and num_classes <= 1):
+                params[param_name] = min_val
+                continue
+
+            if step and step > 0:
+                class_index = int(round(scalar_value))
+                if num_classes and num_classes > 1:
+                    class_index = max(0, min(num_classes - 1, class_index))
+                actual_value = min_val + class_index * step
             else:
-                # If parameter not in mappings, store as-is
-                params[param_name] = quantized_value
+                # Fallback to normalized interpretation when step is unavailable
+                if num_classes and num_classes > 1:
+                    class_index = int(round(scalar_value))
+                    class_index = max(0, min(num_classes - 1, class_index))
+                    normalized_value = class_index / (num_classes - 1)
+                else:
+                    normalized_value = float(np.clip(scalar_value, 0.0, 1.0))
+                actual_value = min_val + normalized_value * (max_val - min_val)
+
+            # Clamp within bounds to avoid numerical drift
+            actual_value = float(np.clip(actual_value, min_val, max_val))
+
+            params[param_name] = actual_value
 
         return params
 
