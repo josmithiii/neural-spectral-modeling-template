@@ -880,7 +880,7 @@ class AudioReconstructionEvaluator:
         # Mean Squared Error
         metrics["mse"] = float(np.mean((true_audio - pred_audio) ** 2))
 
-        # Root Mean Squared Error
+        # Root Mean Squared Error (for better readability)
         metrics["rmse"] = float(np.sqrt(metrics["mse"]))
 
         # Signal-to-Noise Ratio
@@ -1123,28 +1123,71 @@ class AudioReconstructionEvaluator:
         # 8. Audio metrics
         plt.subplot(3, 3, 8)
         metrics = results["audio_metrics"]
-        metric_names = list(metrics.keys())
-        metric_vals = list(metrics.values())
 
-        # Filter out infinite values for plotting
-        finite_metrics = [
-            (name, val) for name, val in zip(metric_names, metric_vals) if np.isfinite(val)
-        ]
-        if finite_metrics:
-            names, vals = zip(*finite_metrics)
-            plt.bar(names, vals)
-            plt.title("Audio Quality Metrics")
-            plt.xticks(rotation=45)
-        else:
+        plt.title("Audio Quality Metrics")
+        plt.axis('off')  # Hide axes for text-only display
+
+        # Display metrics in order with color coding
+        y_pos = 0.9
+        line_height = 0.15
+
+        # Define metric order and formatting
+        metric_order = ["rmse", "snr_db", "correlation", "max_xcorr", "mse"]
+
+        def get_metric_color(name, value):
+            """Return color based on metric quality (green=good, red=poor, black=neutral)"""
+            if name == "rmse" or name == "mse":
+                return "green" if value < 0.01 else "orange" if value < 0.1 else "red"
+            elif name == "snr_db":
+                return "green" if value > 20 else "orange" if value > 10 else "red"
+            elif name in ["correlation", "max_xcorr"]:
+                return "green" if value > 0.9 else "orange" if value > 0.7 else "red"
+            return "black"
+
+        for name in metric_order:
+            if name in metrics and np.isfinite(metrics[name]):
+                value = metrics[name]
+                color = get_metric_color(name, value)
+
+                if name == "rmse":
+                    text = f"Parameter RMSE: {value:.6f}"
+                elif name == "snr_db":
+                    text = f"SNR: {value:.2f} dB"
+                elif name == "correlation":
+                    text = f"Correlation: {value:.4f} / 1"
+                elif name == "max_xcorr":
+                    text = f"Max XCorr: {value:.4f} / 1"
+                elif name == "mse":
+                    text = f"MSE: {value:.8f}"
+                else:
+                    text = f"{name}: {value:.4f}"
+
+                plt.text(
+                    0.05,
+                    y_pos,
+                    text,
+                    ha="left",
+                    va="top",
+                    transform=plt.gca().transAxes,
+                    fontsize=11,
+                    fontweight="bold",
+                    color=color
+                )
+                y_pos -= line_height
+
+        # Add definitions if there's room
+        if y_pos > 0.3:
             plt.text(
-                0.5,
-                0.5,
-                "No finite metrics",
-                ha="center",
-                va="center",
+                0.05,
+                0.25,
+                "Correlation: Linear relationship (-1 to +1)\nMax XCorr: Best time-aligned similarity",
+                ha="left",
+                va="top",
                 transform=plt.gca().transAxes,
+                fontsize=9,
+                style='italic',
+                color='gray'
             )
-            plt.title("Audio Quality Metrics")
 
         # 9. Error difference waveform
         plt.subplot(3, 3, 9)
@@ -1630,11 +1673,71 @@ class InteractiveAudioEvaluator:
 
         # Plot metrics
         metrics = self.current_results["audio_metrics"]
-        finite_metrics = {k: v for k, v in metrics.items() if np.isfinite(v)}
-        if finite_metrics:
-            self.axes[1, 2].bar(finite_metrics.keys(), finite_metrics.values())
-            self.axes[1, 2].set_title("Audio Metrics")
-            self.axes[1, 2].tick_params(axis="x", rotation=45)
+
+        self.axes[1, 2].set_title("Audio Metrics")
+        self.axes[1, 2].axis('off')  # Hide axes for text-only display
+
+        # Display metrics in order with color coding
+        y_pos = 0.9
+        line_height = 0.15
+
+        # Define metric order and formatting
+        metric_order = ["rmse", "snr_db", "correlation", "max_xcorr", "mse"]
+
+        def get_metric_color(name, value):
+            """Return color based on metric quality (green=good, red=poor, black=neutral)"""
+            if name == "rmse" or name == "mse":
+                return "green" if value < 0.01 else "orange" if value < 0.1 else "red"
+            elif name == "snr_db":
+                return "green" if value > 20 else "orange" if value > 10 else "red"
+            elif name in ["correlation", "max_xcorr"]:
+                return "green" if value > 0.9 else "orange" if value > 0.7 else "red"
+            return "black"
+
+        for name in metric_order:
+            if name in metrics and np.isfinite(metrics[name]):
+                value = metrics[name]
+                color = get_metric_color(name, value)
+
+                if name == "rmse":
+                    text = f"Parameter RMSE: {value:.6f}"
+                elif name == "snr_db":
+                    text = f"SNR: {value:.2f} dB"
+                elif name == "correlation":
+                    text = f"Correlation: {value:.4f} / 1"
+                elif name == "max_xcorr":
+                    text = f"Max XCorr: {value:.4f} / 1"
+                elif name == "mse":
+                    text = f"MSE: {value:.8f}"
+                else:
+                    text = f"{name}: {value:.4f}"
+
+                self.axes[1, 2].text(
+                    0.05,
+                    y_pos,
+                    text,
+                    ha="left",
+                    va="top",
+                    transform=self.axes[1, 2].transAxes,
+                    fontsize=11,
+                    fontweight="bold",
+                    color=color
+                )
+                y_pos -= line_height
+
+        # Add definitions if there's room
+        if y_pos > 0.3:
+            self.axes[1, 2].text(
+                0.05,
+                0.25,
+                "Correlation: Linear relationship (-1 to +1)\nMax XCorr: Best time-aligned similarity",
+                ha="left",
+                va="top",
+                transform=self.axes[1, 2].transAxes,
+                fontsize=9,
+                style='italic',
+                color='gray'
+            )
 
         plt.tight_layout()
         self.fig.canvas.draw()
