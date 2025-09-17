@@ -3,7 +3,7 @@
 defaults:
   - _self_
   - data: vimh # choose datamodule with test data
-  - model: cnn_64k # choose model architecture
+  - model: cnn_medium # choose model architecture
   - logger: null # disable logging for evaluation
   - trainer: default
   - paths: default

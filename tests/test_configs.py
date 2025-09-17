@@ -41,7 +41,7 @@ def test_eval_config(cfg_eval: DictConfig) -> None:
 def test_regression_model_config() -> None:
     """Test that the regression model configuration is valid."""
     with hydra.initialize(version_base=None, config_path="../configs"):
-        cfg = hydra.compose(config_name="train", overrides=["model=cnn_64k_regression"])
+        cfg = hydra.compose(config_name="train", overrides=["model=cnn_medium_regression"])
 
         assert cfg.model.output_mode == "regression"
         assert cfg.model.net.output_mode == "regression"

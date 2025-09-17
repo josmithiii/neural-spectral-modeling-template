@@ -238,7 +238,7 @@ synthesizer:
 # configs/experiment/cnn.yaml
 defaults:
   - override /data: vimh
-  - override /model: cnn_64k
+  - override /model: cnn_medium
 ```
 
 ### Performance

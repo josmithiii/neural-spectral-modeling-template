@@ -31,7 +31,7 @@ configs/
 defaults:
   - _self_
   - data: vimh
-  - model: cnn_64k
+  - model: cnn_medium
   - callbacks: default
   - logger: tensorboard
   - trainer: default
@@ -50,7 +50,7 @@ Override any of these at the CLI, e.g. `python src/train.py model=vit_tiny train
 
 Model configs target `src.models.vimh_lit_module.VIMHLitModule`. Heads and loss parameters are auto‑configured from the dataset’s `vimh_dataset_info.json` at runtime.
 
-Example (cnn_64k):
+Example (cnn_medium):
 
 ```yaml
 _target_: src.models.vimh_lit_module.VIMHLitModule
@@ -87,9 +87,9 @@ auto_configure_from_dataset: true
 
 ### Loss selection
 
-- Ordinal: `model=cnn_64k_ordinal`
-- Regression: `model=cnn_64k_regression`
-- Auxiliary inputs: `model=cnn_64k_auxiliary`
+- Ordinal: `model=cnn_medium_ordinal`
+- Regression: `model=cnn_medium_regression`
+- Auxiliary inputs: `model=cnn_medium_auxiliary`
 
 See [vimh_loss_functions.md](vimh_loss_functions.md) for details.
 
@@ -113,7 +113,7 @@ Example (`configs/experiment/example.yaml`):
 # @package _global_
 defaults:
   - override /data: vimh
-  - override /model: cnn_64k
+  - override /model: cnn_medium
   - override /callbacks: default
   - override /trainer: default
 
@@ -155,10 +155,10 @@ python src/train.py model.optimizer.lr=0.0005
 
 ```bash
 # Wah experiment with ordinal loss heads
-python src/train.py experiment=wah_cnn_tiny model=cnn_64k_ordinal trainer=mps
+python src/train.py experiment=wah_cnn_tiny model=cnn_medium_ordinal trainer=mps
 
 # Wah regression experiment with auxiliary inputs enabled
-python src/train.py experiment=wah_cnn_tiny_regression model=cnn_64k_auxiliary trainer=mps \
+python src/train.py experiment=wah_cnn_tiny_regression model=cnn_medium_auxiliary trainer=mps \
     model.net.auxiliary_input_size=1 model.net.output_mode=regression
 
 # Disable preflight checks for rapid iteration (not recommended for releases)

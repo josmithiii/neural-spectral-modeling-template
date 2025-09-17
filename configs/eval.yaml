@@ -3,7 +3,7 @@
 defaults:
   - _self_
   - data: vimh # choose datamodule with `test_dataloader()` for evaluation
-  - model: cnn_64k
+  - model: cnn_medium
   - logger: null
   - trainer: default
   - paths: default

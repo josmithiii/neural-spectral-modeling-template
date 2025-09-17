@@ -2,14 +2,14 @@
 
 ## Overview
 
-This repository ships practical CNN and ViT configurations for VIMH‑style multihead regression/classification. Architectures are selected via Hydra, e.g. `python src/train.py model=cnn_64k`.
+This repository ships practical CNN and ViT configurations for VIMH‑style multihead regression/classification. Architectures are selected via Hydra, e.g. `python src/train.py model=cnn_medium`.
 
 ## Supported Model Configs
 
 | Family | Configs                                             | Notes                                   |
 | ------ | ---------------------------------------------------- | --------------------------------------- |
-| CNN    | `cnn_micro`, `cnn_tiny`, `cnn_64k`                  | Size variants; multihead by default      |
-| CNN    | `cnn_64k_ordinal`, `cnn_64k_regression`, `cnn_64k_auxiliary` | Loss/feature variants |
+| CNN    | `cnn_micro`, `cnn_tiny`, `cnn_medium`               | Size variants; multihead by default      |
+| CNN    | `cnn_medium_ordinal`, `cnn_medium_regression`, `cnn_medium_auxiliary` | Loss/feature variants |
 | ViT    | `vit_micro`, `vit_tiny`                             | Lightweight Vision Transformers          |
 
 Experimental components (ConvNeXtV2, EfficientNet) exist under `src/models/components/` but are not wired with default configs here.
@@ -19,16 +19,16 @@ Experimental components (ConvNeXtV2, EfficientNet) exist under `src/models/compo
 - Input: typically 32×32×C spectrogram images (C=1 by default)
 - Blocks: 2 conv stages → pooling → MLP head(s)
 - Multihead: one head per parameter (auto‑configured from VIMH metadata)
-- Auxiliary features: optional scalar inputs for fusion (`cnn_64k_auxiliary`)
+- Auxiliary features: optional scalar inputs for fusion (`cnn_medium_auxiliary`)
 - Param count: depends on heads and image size (see diagrams in `viz/`)
 
 Usage examples:
 
 ```bash
 python src/train.py model=cnn_micro           # tiny baseline
-python src/train.py model=cnn_64k             # standard CNN
-python src/train.py model=cnn_64k_ordinal     # distance‑aware loss
-python src/train.py model=cnn_64k_regression  # direct regression
+python src/train.py model=cnn_medium          # standard CNN
+python src/train.py model=cnn_medium_ordinal  # distance‑aware loss
+python src/train.py model=cnn_medium_regression # direct regression
 ```
 
 ## Vision Transformer (ViT)

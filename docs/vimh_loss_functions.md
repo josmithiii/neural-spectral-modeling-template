@@ -99,7 +99,7 @@ criterion = WeightedCrossEntropyLoss(
 ### Original CrossEntropyLoss (Current)
 
 ```yaml
-# configs/model/cnn_64k.yaml
+# configs/model/cnn_medium.yaml
 criteria:
   note_number:
     _target_: torch.nn.CrossEntropyLoss
@@ -110,7 +110,7 @@ criteria:
 ### New OrdinalRegressionLoss (Recommended)
 
 ```yaml
-# configs/model/cnn_64k_ordinal.yaml
+# configs/model/cnn_medium_ordinal.yaml
 criteria:
   note_number:
     _target_: src.models.losses.OrdinalRegressionLoss
@@ -132,10 +132,10 @@ criteria:
 
 ```bash
 # Enable ordinal losses on the wah tiny experiment
-python src/train.py experiment=wah_cnn_tiny model=cnn_64k_ordinal trainer=mps
+python src/train.py experiment=wah_cnn_tiny model=cnn_medium_ordinal trainer=mps
 
 # Regression variant (direct normalized regression)
-python src/train.py experiment=wah_cnn_tiny_regression model=cnn_64k_regression trainer=mps
+python src/train.py experiment=wah_cnn_tiny_regression model=cnn_medium_regression trainer=mps
 ```
 
 ### Comparison with Original Loss
@@ -145,7 +145,7 @@ python src/train.py experiment=wah_cnn_tiny_regression model=cnn_64k_regression 
 python src/train.py experiment=wah_cnn_tiny trainer=mps
 
 # Ordinal loss for distance awareness
-python src/train.py experiment=wah_cnn_tiny model=cnn_64k_ordinal trainer=mps
+python src/train.py experiment=wah_cnn_tiny model=cnn_medium_ordinal trainer=mps
 ```
 
 ## Implementation Details

@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: cnn_64k_auxiliary
+  - override /model: cnn_medium_auxiliary
   - override /callbacks: default
   - override /trainer: default
 

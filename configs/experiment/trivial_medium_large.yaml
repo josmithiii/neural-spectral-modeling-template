@@ -1,11 +1,11 @@
 # @package _global_
 
-# "64K" CNN (actually 1.4M) on large (16K samples) trivial dataset - for comparison
-# python src/train.py experiment=trivial_64k_large
+# "Medium" CNN (actually 1.4M) on large (16K samples) trivial dataset - for comparison
+# python src/train.py experiment=trivial_medium_large
 
 defaults:
   - override /data: vimh # overridden below for 16k samples: ../data/vimh.yaml
-  - override /model: cnn_64k # Really 1.4M: ../model/cnn_64k.yaml
+  - override /model: cnn_medium # Really 1.4M: ../model/cnn_medium.yaml
   - override /callbacks: default # ../callbacks/default.yaml
   - override /trainer: default # ../trainer/default.yaml
 
@@ -28,4 +28,4 @@ data:
 
 logger:
   tensorboard:
-    name: "trivial_64k_large"
+    name: "trivial_medium_large"

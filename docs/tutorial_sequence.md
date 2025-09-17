@@ -38,7 +38,7 @@ make vpl          # Verify parameter distributions (chi-square summary)
 ## Phase 3: Train Models
 
 ```bash
-make tr           # Default training config (cnn_64k on VIMH defaults)
+make tr           # Default training config (cnn_medium on VIMH defaults)
 make trs          # Train on the small dataset
 make trl          # Train on the large dataset
 python src/train.py experiment=wah_cnn_tiny trainer=mps

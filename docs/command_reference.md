@@ -34,7 +34,7 @@ Snapshot of `make h` output (auto-generated).
 | `etmlrdt exp-trivial-micro-large-regression-decay-time` | Micro CNN (~2K params) on large dataset (16K samples) - regression loss on log10_decay_time only |
 | `etmldt exp-trivial-micro-large-decay-time` | Micro CNN (~2K params) on large dataset (16K samples) - ordinal loss on log10_decay_time only |
 | `ettl exp-trivial-tiny-large` | Tiny CNN (~8K params) on large dataset (16K samples) |
-| `et64l exp-trivial-64k-large` | "64K" CNN (actually 1.4M params) on large dataset - for comparison |
+| `etml exp-trivial-medium-large` | "Medium" CNN (actually 1.4M params) on large dataset - for comparison |
 | `etall` | Run all trivial dataset experiments: ex etms etts etml ettl et64l |
 | `evitms exp-trivial-vit-micro-small` | Micro ViT (~8K params) on small dataset (256 samples) |
 | `evitmsr exp-trivial-vit-micro-small-regression` | Micro ViT (~8K params) on small dataset (256 samples) - regression variant (placeholder) |
@@ -79,15 +79,15 @@ Snapshot of `make h` output (auto-generated).
 | `ta test-all` | Run all pytest tests |
 | `td tda test-diagram-all` | Generate enhanced diagrams for all architectures (text + graphical) |
 | `tdl test-diagram-list` | List available model configs for diagrams |
-| `tds test-diagram-simple` | Generate simple text-only diagrams (default cnn_64k) |
-| `tdsc test-diagram-simple-config` | Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_64k) |
+| `tds test-diagram-simple` | Generate simple text-only diagrams (default cnn_medium) |
+| `tdsc test-diagram-simple-config` | Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_medium) |
 | `tdsl test-diagram-simple-list` | List available configs for simple diagrams |
 | `tdsa test-diagram-simple-all` | Generate simple diagrams for all architectures |
 | `tdv test-diagram-vgg` | Generate VGG-style architecture diagrams (EPS + PNG) |
 | `tr train` | Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml |
 | `trq train-quick` | Train super quickly the default model and dataset (quick sanity test to see if things are working) |
-| `trs train-vimh-small` | Train the small example VIMH dataset using the default model (CNN 64k) |
-| `trl train-vimh-large` | Train the large example VIMH dataset using the default model (CNN 64k) |
+| `trs train-vimh-small` | Train the small example VIMH dataset using the default model (CNN Medium) |
+| `trl train-vimh-large` | Train the large example VIMH dataset using the default model (CNN Medium) |
 | `f format` | Run pre-commit hooks |
 | `fp format-preview` | Preview docformatter actions |
 | `fdc format-docstrings-check` | Run docformatter pre-commit hook (manual stage) |

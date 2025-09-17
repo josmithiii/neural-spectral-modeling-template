@@ -16,7 +16,7 @@ NSMT is a Lightning + Hydra template optimized for VIMH spectrogram datasets. It
   - Automatic parameter range wiring from `vimh_dataset_info.json`
 
 - **Model zoo**
-  - CNN variants: `cnn_micro`, `cnn_tiny`, `cnn_64k` (+ auxiliary/regression/ordinal options)
+  - CNN variants: `cnn_micro`, `cnn_tiny`, `cnn_medium` (+ auxiliary/regression/ordinal options)
   - ViT variants: `vit_micro`, `vit_tiny`
   - Auto head configuration through `VIMHLitModule`
 

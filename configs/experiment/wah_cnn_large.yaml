@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: cnn_64k # ../model/cnn_64k.yaml - was cnn_tiny: Medium model for wah parameter dataset - ../model/cnn_tiny.yaml
+  - override /model: cnn_medium # ../model/cnn_medium.yaml - was cnn_tiny: Medium model for wah parameter dataset - ../model/cnn_tiny.yaml
   - override /callbacks: default
   - override /trainer: default
 

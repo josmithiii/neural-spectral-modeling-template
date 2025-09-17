@@ -69,8 +69,8 @@ def basic_evaluation_example():
 
     # You might need to reconstruct the model based on your saved config
     # This is a simplified example - adjust based on your model
-    # Example: from src.models.cnn_64k import CNN64k
-    # net = CNN64k()  # Initialize with appropriate parameters
+    # Example: from src.models.cnn_medium import CNNMedium
+    # net = CNNMedium()  # Initialize with appropriate parameters
 
     # For now, use a placeholder - you'll need to match your actual model
     print("⚠️  This example needs to be adapted to your specific model architecture")

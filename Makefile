@@ -126,8 +126,8 @@ etmldt exp-trivial-micro-large-decay-time: gdl ## Micro CNN (~2K params) on larg
 ettl exp-trivial-tiny-large: gdl ## Tiny CNN (~8K params) on large dataset (16K samples)
 	time python src/train.py experiment=trivial_tiny_large
 
-et64l exp-trivial-64k-large: gdl ## "64K" CNN (actually 1.4M params) on large dataset - for comparison
-	time python src/train.py experiment=trivial_64k_large
+etmedl exp-trivial-medium-large: gdl ## "Medium" CNN (actually 1.4M params) on large dataset - for comparison
+	time python src/train.py experiment=trivial_medium_large
 
 etall: ex etms etts etml ettl et64l ## Run all trivial dataset experiments: ex etms etts etml ettl et64l
 
@@ -384,20 +384,20 @@ td tda test-diagram-all: ## Generate enhanced diagrams for all architectures (te
 tdl test-diagram-list: ## List available model configs for diagrams
 	python viz/enhanced_model_diagrams.py --list-configs
 
-tds test-diagram-simple: ## Generate simple text-only diagrams (default cnn_64k)
+tds test-diagram-simple: ## Generate simple text-only diagrams (default cnn_medium)
 	python viz/simple_model_diagram.py
 
-tdsc test-diagram-simple-config: ## Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_64k)
+tdsc test-diagram-simple-config: ## Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_medium)
 	python viz/simple_model_diagram.py --config $(CONFIG)
 
 tdsl test-diagram-simple-list: ## List available configs for simple diagrams
 	python viz/simple_model_diagram.py --list-configs
 
 tdsa test-diagram-simple-all: ## Generate simple diagrams for all architectures
-	python viz/simple_model_diagram.py --config cnn_64k
-	python viz/simple_model_diagram.py --config cnn_64k_ordinal
-	python viz/simple_model_diagram.py --config cnn_64k_regression
-	python viz/simple_model_diagram.py --config cnn_64k_auxiliary
+	python viz/simple_model_diagram.py --config cnn_medium
+	python viz/simple_model_diagram.py --config cnn_medium_ordinal
+	python viz/simple_model_diagram.py --config cnn_medium_regression
+	python viz/simple_model_diagram.py --config cnn_medium_auxiliary
 	python viz/simple_model_diagram.py --config cnn_micro
 	python viz/simple_model_diagram.py --config cnn_tiny
 	python viz/simple_model_diagram.py --config vit_micro
@@ -414,10 +414,10 @@ tr train: generate-dataset-small ## Train default model on default dataset (`mak
 trq train-quick: gds ## Train super quickly the default model and dataset (quick sanity test to see if things are working)
 	python src/train.py trainer.max_epochs=1
 
-trs train-vimh-small: gds ## Train the small example VIMH dataset using the default model (CNN 64k)
+trs train-vimh-small: gds ## Train the small example VIMH dataset using the default model (CNN medium)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-trl train-vimh-large: gdl ## Train the large example VIMH dataset using the default model (CNN 64k)
+trl train-vimh-large: gdl ## Train the large example VIMH dataset using the default model (CNN medium)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # UTILITY TARGETS

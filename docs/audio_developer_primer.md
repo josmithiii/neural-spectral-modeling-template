@@ -10,7 +10,7 @@ This primer bridges the gap for audio software engineers who are new to modern M
 
 ## Hydra and Experiment Composition
 
-- **Entry Points**: `src/train.py` and `src/eval.py` accept Hydra overrides (e.g., `python src/train.py model=cnn_64k data=vimh trainer=mps`).
+- **Entry Points**: `src/train.py` and `src/eval.py` accept Hydra overrides (e.g., `python src/train.py model=cnn_medium data=vimh trainer=mps`).
 - **Experiments**: YAML files in `configs/experiment/` bundle data, model, trainer, and callback settings for reproducible runs (`wah_cnn_tiny.yaml`, `wah_cnn_tiny_regression.yaml`).
 - **Overrides**: Command-line overrides let you adjust epochs, learning rates, or datasets without touching files (`trainer.max_epochs=50`, `data.data_dir=...`).
 

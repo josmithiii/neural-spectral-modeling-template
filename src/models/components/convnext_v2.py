@@ -410,7 +410,7 @@ def convnext_v2_huge(input_size: int = 224, in_chans: int = 3, output_size: int 
 
 
 # CIFAR-10 optimized variants with smaller kernels and reduced stride
-def convnext_v2_cifar10_64k(
+def convnext_v2_cifar10_medium(
     input_size: int = 32, in_chans: int = 3, output_size: int = 10, **kwargs
 ):
     """ConvNeXt-V2 optimized for CIFAR-10 (~64K parameters)

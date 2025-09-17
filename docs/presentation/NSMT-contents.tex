@@ -7,7 +7,17 @@
 \vspace{\stretch{1}}
 \end{emptyslide}
 
-\begin{slide}[\slideopts,toc={NSMT Overview}]{Neural Spectral Modeling Template (NSMT) --- Spectral-First Audio Processing}
+\begin{slide}[\slideopts,toc={Snapshot}]{Project Snapshot — Lightning Hydra Template Extended for Audio}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem Forked from LHTE (commit \texttt{3795aad}) and tuned for \textbf{spectral audio modeling}
+    \mpitem Goal: \emph{small, accurate, fast} networks trained with \emph{hearing-inspired priors}
+    \mpitem Hydra-driven config system keeps experiments reproducible and easy to override
+    \mpitem Drops MNIST/CIFAR baselines, adds audio-specific tooling and interactive evaluation
+  \end{itemize}
+\end{slide}
+
+\begin{slide}[\slideopts,toc={NSMT Overview}]{Neural Spectral Modeling Template (NSMT)}
 
   \vspace{-1em}
 
@@ -82,6 +92,36 @@
 
 \end{slide}
 
+\begin{slide}[\slideopts,toc={Spectra}]{Spectral-First Audio Representations}
+  \begin{itemize}
+    \mpitem End-to-end pipelines are feasible but demand \emph{massive} data, compute, and wall-clock time
+    \mpitem NSMT adopts inductive priors: the ear is effectively a hardware spectrum analyzer
+    \mpitem Encode alternative time-frequency representations in stacked spectrogram ``channels'' (time-frequency resolutions, modulation spectra)
+    \mpitem Conditioning (``aux'') inputs bring in measured features (F0, decay-time, pre-emphasis)
+    \mpitem Conditioning inputs add context
+  \end{itemize}
+  \vspace{-0.5em}
+  \maybepause
+    \centerline{\textit{Those who don't know signal processing are doomed to reinvent it}}
+  \maybepause
+    \centerline{\textit{Those who know signal processing are doomed to re-introduce it}}
+\end{slide}
+
+\begin{wideslide}[\slideopts,toc={Context}]{Anchoring in Human Audio Research}
+  \twocolumn{
+  \vspace{-2em}
+  \myFigureRotateToWidth{McDermottKell2018}{-90}{\twidth}{}
+  }{
+  \vspace{-2em}
+  \begin{itemize}
+    \mpitem Kell et al. (Neuron 2018) matched human recognition using cochleagrams + CNNs
+    \mpitem Shared convolutional front-end generalized across speech and music; input priors mattered
+    \mpitem Cochleagram input was required to predict cortical responses
+    \mpitem NSMT adopts similar spectral priors, adding multi-resolution stacks and conditioning heads
+  \end{itemize}
+}
+\end{wideslide}
+
 \begin{wideslide}[\slideopts,toc={McDermott}]{McDermott Lab Example: Kell et al., Neuron 2018}
   %\vspace{-2.5em}
   %% ``A Task-Optimized Neural Network Replicates Human Auditory
@@ -114,6 +154,16 @@
   \end{itemize}
 }
 \end{wideslide}
+
+\begin{slide}[\slideopts,toc={Layout}]{Repository Layout \& Key Modules}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem Source in \texttt{src/}: \texttt{train.py}, \texttt{eval.py}, and packages for \texttt{data}, \texttt{models}, \texttt{utils}
+    \mpitem Hydra configs under \texttt{configs/} grouped by \texttt{data/}, \texttt{model/}, \texttt{trainer/}, \texttt{experiment/}
+    \mpitem PyTorch Lightning modules in \texttt{src/models/} for models and \texttt{src/data/} for data loading
+    \mpitem Tests in \texttt{tests/} (fast by default, slow marked); assets: \texttt{data/}, \texttt{logs/}, \texttt{viz/}, \texttt{docs/}
+  \end{itemize}
+\end{slide}
 
 %% \begin{slidewhite}[\slideopts,toc={Problem}]{Example Driving Problem: Real-Time Filter Design in an Audio Plugin}
 %%   \vspace{-2em}
@@ -253,7 +303,160 @@
   \end{center}
 \end{wideslide}
 
-\begin{slide}[\slideopts,toc={Losses}]{Distance-Aware Losses for Quantized Parameters}
+%% ALTERNATIVE VIMH SLIDE
+
+\begin{slide}[\slideopts,toc={VIMH}]{VIMH Dataset Format — Self-Describing, Multihead}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem \textbf{VIMH} (Variable Image MultiHead) stores H, W, C plus a variable-length label list per sample
+    \mpitem Metadata file \texttt{vimh\_dataset\_info.json} declares label ids and 0--255 ranges
+    \mpitem Supports 0--255 quantized continuous parameters and (0--255) parameter/category names
+  \end{itemize}
+  \vspace{0.25em}
+  \begin{center}
+    \begin{tikzpicture}[x=1mm,y=1mm, line join=round, line cap=round]
+      \def\depthx{3}
+      \def\depthy{1.2}
+      \newcommand{\panel}[6][]{%
+        \begin{scope}[shift={(#2,#3)}]
+          \filldraw[fill=#6, draw=black] (0,0) rectangle (#4,#5);
+          \filldraw[fill=black!20, draw=black]
+            (#4,0) -- ++(\depthx,\depthy) -- ++(0,#5) -- ++(-\depthx,-\depthy) -- cycle;
+          \ifx\\#1\\\else
+            \node[font=\scriptsize, anchor=north] at (#4*0.5,-1.2) {#1};
+          \fi
+        \end{scope}%
+      }
+      \newcommand{\spectro}[6][]{%
+        \begin{scope}[shift={(#2,#3)}]
+          \filldraw[fill=#6, draw=black] (0,0) rectangle (#4,#5);
+          \foreach \xx in {2,4,6,8,10,12,14,16,18}{\draw[gray!60] (\xx,0) -- (\xx,#5);}
+          \foreach \yy in {3,6,9,12,15,18,21,24}{\draw[gray!30] (0,\yy) -- (#4,\yy);}
+          \filldraw[fill=black!20, draw=black]
+            (#4,0) -- ++(\depthx,\depthy) -- ++(0,#5) -- ++(-\depthx,-\depthy) -- cycle;
+          \ifx\\#1\\\else
+            \node[font=\scriptsize, anchor=north] at (#4*0.5,-1.2) {#1};
+          \fi
+        \end{scope}%
+      }
+      \def\xin{0}  \def\yin{0}
+      \def\xbA{40} \def\ybA{-2}
+      \def\xbB{72} \def\ybB{0}
+      \def\xbC{98} \def\ybC{6}
+      \def\xbD{118}\def\ybD{10}
+      \spectro[32$\times$32$\times$4]{\xin}{\yin}{22}{26}{blue!12}
+      \node[font=\scriptsize] at (\xin+10, \yin+30) {Stacked spectra};
+      \filldraw[fill=gray!50, draw=black] (26,10) rectangle (38,16);
+      \panel[Conv1]{\xbA}{\ybA}{18}{32}{orange!20}
+      \filldraw[fill=gray!50, draw=black] (\xbA+18+\depthx,\ybA+12+\depthy) rectangle (\xbB-2,\ybB+18);
+      \panel[Conv2]{\xbB}{\ybB}{16}{28}{green!20}
+      \node[font=\scriptsize, anchor=north] at (\xbB+8,\ybB-2) {Pool};
+      \filldraw[fill=gray!50, draw=black] (\xbB+16+\depthx,\ybB+12+\depthy) rectangle (\xbC-2,\ybC+18);
+      \panel[FC]{\xbC}{\ybC}{12}{20}{violet!20}
+      \filldraw[fill=gray!50, draw=black] (\xbC+12+\depthx,\ybC+9+\depthy) rectangle (\xbD-2,\ybD+14);
+      \panel[Head 1]{\xbD}{\ybD}{6}{14}{gray!20}
+      \panel[Head 2]{\xbD+8}{\ybD-1}{6}{12}{gray!20}
+      \panel[Head 3]{\xbD+16}{\ybD-2}{6}{10}{gray!20}
+      \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+16) {Multihead outputs};
+    \end{tikzpicture}
+  \end{center}
+\end{slide}
+
+
+\begin{slide}[\slideopts,toc={Models}]{Model Portfolio \& Auto-Configuration}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem CNNs: \texttt{cnn\_micro}, \texttt{cnn\_tiny}, \texttt{cnn\_medium} with ordinal/regression/aux heads
+    \mpitem Lightweight ViTs: \texttt{vit\_micro} and \texttt{vit\_tiny} with spectrogram-aware patches
+    \mpitem Auto-wiring pipeline:
+    \begin{itemize}
+      \mpitem DataModule ingests \texttt{vimh\_dataset\_info.json} to expose shapes + label semantics
+      \mpitem \texttt{VIMHLitModule} instantiates heads, losses, and metrics per label type
+      \mpitem Hydra selects trainer (CPU/GPU/MPS) and callbacks (checkpoints, early stop, diagrams)
+    \end{itemize}
+    \mpitem Result: one dataset $\to$ consistent model wiring and reproducible runs
+  \end{itemize}
+\end{slide}
+
+\begin{slide}[\slideopts,toc={Losses}]{Losses, Metrics, and Diagnostics}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem Quantized parameters (0--255) need distance-aware objectives:
+    \begin{itemize}
+      \mpitem \texttt{OrdinalRegressionLoss}, \texttt{QuantizedRegressionLoss}, \texttt{WeightedCrossEntropyLoss}
+    \end{itemize}
+    \mpitem Metrics blend RMSE, correlation, perceptual error, and head-specific accuracy
+    \mpitem Diagnostics: loss curves, per-parameter histograms, confusion matrices in \texttt{viz/}
+    \mpitem TensorBoard + CSV logging; configs captured in \texttt{logs/train/runs/}
+  \end{itemize}
+  \vspace{0.25em}
+  \begin{center}
+    \includegraphics[width=0.45\linewidth]{eps/vimh_loss_analysis.eps}\hspace{0.02\linewidth}
+    \includegraphics[width=0.45\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
+  \end{center}
+\end{slide}
+
+\begin{slide}[\slideopts,toc={Workflow}]{Training \& Experiment Workflow}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem \textbf{Datasets:} \texttt{make sds} (256 samples) \textbar \texttt{make sdl} (16k) \textbar \texttt{make ddr|dds|ddl}
+    \mpitem \textbf{Training:} \texttt{make tq} (smoke test) \textbar \texttt{make tr} (default) \textbar \texttt{python src/train.py experiment=emb trainer=gpu}
+    \mpitem \textbf{Overrides:} \texttt{model=cnn\_medium\_ordinal} \textbar \texttt{data=vimh} \textbar \texttt{trainer.max\_epochs=50}
+    \mpitem \textbf{Artifacts:} checkpoints + configs in run dirs; diagrams via \texttt{make td}; TensorBoard via \texttt{make tensorboard}
+    \mpitem \textbf{Testing loop:} \texttt{pytest -k "not slow"} pre-commit, \texttt{make test-all} for releases
+  \end{itemize}
+\end{slide}
+
+\begin{slide}[\slideopts,toc={Evaluation}]{Evaluation \& Audio Reconstruction Tools}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem \texttt{python src/audio\_reconstruction\_eval.py} or \texttt{make ae} re-synthesizes audio from predictions
+    \mpitem Auto-discovers latest checkpoint, launches interactive widget for A/B playback
+    \mpitem Metrics: SNR, correlation, RMSE, per-parameter errors with exportable tables
+    \mpitem Batch comparisons push snapshots and notes back to \texttt{logs/}
+  \end{itemize}
+  \vspace{0.25em}
+  \begin{center}
+    \setlength{\fboxsep}{6pt}\fbox{\parbox{0.88\linewidth}{
+        spectrogram $\to$ model $\to$ predicted params $\to$ \textit{synth} $\to$ audio $\leftrightarrow$ compare with ground truth
+    }}
+  \end{center}
+\end{slide}
+
+\begin{slide}[\slideopts,toc={Experiments}]{Moog VCF Case Studies — Basic, Envelope, Resonance}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem \textbf{Datasets:} \texttt{sdmb} (4 params), \texttt{sdme} (10 params), \texttt{sdmr} (8 params)
+    \mpitem \textbf{Runs:} \texttt{emb}, \texttt{eme}, \texttt{emr} with CNN/ViT variants (\texttt{emvit*})
+    \mpitem Study generalization across parameter spaces, envelopes, and resonance settings
+    \mpitem Findings: ordinal losses stabilize extrapolation; ViTs shine on envelopes, CNNs win on jittered resonance
+  \end{itemize}
+  \vspace{0.25em}
+  \begin{center}
+    \setlength{\fboxsep}{4pt}\fbox{\parbox{0.9\linewidth}{
+        Color map: parameter sweeps $\to$ spectral patterns $\to$ multihead predictions for downstream control
+    }}
+  \end{center}
+\end{slide}
+
+\begin{slide}[\slideopts,toc={Practices}]{Engineering Practices, Reproducibility, Next Steps}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem Hydra configs capture overrides; each run logs command + git SHA in \texttt{logs/train/runs/}
+    \mpitem Preflight scripts audit label diversity and dataset integrity before training
+    \mpitem Style guardrails: \texttt{make format} (black, isort, flake8, bandit); tests via \texttt{pytest}
+    \mpitem Contribution checklist: document configs, attach sample logs/audio, link issues, verify smoke tests
+    \mpitem Roadmap: expand VIMH converters, add lightweight diffusion head, refine interactive eval UX
+  \end{itemize}
+  \vspace{0.25em}
+  \begin{center}
+    \includegraphics[width=0.65\linewidth]{eps/confusion_matrices.eps}
+  \end{center}
+\label{lastslide}
+\end{slide}
+
+
+\begin{slide}[\slideopts,toc={Losses}]{[ORIG] Distance-Aware Losses for Quantized Parameters}
   \vspace{-0.75em}
   \begin{itemize}
     \mpitem Challenge: 8-bit quantization (0--255) of continuous parameters
@@ -261,62 +464,71 @@
     \mpitem \textbf{QuantizedRegressionLoss} $\to$ direct regression on quantized scale
     \mpitem \textbf{WeightedCrossEntropyLoss} $\to$ classification with distance penalties
   \end{itemize}
-  \vspace{-0.5em}
-  \begin{center}
-    \includegraphics[width=0.5\linewidth]{eps/vimh_loss_analysis.eps}\hspace{0.02\linewidth}
-    \includegraphics[width=0.5\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
-\end{center}
 \end{slide}
 
-\begin{slide}[\slideopts,toc={Models}]{Model Families — Small, Accurate, and Fast}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem \textbf{CNN variants:} \texttt{cnn\_micro}, \texttt{cnn\_tiny}, \texttt{cnn\_64k}
-    \vspace{-0.25em}
-    \begin{itemize}
-      \mpitem Multihead heads auto-wired from VIMH metadata
-      \mpitem Options: \texttt{cnn\_64k\_ordinal}, \texttt{cnn\_64k\_regression}, \texttt{cnn\_64k\_auxiliary}
-    \end{itemize}
-    \mpitem \textbf{ViT variants:} \texttt{vit\_micro}, \texttt{vit\_tiny} (lightweight, patch-based)
-    \mpitem \textbf{Design goal:} practical models that train fast, generalize well
-  \end{itemize}
-  \vspace{0.25em}
+\begin{slide}[\slideopts,toc={VIMH Loss Analysis}]{VIMH Loss Analysis}
   \begin{center}
-    \begin{minipage}{0.95\linewidth}
-      \centering
-      \setlength{\fboxsep}{4pt}\fbox{\parbox{0.9\linewidth}{
-          CNN: Conv $\to$ Conv $\to$ Pool $\to$ MLP $\to$ \textit{heads} (1/head) \hfill
-          ViT: Patches $\to$ Transformer Blocks $\to$ \textit{heads}
-      }}
-    \end{minipage}
+    \includegraphics[width=\linewidth]{eps/vimh_loss_analysis.eps}
   \end{center}
 \end{slide}
 
-\begin{slide}[\slideopts,toc={Auto-Config}]{Auto-Configuration from Data to Model}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem \textbf{One dataset $\to$ complete model wiring:}
-    \vspace{-0.25em}
-    \begin{itemize}
-      \mpitem Read \texttt{vimh\_dataset\_info.json} $\to$ infer H, W, C, head names, ranges
-      \mpitem DataModule passes shapes + parameter ranges to module
-      \mpitem \texttt{VIMHLitModule} configures heads, losses, and metrics
-    \end{itemize}
-  \end{itemize}
-  \vspace{-0.25em}
+\begin{slide}[\slideopts,toc={VIMH Perceptual Loss}]{VIMH Perceptual Loss Analysis}
   \begin{center}
-    \begin{tikzpicture}[>=stealth, node distance=1.8cm]
-      \tikzstyle{box}=[draw, rounded corners, fill=blue!7, inner sep=6pt]
-      \node[box] (json) {VIMH JSON (H,W,C, names, ranges)};
-      \node[box, right=of json] (dm) {DataModule (transforms, loaders)};
-      \node[box, right=of dm] (lit) {VIMHLitModule (auto-heads, losses)};
-      \node[box, right=of lit] (train) {Trainer (callbacks, logs)};
-      \draw[->] (json) -- (dm);
-      \draw[->] (dm) -- (lit);
-      \draw[->] (lit) -- (train);
-    \end{tikzpicture}
+    \includegraphics[width=\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
   \end{center}
 \end{slide}
+
+%% DOWN IN THE WEEDS AND NEEDING TOO MUCH WORK - ALL ``64K'' NEED TO BECOME ``Medium'' OR SUCH
+%% \begin{slide}[\slideopts,toc={Models}]{Model Families — Small, Accurate, and Fast}
+%%   \vspace{-0.75em}
+%%   \begin{itemize}
+%%     \mpitem \textbf{CNN variants:} \texttt{cnn\_micro} ($\approx 2$K), \texttt{cnn\_tiny} ($\approx 8$K), \texttt{cnn\_medium} ($\approx 1400$K)
+%%     \vspace{-0.25em}
+%%     \begin{itemize}
+%%       \mpitem Multihead heads auto-wired from VIMH metadata
+%%       \mpitem Options: \texttt{cnn\_medium\_ordinal}, \texttt{cnn\_medium\_regression}, \texttt{cnn\_medium\_auxiliary}
+%%     \end{itemize}
+%%     \mpitem \textbf{ViT variants:} \texttt{vit\_micro}, \texttt{vit\_tiny} (lightweight, patch-based)
+%%     \mpitem \textbf{Design goal:} practical models that train fast, generalize well
+%%   \end{itemize}
+%%   \vspace{0.25em}
+%%   \begin{center}
+%%     \begin{minipage}{0.95\linewidth}
+%%       \centering
+%%       \setlength{\fboxsep}{4pt}\fbox{\parbox{0.9\linewidth}{
+%%           CNN: Conv $\to$ Conv $\to$ Pool $\to$ MLP $\to$ \textit{heads} (1/head) \hfill
+%%           ViT: Patches $\to$ Transformer Blocks $\to$ \textit{heads}
+%%       }}
+%%     \end{minipage}
+%%   \end{center}
+%% \end{slide}
+
+%% TOO CODE BASED - COVERED ELSEWHERE
+%% \begin{slide}[\slideopts,toc={Auto-Config}]{Auto-Configuration from Data to Model}
+%%   \vspace{-0.75em}
+%%   \begin{itemize}
+%%     \mpitem \textbf{One dataset $\to$ complete model wiring:}
+%%     \vspace{-0.25em}
+%%     \begin{itemize}
+%%       \mpitem Read \texttt{vimh\_dataset\_info.json} $\to$ infer H, W, C, head names, ranges
+%%       \mpitem DataModule passes shapes + parameter ranges to module
+%%       \mpitem \texttt{VIMHLitModule} configures heads, losses, and metrics
+%%     \end{itemize}
+%%   \end{itemize}
+%%   \vspace{-0.25em}
+%%   \begin{center}
+%%     \begin{tikzpicture}[>=stealth, node distance=1.8cm]
+%%       \tikzstyle{box}=[draw, rounded corners, fill=blue!7, inner sep=6pt]
+%%       \node[box] (json) {VIMH JSON (H,W,C, names, ranges)};
+%%       \node[box, right=of json] (dm) {DataModule (transforms, loaders)};
+%%       \node[box, right=of dm] (lit) {VIMHLitModule (auto-heads, losses)};
+%%       \node[box, right=of lit] (train) {Trainer (callbacks, logs)};
+%%       \draw[->] (json) -- (dm);
+%%       \draw[->] (dm) -- (lit);
+%%       \draw[->] (lit) -- (train);
+%%     \end{tikzpicture}
+%%   \end{center}
+%% \end{slide}
 
 \begin{slide}[\slideopts,toc={Workflow}]{Hands-On Workflow --- Datasets, Training, Diagrams}
   \vspace{-0.75em}
@@ -330,7 +542,7 @@
     \vspace{-0.25em}
     \begin{itemize}
       \mpitem \texttt{make trq} (quick sanity) \quad \texttt{make tr} (defaults)
-      \mpitem \texttt{python src/train.py model=cnn\_64k\_ordinal trainer=mps}
+      \mpitem \texttt{python src/train.py model=cnn\_medium\_ordinal trainer=mps}
     \end{itemize}
     \mpitem \textbf{Diagrams and Logs}
     \vspace{-0.25em}

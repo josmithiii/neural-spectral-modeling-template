@@ -8,7 +8,7 @@
 
 defaults:
   - override /data: vimh # 256 samples: ../data/vimh.yaml
-  - override /model: cnn_64k # Really 1.4M: ../model/cnn_64k.yaml
+  - override /model: cnn_medium # Really 1.4M: ../model/cnn_medium.yaml
   - override /callbacks: default # ../callbacks/default.yaml
   - override /trainer: default # ../trainer/default.yaml
 
