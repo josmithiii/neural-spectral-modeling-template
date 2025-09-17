@@ -7,13 +7,14 @@
 \vspace{\stretch{1}}
 \end{emptyslide}
 
-\begin{slide}[\slideopts,toc={Snapshot}]{Project Snapshot — Lightning Hydra Template Extended for Audio}
-  \vspace{-0.75em}
+\begin{slide}[\slideopts,toc={Snapshot}]{Project Snapshot — Lightning Hydra Template Extended (LHTE) for Audio}
   \begin{itemize}
-    \mpitem Forked from LHTE (commit \texttt{3795aad}) and tuned for \textbf{spectral audio modeling}
+    \mpitem Forked from LHTE and tuned for \textbf{spectral audio modeling}
     \mpitem Goal: \emph{small, accurate, fast} networks trained with \emph{hearing-inspired priors}
     \mpitem Hydra-driven config system keeps experiments reproducible and easy to override
-    \mpitem Drops MNIST/CIFAR baselines, adds audio-specific tooling and interactive evaluation
+    \mpitem Drops MNIST/CIFAR datasets and loaders
+    \mpitem Uses only Variable Image Multi-Head (VIMH) dataset format (``spectral stacks'')
+    \mpitem Adds audio-specific tooling and interactive evaluation
   \end{itemize}
 \end{slide}
 
@@ -61,45 +62,30 @@
 
   Aren't we supposed to be doing everything \emph{end to end} now?
 
-  Shouldn't the input be a digital audio \emph{bit stream} by now?
-
+  Shouldn't our audio inputs be pure \emph{bit streams} by now?
   \begin{itemize}
-
-    \mpitem Sure, you can do it that way, but with \emph{far more}
+    \mpitem End-to-end pipelines are feasible but demand \emph{massive} data and computation
+    \mpitem Why ``reinvent the ear'' when you know you need an ear?
+    \mpitem NSMT adopts inductive priors: the ear is a hardware spectrum analyzer of sorts
+    \mpitem A VIMH frame can contain a stack of alternative time-frequency representation ``channels''
     \begin{itemize}
-      \mpitem training \emph{data},
-      \mpitem training \emph{time},
-      \mpitem computational complexity (e.g., Transformer)
+      \mpitem Multiscale planes (different time-frequency resolutions)
+      \mpitem Modulation spectra
+      \mpitem Spectral metrics over the time-frequency plane
     \end{itemize}
-    \mpitem It is more cost-effective to exploit \emph{inductive priors:}
-    \begin{itemize}
-      \mpitem The \emph{ear} is a \emph{hardware spectrum analyzer} used for all audio perception
-      \mpitem \emph{Superhuman hearing} is possible using a \emph{stack of different time-frequency resolutions}\\
-      (Multi-Scale Spectrograms)
-      \mpitem Any additional feature can be brought in as a \emph{conditioning} input\\
-      (such as \emph{pre-emphasis})
-    \end{itemize}
-
+    \mpitem Conditioning (``aux'') inputs bring in measured features (F0, decay-time, pre-emphasis), or outside context
   \end{itemize}
-
-  \vspace{-1em}
-%  \begin{quote}
-\maybepause
-    \centerline{\textit{Those who don't know signal processing are doomed to reinvent it}}
-\maybepause
-    \centerline{\textit{Those who know signal processing are doomed to re-introduce it}}
-%  \end{quote}
-
+%% Haha - Maybe I'll say it live
+%%   \vspace{-1em}
+%% %  \begin{quote}
+%% \maybepause
+%%     \centerline{\textit{Those who don't know signal processing are doomed to reinvent it}}
+%% \maybepause
+%%     \centerline{\textit{Those who know signal processing are doomed to re-introduce it}}
+%% %  \end{quote}
 \end{slide}
 
 \begin{slide}[\slideopts,toc={Spectra}]{Spectral-First Audio Representations}
-  \begin{itemize}
-    \mpitem End-to-end pipelines are feasible but demand \emph{massive} data, compute, and wall-clock time
-    \mpitem NSMT adopts inductive priors: the ear is effectively a hardware spectrum analyzer
-    \mpitem Encode alternative time-frequency representations in stacked spectrogram ``channels'' (time-frequency resolutions, modulation spectra)
-    \mpitem Conditioning (``aux'') inputs bring in measured features (F0, decay-time, pre-emphasis)
-    \mpitem Conditioning inputs add context
-  \end{itemize}
   \vspace{-0.5em}
   \maybepause
     \centerline{\textit{Those who don't know signal processing are doomed to reinvent it}}
@@ -115,45 +101,23 @@
   \vspace{-2em}
   \begin{itemize}
     \mpitem Kell et al. (Neuron 2018) matched human recognition using cochleagrams + CNNs
-    \mpitem Shared convolutional front-end generalized across speech and music; input priors mattered
-    \mpitem Cochleagram input was required to predict cortical responses
-    \mpitem NSMT adopts similar spectral priors, adding multi-resolution stacks and conditioning heads
+    \mpitem Cochleagram input was \emph{required} to predict cortical responses
+    \mpitem Shared convolutional front-end generalized across speech and music
+    \mpitem NSMT adopts spectral presentation like this
+    \mpitem NSMT supports multi-resolution stacks, modulation spectra, and more
+    \mpitem Conditioning heads support other feature inputs
+    %% \mpitem \emph{Cochleagram} presented as an image input to the convolutional neural network (CNN)
+    %% \mpitem For word recognition and music genre classification, this 12-layer network emerged as best (out of 180 tried)
+    %% \mpitem The 1st 7 \emph{shared} layers were found to perform comparably with separate 12-layer networks
+    %% \mpitem Performs at human level, with similar errors
+    %% \mpitem Predicts fMRI responses in the audio cortex
+    %% \mpitem Outperforms previous spectrotemporal filter models of the audio cortex
+    %% \mpitem Cochleagram required for predicting human responses\\
+    %% \mpitem Perhaps the cochleagram can be replaced by vastly more natural data and training (evolution-equivalent)
   \end{itemize}
 }
 \end{wideslide}
 
-\begin{wideslide}[\slideopts,toc={McDermott}]{McDermott Lab Example: Kell et al., Neuron 2018}
-  %\vspace{-2.5em}
-  %% ``A Task-Optimized Neural Network Replicates Human Auditory
-  %% Behavior, Predicts Brain Responses, and Reveals a Cortical
-  %% Processing Hierarchy''
-  %% \url{https://doi.org/10.1016/j.neuron.2018.03.044}
-  %% Josh McDermott's Computational Cognitive Neuroscience lab
-%  \url{http://mcdermottlab.mit.edu/papers/Kell_etal_2018_DNN_auditory_cortex.pdf}
-  \twocolumn{
-  \vspace{-2em}
-  \myFigureRotateToWidth{McDermottKell2018}{-90}{\twidth}{}
-  }{
-  \vspace{-2em}
-  \begin{itemize}
-    \mpitem \emph{Cochleagram} presented as an image input to the convolutional neural network (CNN)
-    \mpitem For word recognition and music genre classification, this 12-layer network emerged as best (out of 180 tried)
-    \mpitem The 1st 7 \emph{shared} layers were found to perform comparably with separate 12-layer networks
-    \mpitem Performs at human level, with similar errors
-    \mpitem Predicts fMRI responses in the audio cortex
-    \mpitem Outperforms previous spectrotemporal filter models of the audio cortex
-    \mpitem Cochleagram required for predicting human responses\\
-    \mpitem Perhaps the cochleagram can be replaced by vastly more natural data and training (evolution-equivalent)
-    %% % Easy to see from figure:
-    %% \begin{itemize}
-    %% \item five convolutional layers
-    %% \item three pooling
-    %% \item two normalization
-    %% \item two fully connected
-    %% \end{itemize}
-  \end{itemize}
-}
-\end{wideslide}
 
 \begin{wideslide}[\slideopts,toc={VIMH Format}]{VIMH Dataset Format --- Self-Describing, Multihead}
   \vspace{-0.75em}
@@ -227,7 +191,7 @@
       \spectro[]{\xin-2}{\yin+1.5}{22}{26}{blue!10}
       \spectro[]{\xin-4}{\yin+3.0}{22}{26}{blue!8}
       \spectro[]{\xin-6}{\yin+4.5}{22}{26}{blue!6}
-      \node[font=\scriptsize] at (\xin+7, \yin+30) {4 stacked spectrograms};
+      \node[font=\scriptsize] at (\xin+7, \yin+32) {4 stacked spectrograms};
 
       % Connector to Conv1
       \filldraw[fill=gray!50, draw=black] (26,10) rectangle (38,16);
@@ -242,7 +206,7 @@
       % Conv2 (32 channels)
       \panel[\scriptsize Conv2: 32 ch]{\xbB}{\ybB}{16}{28}{green!20}
       \node[font=\scriptsize, anchor=south] at (\xbB+8,\ybB+28+2) {3$\times$3, BN, ReLU};
-      \node[font=\scriptsize, anchor=north] at (\xbB+8,\ybB-2) {MaxPool};
+      \node[font=\scriptsize, anchor=north] at (\xbB+8,\ybB-4) {MaxPool};
 
       % Connector to FC
       \filldraw[fill=gray!50, draw=black] (\xbB+16+\depthx,\ybB+12+\depthy) rectangle (\xbC-2,\ybC+18);
@@ -258,7 +222,8 @@
       \panel[\scriptsize Head 1]{\xbD}{\ybD}{6}{14}{gray!20}
       \panel[\scriptsize Head 2]{\xbD+8}{\ybD-1}{6}{12}{gray!20}
       \panel[\scriptsize Head 3]{\xbD+16}{\ybD-2}{6}{10}{gray!20}
-      \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+16) {Regression heads};
+      \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+20) {Regression or};
+      \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+16) {Classification Heads};
 
     \end{tikzpicture}
 
@@ -303,24 +268,6 @@
 \end{slide}
 
 
-\begin{slide}[\slideopts,toc={Losses}]{Losses, Metrics, and Diagnostics}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem Quantized parameters (0--255) need distance-aware objectives:
-    \begin{itemize}
-      \mpitem \texttt{OrdinalRegressionLoss}, \texttt{QuantizedRegressionLoss}, \texttt{WeightedCrossEntropyLoss}
-    \end{itemize}
-    \mpitem Metrics blend RMSE, correlation, perceptual error, and head-specific accuracy
-    \mpitem Diagnostics: loss curves, per-parameter histograms, confusion matrices in \texttt{viz/}
-    \mpitem TensorBoard + CSV logging; configs captured in \texttt{logs/train/runs/}
-  \end{itemize}
-  \vspace{0.25em}
-  \begin{center}
-    \includegraphics[width=0.45\linewidth]{eps/vimh_loss_analysis.eps}\hspace{0.02\linewidth}
-    \includegraphics[width=0.45\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
-  \end{center}
-\end{slide}
-
 \begin{slide}[\slideopts,toc={Workflow}]{Training \& Experiment Workflow}
 
   Make targets exist for the following workflow steps:
@@ -362,16 +309,6 @@
   \end{center}
 \end{slide}
 
-\begin{slide}[\slideopts,toc={Losses}]{[ORIG] Distance-Aware Losses for Quantized Parameters}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem Challenge: 8-bit quantization (0--255) of continuous parameters
-    \mpitem \textbf{OrdinalRegressionLoss} $\to$ continuous, distance-aware predictions
-    \mpitem \textbf{QuantizedRegressionLoss} $\to$ direct regression on quantized scale
-    \mpitem \textbf{WeightedCrossEntropyLoss} $\to$ classification with distance penalties
-  \end{itemize}
-\end{slide}
-
 \begin{slide}[\slideopts,toc={VIMH Loss Analysis}]{VIMH Loss Analysis in TensorBoard}
 \vspace{-1em}
   \begin{center}
@@ -383,6 +320,63 @@
   \begin{center}
     \includegraphics[width=\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
   \end{center}
+\end{slide}
+
+\begin{slide}[\slideopts,toc={Losses}]{Loss Functions for VIMH Neural Processing Output Heads}
+%%   \vspace{-0.75em}
+%%   \begin{itemize}
+%%     \mpitem \emph{Loss Functions} for VIMH Parameters (0--255):
+%%     \mpitem Classification:
+%%     \begin{itemize}
+%%       \mpitem \texttt{CrossEntropyLoss}: (LHT) - legacy classification heads
+%%       \mpitem \texttt{WeightedCrossEntropyLoss}: (LHTE) - Loss $\propto|\text{bin distance}|^\alpha$ % more ``ordinal''
+%%       \mpitem \texttt{SoftTargetLoss}: Minimize KL divergence from smoothed one-hot ordinal targets
+%%       \mpitem \texttt{OrdinalRegressionLoss}: Uses \emph{Denormalized perceptual distance} [2nd Place]
+%%     \end{itemize}
+%%     \mpitem Regression Losses:
+%%     \begin{itemize}
+%%       \mpitem \texttt{QuantizedRegressionLoss}: Direct regression on quantized values
+%%       \mpitem \texttt{NormalizedRegressionLoss}: Heads emit sigmoid outputs in $[0, 1]$ [Winning]
+%%     \end{itemize}
+%%     \mpitem Perceptual Audio Loss [not presently used]:
+%%     \begin{itemize}
+%%       \mpitem \texttt{MultiScaleSpectralLoss}: Multi-resolution direct audio STFT distance
+%%     \end{itemize}
+  \vspace{-0.75em}
+  \begin{itemize}
+    \mpitem \emph{Discrete logits over 0--255 bins} (classic classification):
+    \begin{itemize}
+      \mpitem \texttt{CrossEntropyLoss}: legacy baseline
+      \mpitem \texttt{WeightedCrossEntropyLoss}: adds $|\text{bin\_distance}|^\alpha$ penalty
+      \mpitem \texttt{SoftTargetLoss}: KL divergence to smoothed ordinal targets:\\
+                      (triangular / gaussian / log-triangular)
+    \end{itemize}
+    \mpitem \emph{Ordinal logits with perceptual regression readout}:
+    \begin{itemize}
+      \mpitem \texttt{OrdinalRegressionLoss}: softmax $\rightarrow$ weighted-average prediction\\
+      Loss reported in perceptual units
+      \mpitem \texttt{QuantizedRegressionLoss}: scalar output over quantized steps \\
+      Scales L1/L2/Huber by the dataset step size
+    \end{itemize}
+    \mpitem \emph{Continuous heads} (true regression mode):
+    \begin{itemize}
+      \mpitem \texttt{NormalizedRegressionLoss}: sigmoid outputs in $[0,1]$,\\
+      auto-denormalized to perceptual units (current default)
+    \end{itemize}
+    %% NO ROOM:
+    %% \mpitem \emph{Spectral auxiliary loss} (not currently wired into experiments):
+    %% \begin{itemize}
+    %%   \mpitem \texttt{MultiScaleSpectralLoss}: multi-resolution STFT magnitude distance for waveform/spectrogram targets
+    %% \end{itemize}
+    % \mpitem Metrics blend RMSE, correlation, perceptual error, and head-specific accuracy
+    % \mpitem Diagnostics: loss curves, per-parameter histograms, confusion matrices in \texttt{viz/}
+    % \mpitem TensorBoard + CSV logging; configs captured in \texttt{logs/train/runs/}
+  \end{itemize}
+  %% \vspace{0.25em}
+  %% \begin{center}
+  %%   \includegraphics[width=0.45\linewidth]{eps/vimh_loss_analysis.eps}\hspace{0.02\linewidth}
+  %%   \includegraphics[width=0.45\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
+  %% \end{center}
 \end{slide}
 
 \papersection{Future Work}{
