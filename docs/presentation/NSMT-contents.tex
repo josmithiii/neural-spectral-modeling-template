@@ -85,14 +85,6 @@
 %% %  \end{quote}
 \end{slide}
 
-\begin{slide}[\slideopts,toc={Spectra}]{Spectral-First Audio Representations}
-  \vspace{-0.5em}
-  \maybepause
-    \centerline{\textit{Those who don't know signal processing are doomed to reinvent it}}
-  \maybepause
-    \centerline{\textit{Those who know signal processing are doomed to re-introduce it}}
-\end{slide}
-
 \begin{wideslide}[\slideopts,toc={Context}]{Anchoring in Human Audio Research}
   \twocolumn{
   \vspace{-2em}
@@ -104,8 +96,8 @@
     \mpitem Cochleagram input was \emph{required} to predict cortical responses
     \mpitem Shared convolutional front-end generalized across speech and music
     \mpitem NSMT adopts spectral presentation like this
-    \mpitem NSMT supports multi-resolution stacks, modulation spectra, and more
-    \mpitem Conditioning heads support other feature inputs
+    \mpitem NSMT supports multi-resolution stacks, modulation spectra, etc.
+    \mpitem NSMT also supports conditioning inputs (e.g., measured features)
     %% \mpitem \emph{Cochleagram} presented as an image input to the convolutional neural network (CNN)
     %% \mpitem For word recognition and music genre classification, this 12-layer network emerged as best (out of 180 tried)
     %% \mpitem The 1st 7 \emph{shared} layers were found to perform comparably with separate 12-layer networks
@@ -274,8 +266,9 @@
   \begin{itemize}
     \mpitem \textbf{Synthesize} a VIMH dataset (Hydra config files)
     \mpitem \textbf{Train} a CNN or ViT (specified in Hydra config)
-    \mpitem \textbf{Override Hydra Config Files} e.g.,\\ \; \texttt{python src/train.py model=cnn\_medium\_ordinal data=vimh trainer.max\_epochs=50}
-    \mpitem \textbf{Output} Lightning checkpoints with config snapshots in run directories - view with TensorBoard et al.
+    \mpitem \textbf{Override Hydra Config Files} e.g.,\\ \; \texttt{python src/train.py model=cnn\_small\_ordinal trainer.max\_epochs=50}
+    \mpitem \textbf{Output} Lightning checkpoints with config snapshots in run directories\\
+    View with TensorBoard et al.
     \mpitem \textbf{Eval} via \texttt{src/eval.py} (same as in LHT and LHTE), or \texttt{src/audio\_reconstruction\_eval.py}
     % \mpitem \textbf{Diagram}  diagrams via \texttt{make td}; TensorBoard via \texttt{make tensorboard}
     % \mpitem \textbf{Testing loop:} \texttt{pytest -k "not slow"} pre-commit, \texttt{make test-all} for releases
@@ -309,18 +302,33 @@
   \end{center}
 \end{slide}
 
-\begin{slide}[\slideopts,toc={VIMH Loss Analysis}]{VIMH Loss Analysis in TensorBoard}
-\vspace{-1em}
+%% \begin{slide}[\slideopts,toc={TensorBoard Loss Analysis}]{VIMH Loss Analysis in TensorBoard}
+%% \vspace{-1em}
+%%   \begin{center}
+%%     \includegraphics[width=0.95\linewidth]{eps/tensorboard-light.eps}
+%%   \end{center}
+%% \end{slide}
+
+\begin{slide}[\slideopts,toc={TensorBoard Loss Analysis}]{Loss Analysis in TensorBoard}
+\vspace{-1.2em}
   \begin{center}
-    \includegraphics[width=0.95\linewidth]{eps/vimh_loss_analysis.eps}
+    \includegraphics[width=0.72\linewidth]{eps/tensorboard-dark.eps}
   \end{center}
 \end{slide}
 
-\begin{slide}[\slideopts,toc={VIMH Perceptual Loss}]{VIMH Perceptual Loss Analysis}
-  \begin{center}
-    \includegraphics[width=\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
-  \end{center}
-\end{slide}
+%% THESE ARE OLD AND I CANNOT REPRODUCE THEM NOW:
+%% \begin{slide}[\slideopts,toc={VIMH Loss Analysis}]{VIMH Loss Analysis in TensorBoard}
+%% \vspace{-1em}
+%%   \begin{center}
+%%     \includegraphics[width=0.95\linewidth]{eps/vimh_loss_analysis.eps}
+%%   \end{center}
+%% \end{slide}
+
+%% \begin{slide}[\slideopts,toc={VIMH Perceptual Loss}]{VIMH Perceptual Loss Analysis}
+%%   \begin{center}
+%%     \includegraphics[width=\linewidth]{eps/vimh_perceptual_loss_analysis.eps}
+%%   \end{center}
+%% \end{slide}
 
 \begin{slide}[\slideopts,toc={Losses}]{Loss Functions for VIMH Neural Processing Output Heads}
 %%   \vspace{-0.75em}
@@ -371,6 +379,7 @@
     % \mpitem Metrics blend RMSE, correlation, perceptual error, and head-specific accuracy
     % \mpitem Diagnostics: loss curves, per-parameter histograms, confusion matrices in \texttt{viz/}
     % \mpitem TensorBoard + CSV logging; configs captured in \texttt{logs/train/runs/}
+    \mpitem \emph{Add your own} in \texttt{src/models/losses.py}
   \end{itemize}
   %% \vspace{0.25em}
   %% \begin{center}
@@ -406,6 +415,7 @@
 }
 
 \begin{slide}[\slideopts,toc={}]{Summary of Resources Online}
+  \vspace{-1em}
   \begin{itemize}
     \item \emph{Neural Spectral Modeling Template (NSMT):}\\
       \href{https://github.com/josmithiii/neural-spectral-modeling-template.git}
@@ -423,4 +433,6 @@
       \href{https://ccrma.stanford.edu/~jos/Welcome.html}
            {\texttt{https://ccrma.stanford.edu/\~{}jos/}}
   \end{itemize}
+  \includegraphics[width=2cm]{eps/lhte_qr_code.eps}\\
+  {\scriptsize github.com/josmithiii/lightning-hydra-template-extended}
 \end{slide}

@@ -457,6 +457,11 @@ tb tensorboard: ## Launch TensorBoard on port 6006
 		(echo "Starting TensorBoard on port 6006..." && tensorboard --logdir logs/train/runs/ --reload_interval 1 --port 6006 &)
 	@echo "Open http://localhost:6006/"
 
+tbr tensorboard-regression: ## Launch TensorBoard on port 6008
+	@lsof -i :6006 >/dev/null 2>&1 && echo "TensorBoard already running on port 6008" || \
+		(echo "Starting TensorBoard for Regression on port 6008..." && tensorboard --logdir logs/train/runs/ --tag=val/loss --tag=val/mae_best --reload_interval 1 --port 6008 &)
+	@echo "Open http://localhost:6006/"
+
 a activate: ## Activate the uv environment
 	@echo "Add to ~/.tcshrc: alias a 'echo \"source .venv/bin/activate.csh\" && source .venv/bin/activate.csh'"
 	@echo "Then just type: a"
