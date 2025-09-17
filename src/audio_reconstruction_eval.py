@@ -880,9 +880,6 @@ class AudioReconstructionEvaluator:
         # Mean Squared Error
         metrics["mse"] = float(np.mean((true_audio - pred_audio) ** 2))
 
-        # Root Mean Squared Error (for better readability)
-        metrics["rmse"] = float(np.sqrt(metrics["mse"]))
-
         # Signal-to-Noise Ratio
         signal_power = np.mean(true_audio**2)
         noise_power = np.mean((true_audio - pred_audio) ** 2)
@@ -901,11 +898,20 @@ class AudioReconstructionEvaluator:
         # Cross-correlation maximum (time alignment)
         if len(true_audio) > 1 and len(pred_audio) > 1:
             xcorr = correlate(true_audio, pred_audio, mode="full")
-            metrics["max_xcorr"] = float(
-                np.max(np.abs(xcorr)) / (np.linalg.norm(true_audio) * np.linalg.norm(pred_audio))
-            )
+            abs_xcorr = np.abs(xcorr)
+            peak_idx = int(np.argmax(abs_xcorr))
+
+            denom = np.linalg.norm(true_audio) * np.linalg.norm(pred_audio)
+            if denom > 0:
+                metrics["max_xcorr"] = float(abs_xcorr[peak_idx] / denom)
+            else:
+                metrics["max_xcorr"] = 0.0
+
+            lag_samples = peak_idx - (len(true_audio) - 1)
+            metrics["max_xcorr_lag_samples"] = float(lag_samples)
         else:
             metrics["max_xcorr"] = 0.0
+            metrics["max_xcorr_lag_samples"] = 0.0
 
         return metrics
 
@@ -1132,16 +1138,18 @@ class AudioReconstructionEvaluator:
         line_height = 0.15
 
         # Define metric order and formatting
-        metric_order = ["rmse", "snr_db", "correlation", "max_xcorr", "mse"]
+        metric_order = ["snr_db", "correlation", "max_xcorr", "max_xcorr_lag_samples", "mse"]
 
         def get_metric_color(name, value):
             """Return color based on metric quality (green=good, red=poor, black=neutral)"""
-            if name == "rmse" or name == "mse":
+            if name == "mse":
                 return "green" if value < 0.01 else "orange" if value < 0.1 else "red"
             elif name == "snr_db":
                 return "green" if value > 20 else "orange" if value > 10 else "red"
             elif name in ["correlation", "max_xcorr"]:
                 return "green" if value > 0.9 else "orange" if value > 0.7 else "red"
+            elif name == "max_xcorr_lag_samples":
+                return "green" if abs(value) <= 1 else "orange" if abs(value) <= 5 else "red"
             return "black"
 
         for name in metric_order:
@@ -1149,14 +1157,16 @@ class AudioReconstructionEvaluator:
                 value = metrics[name]
                 color = get_metric_color(name, value)
 
-                if name == "rmse":
-                    text = f"Parameter RMSE: {value:.6f}"
-                elif name == "snr_db":
-                    text = f"SNR: {value:.2f} dB"
+                if name == "snr_db":
+                    text = f"Waveform SNR: {value:.2f} dB"
                 elif name == "correlation":
                     text = f"Correlation: {value:.4f} / 1"
                 elif name == "max_xcorr":
                     text = f"Max XCorr: {value:.4f} / 1"
+                elif name == "max_xcorr_lag_samples":
+                    lag_samples = int(round(value))
+                    lag_ms = (lag_samples / self.sample_rate) * 1000 if self.sample_rate else 0.0
+                    text = f"Max XCorr Lag: {lag_samples:+d} samples ({lag_ms:+.3f} ms)"
                 elif name == "mse":
                     text = f"MSE: {value:.8f}"
                 else:
@@ -1682,16 +1692,18 @@ class InteractiveAudioEvaluator:
         line_height = 0.15
 
         # Define metric order and formatting
-        metric_order = ["rmse", "snr_db", "correlation", "max_xcorr", "mse"]
+        metric_order = ["snr_db", "correlation", "max_xcorr", "max_xcorr_lag_samples", "mse"]
 
         def get_metric_color(name, value):
             """Return color based on metric quality (green=good, red=poor, black=neutral)"""
-            if name == "rmse" or name == "mse":
+            if name == "mse":
                 return "green" if value < 0.01 else "orange" if value < 0.1 else "red"
             elif name == "snr_db":
                 return "green" if value > 20 else "orange" if value > 10 else "red"
             elif name in ["correlation", "max_xcorr"]:
                 return "green" if value > 0.9 else "orange" if value > 0.7 else "red"
+            elif name == "max_xcorr_lag_samples":
+                return "green" if abs(value) <= 1 else "orange" if abs(value) <= 5 else "red"
             return "black"
 
         for name in metric_order:
@@ -1699,14 +1711,20 @@ class InteractiveAudioEvaluator:
                 value = metrics[name]
                 color = get_metric_color(name, value)
 
-                if name == "rmse":
-                    text = f"Parameter RMSE: {value:.6f}"
-                elif name == "snr_db":
-                    text = f"SNR: {value:.2f} dB"
+                if name == "snr_db":
+                    text = f"Waveform SNR: {value:.2f} dB"
                 elif name == "correlation":
                     text = f"Correlation: {value:.4f} / 1"
                 elif name == "max_xcorr":
                     text = f"Max XCorr: {value:.4f} / 1"
+                elif name == "max_xcorr_lag_samples":
+                    lag_samples = int(round(value))
+                    lag_ms = (
+                        (lag_samples / self.evaluator.sample_rate) * 1000
+                        if self.evaluator.sample_rate
+                        else 0.0
+                    )
+                    text = f"Max XCorr Lag: {lag_samples:+d} samples ({lag_ms:+.3f} ms)"
                 elif name == "mse":
                     text = f"MSE: {value:.8f}"
                 else:
@@ -1825,10 +1843,60 @@ class InteractiveAudioEvaluator:
             f"arch={net_name} params={params_str}{training_info} | ckpt={ckpt_short or '-'}"
         )
 
+    def _build_metrics_string(self) -> str:
+        """Format current audio metrics for clipboard export."""
+        results = getattr(self, "current_results", None)
+        if not results:
+            return ""
+
+        metrics = results.get("audio_metrics", {})
+        if not metrics:
+            return ""
+
+        metric_order = ["snr_db", "correlation", "max_xcorr", "max_xcorr_lag_samples", "mse"]
+        labels = {
+            "snr_db": "Waveform SNR",
+            "correlation": "Correlation",
+            "max_xcorr": "Max XCorr",
+            "max_xcorr_lag_samples": "Max XCorr Lag",
+            "mse": "MSE",
+        }
+
+        parts = []
+        for name in metric_order:
+            value = metrics.get(name)
+            if value is None or not np.isfinite(value):
+                continue
+
+            if name == "snr_db":
+                parts.append(f"{labels[name]}={value:.2f} dB")
+            elif name in ["correlation", "max_xcorr"]:
+                parts.append(f"{labels[name]}={value:.4f}")
+            elif name == "max_xcorr_lag_samples":
+                lag_samples = int(round(value))
+                sr = getattr(self.evaluator, "sample_rate", None)
+                lag_ms = (
+                    (lag_samples / sr) * 1000 if sr and sr > 0 else 0.0
+                )
+                parts.append(
+                    f"{labels[name]}={lag_samples:+d} samples ({lag_ms:+.3f} ms)"
+                )
+            elif name == "mse":
+                parts.append(f"{labels[name]}={value:.8f}")
+
+        if not parts:
+            return ""
+
+        return "Audio metrics: " + " | ".join(parts)
+
     def copy_status_info(self, event):
         """Copy header lines to clipboard, with fallbacks to stdout and file."""
         try:
-            text = self._build_status_string() + "\n" + self._build_status_detail_string()
+            segments = [self._build_status_string(), self._build_status_detail_string()]
+            metrics_line = self._build_metrics_string()
+            if metrics_line:
+                segments.append(metrics_line)
+            text = "\n".join(seg for seg in segments if seg)
         except Exception as _e:  # noqa: F841
             text = ""
         success = False
