@@ -505,8 +505,15 @@ class VIMHViewer:
         num_frames = (len(audio) - n_fft) // hop_length + 1
         frame_indices = np.arange(n_fft)
 
-        # Plot audio frames as waterfall
-        for frame_idx in range(0, min(num_frames, 32), max(1, num_frames // 32)):
+        # Determine which frame indices to display and plot in reverse order so
+        # the most recent time slices appear first in the 3D view.
+        frame_step = max(1, num_frames // 32)
+        frame_upper_bound = min(num_frames, 32)
+        frame_sequence = list(range(0, frame_upper_bound, frame_step))
+        if not frame_sequence and num_frames > 0:
+            frame_sequence = [0]
+
+        for frame_idx in reversed(frame_sequence):
             start_sample = frame_idx * hop_length
             end_sample = start_sample + n_fft
 
@@ -518,7 +525,7 @@ class VIMHViewer:
                     frame_indices,
                     frame_line,
                     audio_frame,
-                    color=plt.cm.viridis(frame_idx / num_frames),
+                    color=plt.cm.viridis(frame_idx / max(1, num_frames - 1)),
                     linewidth=1.0,
                     alpha=0.8,
                 )
