@@ -1,6 +1,25 @@
 # Disable PyTorch 2.6 weights_only restriction for trusted LOCAL checkpoints
 import os.path
+import sys
 from typing import Any, Dict, List, Tuple
+
+HELP_MESSAGE = """\
+Usage: python src/eval.py [Hydra overrides] ckpt_path=/path/to/checkpoint
+
+Evaluates a trained Lightning checkpoint on the configured test datamodule.
+Loads defaults from configs/eval.yaml. Override ckpt_path along with data, model,
+trainer, or logger configs as needed.
+
+Examples:
+  python src/eval.py ckpt_path=logs/train/runs/example/checkpoints/last.ckpt
+  python src/eval.py experiment=example ckpt_path=data/checkpoints/best.ckpt trainer=cpu
+
+Hydra exposes additional CLI help with `python src/eval.py --hydra-help`.
+"""
+
+if any(arg in {"-h", "--help"} for arg in sys.argv[1:]):
+    print(HELP_MESSAGE)
+    sys.exit(0)
 
 import hydra
 import rootutils
