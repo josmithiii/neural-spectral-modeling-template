@@ -207,6 +207,7 @@ class VIMHViewer:
         self.fig = plt.figure(figsize=(15, 8))
         dataset_name = self.dataset_info.get("dataset_name", self.dataset_path.name)
         self.fig.suptitle(f"VIMH Dataset: {dataset_name}", fontsize=14)
+        self.nav_text_artist = None
 
         # Create layout: parameters (left), spectrogram (center), colorbar (right)
         # Increased left column width to prevent text overlap
@@ -831,7 +832,10 @@ class VIMHViewer:
             else f"Ch{self.channel}"
         )
         nav_text = f"Left/Right: samples, Up/Down: channels, Q: quit, A: audio waterfall, Cmd+1/2/3: figures\nSample {self.current_idx + 1}/{self.total_samples}, Channel {self.channel + 1}/{self.num_channels} ({current_channel_label})"
-        self.fig.text(0.5, 0.02, nav_text, ha="center", fontsize=10)
+        if not hasattr(self, "nav_text_artist") or self.nav_text_artist is None:
+            self.nav_text_artist = self.fig.text(0.5, 0.02, nav_text, ha="center", fontsize=10)
+        else:
+            self.nav_text_artist.set_text(nav_text)
 
         # Force complete redraw
         self.fig.canvas.draw()
