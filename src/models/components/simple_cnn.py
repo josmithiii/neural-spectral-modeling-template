@@ -48,6 +48,8 @@ class SimpleCNN(nn.Module):
         self.auxiliary_input_size = auxiliary_input_size
         self.auxiliary_hidden_size = auxiliary_hidden_size
         self.fc_hidden = fc_hidden
+        self.input_size = input_size
+        self.input_resolution = (input_size, input_size)
 
         # Handle configuration based on output mode
         if output_mode == "regression":

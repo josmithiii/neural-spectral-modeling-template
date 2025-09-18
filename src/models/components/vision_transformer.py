@@ -229,6 +229,15 @@ class VisionTransformer(nn.Module):
         self.output_mode = output_mode
         self.parameter_names = parameter_names or []
         self.use_torch_layers = use_torch_layers
+        self.n_channels = n_channels
+        self.image_size = image_size
+        # Store input shape attributes for TensorBoard summaries
+        if isinstance(image_size, (list, tuple)):
+            self.input_shape = (n_channels, image_size[0], image_size[1])
+            self.input_resolution = image_size
+        else:
+            self.input_shape = (n_channels, image_size, image_size)
+            self.input_resolution = (image_size, image_size)
 
         # Handle multihead configuration
         if output_mode == "regression":

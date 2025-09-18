@@ -772,11 +772,12 @@ class VIMHLitModule(LightningModule):
         self._setup_criteria()
         self._setup_metrics()
 
-        # Fallback example_input_array if not set above (only for single-head models)
+        # Set example input for TensorBoard graph logging - infer from network
         if not hasattr(self, "example_input_array") or self.example_input_array is None:
             # Only set for single-head models to avoid TensorBoard JIT tracer issues with dict outputs
             if not self.is_multihead:
-                self.example_input_array = torch.randn(1, 1, 32, 32)
+                example_input_shape = self._infer_example_input_shape()
+                self.example_input_array = torch.randn(*example_input_shape)
 
         # Compile model if requested
         if self.hparams.compile and stage == "fit":
@@ -804,6 +805,89 @@ class VIMHLitModule(LightningModule):
                 },
             }
         return {"optimizer": optimizer}
+
+    def _infer_input_channels(self) -> int:
+        """Infer the number of input channels from the network configuration."""
+        # Check if network has explicit input_channels attribute
+        if hasattr(self.net, "input_channels"):
+            return self.net.input_channels
+
+        # Try to infer from first convolutional layer
+        if hasattr(self.net, "conv_layers") and hasattr(self.net.conv_layers, "0"):
+            first_layer = self.net.conv_layers[0]
+            if hasattr(first_layer, "in_channels"):
+                return first_layer.in_channels
+
+        # Check embedding layer for ViT-style networks
+        if hasattr(self.net, "embedding"):
+            if hasattr(self.net.embedding, "conv") and hasattr(self.net.embedding.conv, "in_channels"):
+                return self.net.embedding.conv.in_channels
+
+        # Default fallback
+        return 1
+
+    def _infer_example_input_shape(self) -> Tuple[int, int, int, int]:
+        """Infer a reasonable example input shape for the wrapped network."""
+        channels = self._infer_input_channels()
+        height, width = self._infer_spatial_dims()
+        return (1, channels, height, width)
+
+    def _infer_spatial_dims(self) -> Tuple[int, int]:
+        """Infer input spatial dimensions, falling back to 32x32 when unknown."""
+        candidates = [
+            getattr(self.net, attr, None)
+            for attr in (
+                "input_shape",
+                "input_resolution",
+                "input_size",
+                "image_size",
+                "img_size",
+            )
+        ]
+
+        # Some modules keep spatial info on a nested embedding module
+        embedding = getattr(self.net, "embedding", None)
+        if embedding is not None:
+            candidates.extend(
+                getattr(embedding, attr, None)
+                for attr in ("input_shape", "input_resolution", "image_size", "img_size")
+            )
+
+        for candidate in candidates:
+            dims = self._normalize_to_hw(candidate)
+            if dims is not None:
+                return dims
+
+        return (32, 32)
+
+    @staticmethod
+    def _normalize_to_hw(value: Optional[Any]) -> Optional[Tuple[int, int]]:
+        """Convert assorted metadata formats into an (height, width) tuple."""
+        if value is None:
+            return None
+
+        if isinstance(value, (list, tuple)):
+            if len(value) == 3:
+                # Assume (channels, height, width)
+                return int(value[1]), int(value[2])
+            if len(value) == 2:
+                return int(value[0]), int(value[1])
+            if len(value) == 1:
+                val = int(value[0])
+                return (val, val)
+
+        if isinstance(value, int):
+            if value <= 0:
+                return None
+            root = int(round(math.sqrt(value)))
+            if root * root == value:
+                return (root, root)
+            return (value, value)
+
+        if isinstance(value, torch.Size):
+            return VIMHLitModule._normalize_to_hw(tuple(value))
+
+        return None
 
     def get_heads_config(self) -> Dict[str, int]:
         """Get the current heads configuration.
