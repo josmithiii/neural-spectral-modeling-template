@@ -77,13 +77,13 @@ Snapshot of `make h` output (auto-generated).
 | `t0 tests0` | Tests of basic CNN and ViT archs on classes and regression |
 | `t test` | Run fast pytest tests |
 | `ta test-all` | Run all pytest tests |
-| `td tda test-diagram-all` | Generate enhanced diagrams for all architectures (text + graphical) |
-| `tdl test-diagram-list` | List available model configs for diagrams |
-| `tds test-diagram-simple` | Generate simple text-only diagrams (default cnn_medium) |
-| `tdsc test-diagram-simple-config` | Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_medium) |
-| `tdsl test-diagram-simple-list` | List available configs for simple diagrams |
-| `tdsa test-diagram-simple-all` | Generate simple diagrams for all architectures |
-| `tdv test-diagram-vgg` | Generate VGG-style architecture diagrams (EPS + PNG) |
+| `td tda text-diagram-all` | Generate enhanced diagrams for all architectures (text + graphical) |
+| `tdl text-diagram-list` | List available model configs for diagrams |
+| `tds text-diagram-simple` | Generate simple text-only diagrams (default cnn_medium) |
+| `tdsc text-diagram-simple-config` | Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_medium) |
+| `tdsl text-diagram-simple-list` | List available configs for simple diagrams |
+| `tdsa text-diagram-simple-all` | Generate simple diagrams for all architectures |
+| `tdv text-diagram-vgg` | Generate VGG-style architecture diagrams (EPS + PNG) |
 | `tr train` | Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml |
 | `trq train-quick` | Train super quickly the default model and dataset (quick sanity test to see if things are working) |
 | `trs train-vimh-small` | Train the small example VIMH dataset using the default model (CNN Medium) |

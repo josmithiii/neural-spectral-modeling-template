@@ -378,22 +378,22 @@ ta test-all: ## Run all pytest tests
 
 # TEST DIAGRAM TARGETS "td*"
 
-td tda test-diagram-all: ## Generate enhanced diagrams for all architectures (text + graphical)
+td tda text-diagram-all: ## Generate enhanced diagrams for all architectures (text + graphical)
 	python viz/enhanced_model_diagrams.py
 
-tdl test-diagram-list: ## List available model configs for diagrams
+tdl text-diagram-list: ## List available model configs for diagrams
 	python viz/enhanced_model_diagrams.py --list-configs
 
-tds test-diagram-simple: ## Generate simple text-only diagrams (default cnn_medium)
+tds text-diagram-simple: ## Generate simple text-only diagrams (default cnn_medium)
 	python viz/simple_model_diagram.py
 
-tdsc test-diagram-simple-config: ## Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_medium)
+tdsc text-diagram-simple-config: ## Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_medium)
 	python viz/simple_model_diagram.py --config $(CONFIG)
 
-tdsl test-diagram-simple-list: ## List available configs for simple diagrams
+tdsl text-diagram-simple-list: ## List available configs for simple diagrams
 	python viz/simple_model_diagram.py --list-configs
 
-tdsa test-diagram-simple-all: ## Generate simple diagrams for all architectures
+tdsa text-diagram-simple-all: ## Generate simple diagrams for all architectures
 	python viz/simple_model_diagram.py --config cnn_medium
 	python viz/simple_model_diagram.py --config cnn_medium_ordinal
 	python viz/simple_model_diagram.py --config cnn_medium_regression
@@ -403,7 +403,7 @@ tdsa test-diagram-simple-all: ## Generate simple diagrams for all architectures
 	python viz/simple_model_diagram.py --config vit_micro
 	python viz/simple_model_diagram.py --config vit_tiny
 
-tdv test-diagram-vgg: ## Generate VGG-style architecture diagrams (EPS + PNG)
+tdv text-diagram-vgg: ## Generate VGG-style architecture diagrams (EPS + PNG)
 	python viz/vgg_style_diagrams.py
 
 # RAW TRAINING TARGETS "tr" (no "experiment" - use hydra overrides to set desired config - experiments recommended instead)
