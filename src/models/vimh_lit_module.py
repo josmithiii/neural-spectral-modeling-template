@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional, Tuple, Union
 
+import math
 import torch
 import torch.nn.functional as F
 from lightning import LightningModule
@@ -812,6 +813,10 @@ class VIMHLitModule(LightningModule):
         if hasattr(self.net, "input_channels"):
             return self.net.input_channels
 
+        # Check for n_channels attribute (VisionTransformer)
+        if hasattr(self.net, "n_channels"):
+            return self.net.n_channels
+
         # Try to infer from first convolutional layer
         if hasattr(self.net, "conv_layers") and hasattr(self.net.conv_layers, "0"):
             first_layer = self.net.conv_layers[0]
@@ -822,6 +827,9 @@ class VIMHLitModule(LightningModule):
         if hasattr(self.net, "embedding"):
             if hasattr(self.net.embedding, "conv") and hasattr(self.net.embedding.conv, "in_channels"):
                 return self.net.embedding.conv.in_channels
+            # Also check conv1 for backward compatibility
+            if hasattr(self.net.embedding, "conv1") and hasattr(self.net.embedding.conv1, "in_channels"):
+                return self.net.embedding.conv1.in_channels
 
         # Default fallback
         return 1
