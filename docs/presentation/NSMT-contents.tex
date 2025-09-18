@@ -7,16 +7,17 @@
 \vspace{\stretch{1}}
 \end{emptyslide}
 
-\begin{slide}[\slideopts,toc={Snapshot}]{Project Snapshot — Lightning Hydra Template Extended (LHTE) for Audio}
-  \begin{itemize}
-    \mpitem Forked from LHTE and tuned for \textbf{spectral audio modeling}
-    \mpitem Goal: \emph{small, accurate, fast} networks trained with \emph{hearing-inspired priors}
-    \mpitem Hydra-driven config system keeps experiments reproducible and easy to override
-    \mpitem Drops MNIST/CIFAR datasets and loaders
-    \mpitem Uses only Variable Image Multi-Head (VIMH) dataset format (``spectral stacks'')
-    \mpitem Adds audio-specific tooling and interactive evaluation
-  \end{itemize}
-\end{slide}
+%% REDUNDANT - TOOK LONGER VERSION ROLLED OUT
+%% \begin{slide}[\slideopts,toc={Snapshot}]{Project Snapshot — Lightning Hydra Template Extended (LHTE) for Audio}
+%%   \begin{itemize}
+%%     \mpitem Forked from LHTE and tuned for \textbf{spectral audio modeling}
+%%     \mpitem Goal: \emph{small, accurate, fast} networks trained with \emph{hearing-inspired priors}
+%%     \mpitem Hydra-driven config system keeps experiments reproducible and easy to override
+%%     \mpitem Drops MNIST/CIFAR datasets and loaders
+%%     \mpitem Uses only Variable Image Multi-Head (VIMH) dataset format (``spectral stacks'')
+%%     \mpitem Adds audio-specific tooling and interactive evaluation
+%%   \end{itemize}
+%% \end{slide}
 
 \begin{slide}[\slideopts,toc={NSMT Overview}]{Neural Spectral Modeling Template (NSMT)}
 
@@ -111,116 +112,117 @@
 \end{wideslide}
 
 
-\begin{wideslide}[\slideopts,toc={VIMH Format}]{VIMH Dataset Format --- Self-Describing, Multihead}
-  \vspace{-0.75em}
-  \begin{itemize}
-    \mpitem \textbf{VIMH} = Variable Image MultiHead format for spectrogram-like images
-    \vspace{-0.25em}
-    \begin{itemize}
-      \mpitem Stores H, W, C + variable-length label list per sample
-      \mpitem Supports 1--255 quantized continuous parameters (0--255)
-      \mpitem Single dataset auto-configures model input + heads
-    \end{itemize}
-    \vspace{0.25em}
-    \mpitem \textbf{Label encoding:} [N, id\_1, val\_1, id\_2, val\_2, \dots]
-  \end{itemize}
-  \vspace{-2.5em}
-  \begin{center}
+%% NEEDS WORK
+%% \begin{wideslide}[\slideopts,toc={VIMH Format}]{VIMH Dataset Format --- Self-Describing, Multihead}
+%%   \vspace{-0.75em}
+%%   \begin{itemize}
+%%     \mpitem \textbf{VIMH} = Variable Image MultiHead format for spectrogram-like images
+%%     \vspace{-0.25em}
+%%     \begin{itemize}
+%%       \mpitem Stores H, W, C + variable-length label list per sample
+%%       \mpitem Supports up to 256 quantized continuous parameters (0--255)
+%%       \mpitem Single dataset auto-configures model input + heads
+%%     \end{itemize}
+%%     \vspace{0.25em}
+%%     \mpitem \textbf{Label encoding:} [N, id\_1, val\_1, id\_2, val\_2, \dots]
+%%   \end{itemize}
+%%   \vspace{-2.5em}
+%%   \begin{center}
 
-    \begin{tikzpicture}[x=1mm,y=1mm, line join=round, line cap=round]
+%%     \begin{tikzpicture}[x=1mm,y=1mm, line join=round, line cap=round]
 
-      % pseudo-3D offsets
-      \def\depthx{3}
-      \def\depthy{1.2}
+%%       % pseudo-3D offsets
+%%       \def\depthx{3}
+%%       \def\depthy{1.2}
 
-      % Draw a 3D panel (front + right face)
-      % Args: optional label, x, y, width, height, front fill color
-      \newcommand{\panel}[6][]{%
-        \begin{scope}[shift={(#2,#3)}]
-          % front
-          \filldraw[fill=#6, draw=black] (0,0) rectangle (#4,#5);
-          % right face (fixed shade to avoid nested color mix errors)
-          \filldraw[fill=black!20, draw=black]
-          (#4,0) -- ++(\depthx,\depthy) -- ++(0,#5) -- ++(-\depthx,-\depthy) -- cycle;
-          % label (optional)
-          \ifx\\#1\\\else
-          \node[font=\scriptsize, anchor=north] at (#4*0.5,-1.2) {#1};
-          \fi
-        \end{scope}%
-      }
+%%       % Draw a 3D panel (front + right face)
+%%       % Args: optional label, x, y, width, height, front fill color
+%%       \newcommand{\panel}[6][]{%
+%%         \begin{scope}[shift={(#2,#3)}]
+%%           % front
+%%           \filldraw[fill=#6, draw=black] (0,0) rectangle (#4,#5);
+%%           % right face (fixed shade to avoid nested color mix errors)
+%%           \filldraw[fill=black!20, draw=black]
+%%           (#4,0) -- ++(\depthx,\depthy) -- ++(0,#5) -- ++(-\depthx,-\depthy) -- cycle;
+%%           % label (optional)
+%%           \ifx\\#1\\\else
+%%           \node[font=\scriptsize, anchor=north] at (#4*0.5,-1.2) {#1};
+%%           \fi
+%%         \end{scope}%
+%%       }
 
-      % Spectrogram-like panel (striped front)
-      % Args: optional label, x, y, width, height, front fill color
-      \newcommand{\spectro}[6][]{%
-        \begin{scope}[shift={(#2,#3)}]
-          % front
-          \filldraw[fill=#6, draw=black] (0,0) rectangle (#4,#5);
-          % vertical stripes
-          \foreach \xx in {2,4,6,8,10,12,14,16,18}{\draw[gray!60] (\xx,0) -- (\xx,#5);}
-          % horizontal bands
-          \foreach \yy in {3,6,9,12,15,18,21,24}{\draw[gray!30] (0,\yy) -- (#4,\yy);}
-          % right face
-          \filldraw[fill=black!20, draw=black]
-          (#4,0) -- ++(\depthx,\depthy) -- ++(0,#5) -- ++(-\depthx,-\depthy) -- cycle;
-          % label
-          \ifx\\#1\\\else
-          \node[font=\scriptsize, anchor=north] at (#4*0.5,-1.2) {#1};
-          \fi
-        \end{scope}%
-      }
+%%       % Spectrogram-like panel (striped front)
+%%       % Args: optional label, x, y, width, height, front fill color
+%%       \newcommand{\spectro}[6][]{%
+%%         \begin{scope}[shift={(#2,#3)}]
+%%           % front
+%%           \filldraw[fill=#6, draw=black] (0,0) rectangle (#4,#5);
+%%           % vertical stripes
+%%           \foreach \xx in {2,4,6,8,10,12,14,16,18}{\draw[gray!60] (\xx,0) -- (\xx,#5);}
+%%           % horizontal bands
+%%           \foreach \yy in {3,6,9,12,15,18,21,24}{\draw[gray!30] (0,\yy) -- (#4,\yy);}
+%%           % right face
+%%           \filldraw[fill=black!20, draw=black]
+%%           (#4,0) -- ++(\depthx,\depthy) -- ++(0,#5) -- ++(-\depthx,-\depthy) -- cycle;
+%%           % label
+%%           \ifx\\#1\\\else
+%%           \node[font=\scriptsize, anchor=north] at (#4*0.5,-1.2) {#1};
+%%           \fi
+%%         \end{scope}%
+%%       }
 
 
 
-      % Positions
-      \def\xin{0}  \def\yin{0}
-      \def\xbA{40} \def\ybA{-2}
-      \def\xbB{72} \def\ybB{0}
-      \def\xbC{98} \def\ybC{6}
-      \def\xbD{118}\def\ybD{10}
+%%       % Positions
+%%       \def\xin{0}  \def\yin{0}
+%%       \def\xbA{40} \def\ybA{-2}
+%%       \def\xbB{72} \def\ybB{0}
+%%       \def\xbC{98} \def\ybC{6}
+%%       \def\xbD{118}\def\ybD{10}
 
-      % Input: 4 stacked spectrograms
-      \spectro[32$\times$32$\times$1]{\xin}{\yin}{22}{26}{blue!12}
-      \spectro[]{\xin-2}{\yin+1.5}{22}{26}{blue!10}
-      \spectro[]{\xin-4}{\yin+3.0}{22}{26}{blue!8}
-      \spectro[]{\xin-6}{\yin+4.5}{22}{26}{blue!6}
-      \node[font=\scriptsize] at (\xin+7, \yin+32) {4 stacked spectrograms};
+%%       % Input: 4 stacked spectrograms
+%%       \spectro[32$\times$32$\times$1]{\xin}{\yin}{22}{26}{blue!12}
+%%       \spectro[]{\xin-2}{\yin+1.5}{22}{26}{blue!10}
+%%       \spectro[]{\xin-4}{\yin+3.0}{22}{26}{blue!8}
+%%       \spectro[]{\xin-6}{\yin+4.5}{22}{26}{blue!6}
+%%       \node[font=\scriptsize] at (\xin+7, \yin+32) {4 stacked spectrograms};
 
-      % Connector to Conv1
-      \filldraw[fill=gray!50, draw=black] (26,10) rectangle (38,16);
+%%       % Connector to Conv1
+%%       \filldraw[fill=gray!50, draw=black] (26,10) rectangle (38,16);
 
-      % Conv1 (16 channels)
-      \panel[\scriptsize Conv1: 16 ch]{\xbA}{\ybA}{18}{32}{orange!20}
-      \node[font=\scriptsize, anchor=south] at (\xbA+9,\ybA+32+2) {3$\times$3, BN, ReLU};
+%%       % Conv1 (16 channels)
+%%       \panel[\scriptsize Conv1: 16 ch]{\xbA}{\ybA}{18}{32}{orange!20}
+%%       \node[font=\scriptsize, anchor=south] at (\xbA+9,\ybA+32+2) {3$\times$3, BN, ReLU};
 
-      % Connector to Conv2
-      \filldraw[fill=gray!50, draw=black] (\xbA+18+\depthx,\ybA+12+\depthy) rectangle (\xbB-2,\ybB+18);
+%%       % Connector to Conv2
+%%       \filldraw[fill=gray!50, draw=black] (\xbA+18+\depthx,\ybA+12+\depthy) rectangle (\xbB-2,\ybB+18);
 
-      % Conv2 (32 channels)
-      \panel[\scriptsize Conv2: 32 ch]{\xbB}{\ybB}{16}{28}{green!20}
-      \node[font=\scriptsize, anchor=south] at (\xbB+8,\ybB+28+2) {3$\times$3, BN, ReLU};
-      \node[font=\scriptsize, anchor=north] at (\xbB+8,\ybB-4) {MaxPool};
+%%       % Conv2 (32 channels)
+%%       \panel[\scriptsize Conv2: 32 ch]{\xbB}{\ybB}{16}{28}{green!20}
+%%       \node[font=\scriptsize, anchor=south] at (\xbB+8,\ybB+28+2) {3$\times$3, BN, ReLU};
+%%       \node[font=\scriptsize, anchor=north] at (\xbB+8,\ybB-4) {MaxPool};
 
-      % Connector to FC
-      \filldraw[fill=gray!50, draw=black] (\xbB+16+\depthx,\ybB+12+\depthy) rectangle (\xbC-2,\ybC+18);
+%%       % Connector to FC
+%%       \filldraw[fill=gray!50, draw=black] (\xbB+16+\depthx,\ybB+12+\depthy) rectangle (\xbC-2,\ybC+18);
 
-      % FC (64)
-      \panel[\scriptsize FC: 64]{\xbC}{\ybC}{12}{20}{violet!20}
-      \node[font=\scriptsize, anchor=south] at (\xbC+6,\ybC+20+2) {Dropout 0.3};
+%%       % FC (64)
+%%       \panel[\scriptsize FC: 64]{\xbC}{\ybC}{12}{20}{violet!20}
+%%       \node[font=\scriptsize, anchor=south] at (\xbC+6,\ybC+20+2) {Dropout 0.3};
 
-      % Connector to heads
-      \filldraw[fill=gray!50, draw=black] (\xbC+12+\depthx,\ybC+9+\depthy) rectangle (\xbD-2,\ybD+14);
+%%       % Connector to heads
+%%       \filldraw[fill=gray!50, draw=black] (\xbC+12+\depthx,\ybC+9+\depthy) rectangle (\xbD-2,\ybD+14);
 
-      % Regression heads (3 example heads)
-      \panel[\scriptsize Head 1]{\xbD}{\ybD}{6}{14}{gray!20}
-      \panel[\scriptsize Head 2]{\xbD+8}{\ybD-1}{6}{12}{gray!20}
-      \panel[\scriptsize Head 3]{\xbD+16}{\ybD-2}{6}{10}{gray!20}
-      \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+20) {Regression or};
-      \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+16) {Classification Heads};
+%%       % Regression heads (3 example heads)
+%%       \panel[\scriptsize Head 1]{\xbD}{\ybD}{6}{14}{gray!20}
+%%       \panel[\scriptsize Head 2]{\xbD+8}{\ybD-1}{6}{12}{gray!20}
+%%       \panel[\scriptsize Head 3]{\xbD+16}{\ybD-2}{6}{10}{gray!20}
+%%       \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+20) {Regression or};
+%%       \node[font=\scriptsize, anchor=south] at (\xbD+9,\ybD+16) {Classification Heads};
 
-    \end{tikzpicture}
+%%     \end{tikzpicture}
 
-  \end{center}
-\end{wideslide}
+%%   \end{center}
+%% \end{wideslide}
 
 \begin{slide}[\slideopts,toc={VIMH Display 1}]{VIMH Display Utility \texttt{display\_vimh.py}, Tab 1}
   \vspace{-2em}
@@ -408,7 +410,7 @@
   \end{itemize}
 
   \vspace{0.1em}
-
+  \maybepause
   \centerline{\includegraphics[width=2cm]{eps/lhte_qr_code.eps}}
   \vspace{2pt}
   \centerline{{\scriptsize github.com/josmithiii/lightning-hydra-template-extended}}
