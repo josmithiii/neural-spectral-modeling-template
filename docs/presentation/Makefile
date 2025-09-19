@@ -76,3 +76,11 @@ eps/%.eps: png/%.png
 jpgeps: $(jpgepss)
 eps/%.eps: jpg/%.jpg
 	convert $< $@
+
+
+ic installc:: $(NAME).pdf
+	scp $(NAME).pdf jos@ccrma-gate.stanford.edu:~/Web/pdf
+
+i install: $(NAME).pdf
+	/bin/cp $(NAME).pdf /l/dttd/
+	echo To install at CCRMA, say 'make ic'
