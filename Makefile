@@ -357,6 +357,7 @@ c clean: ## Clean all generated files except logs and datasets
 	rm -rf ./diagrams/
 	rm -rf ./outputs/
 	rm -rf ./audio_eval_results/
+	(cd ./docs/presentation && make clean)
 
 cd clean-data: ## Clean data files
 	rm -rf data/*
