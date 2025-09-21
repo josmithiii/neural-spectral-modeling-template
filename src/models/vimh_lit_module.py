@@ -249,6 +249,13 @@ class VIMHLitModule(LightningModule):
                 f"Warning: Network {type(self.net).__name__} doesn't have heads_config attribute"
             )
 
+        # Auto-configure JND-based loss weights if available
+        if hasattr(dataset, 'metadata_format') and dataset.metadata_format:
+            jnd_weights = self._compute_jnd_weights(dataset.metadata_format)
+            if jnd_weights:
+                print(f"Auto-configuring JND-based loss weights: {jnd_weights}")
+                self.loss_weights.update(jnd_weights)
+
         # Update criteria if using auto-configuration
         if self.auto_configure_from_dataset:
             # Check if we have hardcoded placeholder heads that need replacement
@@ -867,6 +874,38 @@ class VIMHLitModule(LightningModule):
                 return dims
 
         return (32, 32)
+
+    def _compute_jnd_weights(self, metadata_format: dict) -> dict:
+        """Compute JND-based loss weights from dataset metadata.
+
+        Weight each head's loss by the number of JNDs (Just Noticeable Differences).
+        For classification: JNDs = 1 + (max-min)/step, where step=1 for discrete classes
+        For regression: JNDs = 1 + (max-min)/step, using provided step size
+
+        :param metadata_format: Dataset metadata containing parameter mappings
+        :return: Dictionary of head names to JND-based weights
+        """
+        jnd_weights = {}
+
+        if 'parameter_mappings' not in metadata_format:
+            return jnd_weights
+
+        param_mappings = metadata_format['parameter_mappings']
+
+        for param_name, param_info in param_mappings.items():
+            param_min = param_info.get('min', 0)
+            param_max = param_info.get('max', 1)
+            param_step = param_info.get('step', None)
+
+            # For parameters with step=0, they're constant (no variation)
+            if param_step is None or param_step <= 0:
+                jnd_weights[param_name] = 1.0
+            else:
+                # Compute number of JNDs: 1 + (max-min)/step
+                num_jnds = 1 + (param_max - param_min) / param_step
+                jnd_weights[param_name] = float(num_jnds)
+
+        return jnd_weights
 
     @staticmethod
     def _normalize_to_hw(value: Optional[Any]) -> Optional[Tuple[int, int]]:

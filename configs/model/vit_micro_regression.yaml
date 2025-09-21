@@ -17,7 +17,8 @@ scheduler:
 # Enable regression in the Lightning module
 output_mode: regression
 
-loss_weights: {}
+# Loss weighting auto-configured from dataset JNDs (Just Noticeable Differences)
+loss_weights: {} # Empty - will be auto-configured from dataset metadata
 
 net:
   _target_: src.models.components.vision_transformer.VisionTransformer

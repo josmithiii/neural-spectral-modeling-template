@@ -14,7 +14,8 @@ scheduler:
   factor: 0.1
   patience: 5
 
-loss_weights: {}
+# Loss weighting auto-configured from dataset JNDs (Just Noticeable Differences)
+loss_weights: {} # Empty - will be auto-configured from dataset metadata
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN
