@@ -9,7 +9,6 @@ import numpy as np
 import pytest
 import torch
 
-from src.data.generic_multihead_dataset import GenericMultiheadDataset
 from src.data.multihead_dataset_base import MultiheadDatasetBase
 from src.data.vimh_dataset import VIMHDataset
 
@@ -27,83 +26,6 @@ def temp_dir():
     temp_dir = tempfile.mkdtemp()
     yield Path(temp_dir)
     shutil.rmtree(temp_dir)
-
-
-class TestFormatAutodetection:
-    """Test format auto-detection functionality."""
-
-    def test_detect_vimh_format(self, temp_dir):
-        """Test auto-detection of VIMH format."""
-        # Create VIMH format data (32x32x3 = 3072 pixels)
-        images = [np.random.randint(0, 256, size=3072).tolist() for _ in range(5)]
-        labels = [[2, 0, i % 10, 1, (i * 2) % 20] for i in range(5)]
-
-        data = {"data": images, "vimh_labels": labels, "height": 32, "width": 32, "channels": 3}
-
-        # Create metadata file
-        metadata = {
-            "format": "VIMH",
-            "version": "3.0",
-            "height": 32,
-            "width": 32,
-            "channels": 3,
-            "parameter_names": ["param_0", "param_1"],
-            "parameter_mappings": {
-                "param_0": {"min": 0.0, "max": 9.0, "step": 0.0352941176},
-                "param_1": {"min": 0.0, "max": 19.0, "step": 0.0745098039},
-            },
-        }
-
-        # Save files
-        train_file = temp_dir / "train_batch"
-        metadata_file = temp_dir / "vimh_dataset_info.json"
-
-        with open(train_file, "wb") as f:
-            pickle.dump(data, f)
-
-        with open(metadata_file, "w") as f:
-            json.dump(metadata, f)
-
-        # Test auto-detection
-        dataset = GenericMultiheadDataset(str(temp_dir), auto_detect=True)
-
-        assert dataset.metadata_format["format"] == "VIMH"
-        assert "param_0" in dataset.get_heads_config()
-        assert "param_1" in dataset.get_heads_config()
-
-    def test_detect_generic_format(self, temp_dir):
-        """Test auto-detection of generic format."""
-        # Create generic format data
-        images = [np.random.randint(0, 256, size=784).tolist() for _ in range(5)]
-        labels = [[1, 0, i % 5] for i in range(5)]  # Different format
-
-        data = {"data": images, "labels": labels}
-
-        # Save file
-        data_file = temp_dir / "data.pkl"
-        with open(data_file, "wb") as f:
-            pickle.dump(data, f)
-
-        # Test auto-detection
-        dataset = GenericMultiheadDataset(str(data_file), auto_detect=True)
-
-        assert len(dataset) == 5
-        assert dataset.metadata_format is not None
-
-    def test_detect_invalid_format(self, temp_dir):
-        """Test detection of invalid format."""
-        # Create invalid data
-        invalid_data = {"invalid_key": [1, 2, 3]}
-
-        # Save file
-        data_file = temp_dir / "invalid.pkl"
-        with open(data_file, "wb") as f:
-            pickle.dump(invalid_data, f)
-
-        # Test that it raises appropriate error
-        with pytest.raises(ValueError, match="must contain both 'data' and 'labels'"):
-            GenericMultiheadDataset(str(data_file), auto_detect=True)
-
 
 class TestDataValidation:
     """Test data validation functionality."""

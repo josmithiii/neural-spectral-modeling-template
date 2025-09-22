@@ -11,8 +11,6 @@ This repository uses a layered data stack so spectrogram datasets, metadata, and
 │ └─ vimh_dataset.py                          │
 ├─────────────────────────────────────────────┤
 │ Foundation: multihead_dataset_base.py       │
-│ Helpers: generic_multihead_dataset.py,      │
-│          multihead_dataset.py (legacy)      │
 └─────────────────────────────────────────────┘
 ```
 
@@ -32,23 +30,14 @@ This repository uses a layered data stack so spectrogram datasets, metadata, and
 ### `multihead_dataset_base.py`
 
 - Shared machinery for parsing the binary layout, validating metadata, and constructing heads.
-- Used both by VIMH and historical multihead datasets.
+- Powers the VIMH loaders and remains the single abstraction for multihead metadata parsing.
 - Provides convenience logic for checking class counts, dequantization, and shape inference.
-
-### `generic_multihead_dataset.py`
-
-- Retained for loading archived multihead sets (e.g., CIFAR-100-MH). The auto-detection routines still work but are not part of the main workflow.
-- Useful if you ingest multihead data produced outside the NSMT generators.
-
-### `multihead_dataset.py`
-
-- Legacy strategy engine that synthesizes auxiliary labels for MNIST/CIFAR. Helpful for regression testing and demonstrations, but not used in the wah experiments.
 
 ## Why the Separation?
 
 - **Metadata-first**: Models rely on dataset metadata for head counts and ranges; keeping parsing logic centralized avoids accidental drift.
 - **Extensibility**: New audio datasets can inherit from `multihead_dataset_base.py` or reuse VIMH readers without duplicating validation logic.
-- **Backward compatibility**: Older synthetic label strategies remain available for tests while the documentation focuses on the spectrogram workflow.
+- **Backward compatibility**: Historic helper classes lived here previously; trimming them keeps the template focused while preserving the core base abstraction for archival loaders.
 
 ## Common Entry Points
 
