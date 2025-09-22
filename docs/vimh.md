@@ -44,7 +44,7 @@ data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/
 
 ## Tooling
 
-- Generate datasets: `make gds` (256-sample wah), `make gdl` (16K-sample wah), `make gdmb|gdme|gdmr` (Moog variants).
+- Generate datasets: `make gds` (256-sample wah) and `make gdl` (16K-sample wah).
 - Inspect metadata: `make vdr` (latest), `make vds` (small wah), `make vdl` (large wah).
 - Analyze parameter coverage: `make vpr|vps|vpl` – emits stats, ranges, and chi-square uniformity heuristics.
 - Visualize samples: `make ddr|dds|ddl` – renders spectrogram grids for quick sanity checks.

@@ -32,32 +32,7 @@ gdwe generate-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Wah AD
 		python generate_vimh.py --config-name=synth/generate_wah_envelope; \
 	fi
 	ls ./data/
-
-gdmb generate-dataset-moog-basic: ## Synthesize VIMH dataset with basic Saw + Moog VCF (256 samples)
-	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_4p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_4p"; \
-	else \
-		python generate_vimh.py --config-name=synth/generate_moog_basic; \
-	fi
-	ls ./data/
-
-gdme generate-dataset-moog-envelope: ## Synthesize VIMH dataset with Saw + Moog envelope sweeps (512 samples)
-	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_saw_wah_10p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_saw_wah_10p"; \
-	else \
-		python generate_vimh.py --config-name=synth/generate_moog_envelope; \
-	fi
-	ls ./data/
-
-gdmr generate-dataset-moog-resonance: ## Synthesize VIMH dataset with Saw + high-resonance Moog exploration (384 samples)
-	@if [ -f ./data/vimh-48x48x1_8000Hz_1p5s_384dss_saw_wah_8p/vimh_dataset_info.json ]; then \
-		echo "Dataset already exists: data/vimh-48x48x1_8000Hz_1p5s_384dss_saw_wah_8p"; \
-	else \
-		python generate_vimh.py --config-name=synth/generate_moog_resonance; \
-	fi
-	ls ./data/
-
-gdas generate-dataset-all-small: gdws gdwe gdmb gdme gdmr ## Generate all small datasets
+gdas generate-dataset-all-small: gdws gdwe ## Generate all small wah datasets
 
 # DUMP VIMH DATASET METADATA "vd"
 
@@ -159,20 +134,6 @@ evittl exp-trivial-vit-tiny-large: gdl ## Tiny ViT (~25K params) on large datase
 
 evitall: evitms evitts evitml evittl ## Run all ViT trivial dataset experiments
 
-# MOOG VCF DATASET EXPERIMENTS "em" - CNN training on Moog filter datasets
-
-emb exp-moog-basic: gdmb ## Train CNN on basic Moog VCF dataset (4 params)
-	time python src/train.py experiment=moog_cnn_basic
-
-eme exp-moog-envelope: gdme ## Train CNN on Moog envelope sweep dataset (10 params)
-	time python src/train.py experiment=moog_cnn_envelope
-
-emer exp-moog-envelope-regression: gdme ## Train CNN on Moog envelope sweep dataset (10 params) using regression loss
-	time python src/train.py experiment=moog_cnn_envelope_regression
-
-emr exp-moog-resonance: gdmr ## Train CNN on high-resonance Moog dataset (8 params)
-	time python src/train.py experiment=moog_cnn_resonance
-
 ew exp-wah: gdws ## Train CNN on dataset gdws (small sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn
 
@@ -200,28 +161,6 @@ ewta exp-wah-tiny-aux: gdwl ## Train "tiny" (~43K) Hybrib CNN-MLP on dataset gdw
 
 ewe exp-wah-envelope: gdwe ## CNN training on dataset gdwe (gdw + ADSR wah control)
 	time python src/train.py experiment=wah_cnn_envelope
-
-emall: emall-gen emb eme emr ## Generate datasets and train CNNs on all Moog VCF experiments
-
-emall-gen: gdmb gdme gdmr ## Generate all Moog datasets before training
-
-emall-train: emb eme emr ## Run all Moog dataset training experiments
-
-# MOOG VCF ViT EXPERIMENTS "emvit" - ViT training on Moog filter datasets (experimental)
-
-emvitb exp-moog-vit-basic: gdmb ## Train ViT on basic Moog VCF dataset (4 params) - square 32x32
-	time python src/train.py experiment=moog_vit_basic
-
-emvite exp-moog-vit-envelope: gdme ## Train ViT on Moog envelope sweep dataset (10 params) - rectangular 32x64
-	time python src/train.py experiment=moog_vit_envelope
-
-emvitr exp-moog-vit-resonance: gdmr ## Train ViT on high-resonance Moog dataset (8 params) - square 48x48
-	time python src/train.py experiment=moog_vit_resonance
-
-emvit emvit-train-all: emvitb emvite emvitr ## Run all Moog ViT training experiments
-
-emvitgta emvit-gen-train-all: emall-gen emvit ## Generate datasets and train ViTs on all Moog VCF experiments
-
 # EVALS "ev" - Evaluate saved checkpoints
 
 evwt eval-wah-tiny: ## Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override)

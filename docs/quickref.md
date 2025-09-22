@@ -21,12 +21,10 @@ make trl          # Train on large VIMH dataset (auto-generates if missing)
 make ex           # Baseline CNN experiment
 make ewt          # Wah CNN tiny classification (production-ready)
 make ewtr         # Wah CNN tiny regression (production-ready)
-make emb|eme|emr  # Moog CNN experiments (basic/envelope/resonance)
 
 # DATASETS (synthesize & view)
 make gds          # Small wah dataset (wraps gdws target)
 make gdl          # Large wah dataset (wraps gdwl target)
-make gdmb|gdme|gdmr  # Moog dataset variants
 make ddr|dds|ddl  # Display most-recent/small/large dataset samples
 make vdr|vds|vdl  # Print dataset metadata
 make vpr|vps|vpl  # Parameter distribution analysis
@@ -59,9 +57,6 @@ make ae           # Audio reconstruction evaluation
 | -------------- | ----------- | -------------------------------------- | ----------------- |
 | `make gds`     | 256 samples | Saw + wah, decay + pedal angle varied  | Smoke testing     |
 | `make gdl`     | 16K samples | Saw + wah, decay + pedal angle varied  | Wah training      |
-| `make gdmb`    | 256 samples | Saw + Moog VCF (4 params)              | Moog baselines    |
-| `make gdme`    | 512 samples | Moog envelope sweep (10 params)        | Moog envelope     |
-| `make gdmr`    | 384 samples | High-resonance Moog exploration        | Resonance study   |
 
 ## Common Commands
 

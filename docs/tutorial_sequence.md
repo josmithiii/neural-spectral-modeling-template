@@ -69,15 +69,7 @@ python src/audio_reconstruction_eval.py interactive=false save_audio=true
 
 Inspect the generated WAV files and plots under `audio_eval_results/`.
 
-## Phase 6: Moog Experiments (Optional)
-
-```bash
-make gdmb && make emb      # Basic Moog CNN (4 params)
-make gdme && make eme      # Moog envelope CNN (10 params)
-make gdmr && make emr      # High-resonance Moog CNN
-```
-
-## Phase 7: Visualize Architectures
+## Phase 6: Visualize Architectures
 
 ```bash
 make tds          # Simple diagrams (text)

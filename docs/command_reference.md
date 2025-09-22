@@ -11,10 +11,7 @@ Snapshot of `make h` output (auto-generated).
 | `gdws generate-dataset-wah-small` | Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (256 samples) |
 | `gdwl generate-dataset-wah-large` | Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (16k samples) |
 | `gdwe generate-dataset-wah-envelope` | Synthesize VIMH dataset with Saw + Wah ADSR envelope settings varied (512 samples) |
-| `gdmb generate-dataset-moog-basic` | Synthesize VIMH dataset with basic Saw + Moog VCF (256 samples) |
-| `gdme generate-dataset-moog-envelope` | Synthesize VIMH dataset with Saw + Moog envelope sweeps (512 samples) |
-| `gdmr generate-dataset-moog-resonance` | Synthesize VIMH dataset with Saw + high-resonance Moog exploration (384 samples) |
-| `gdas generate-dataset-all-small` | Generate all small datasets |
+| `gdas generate-dataset-all-small` | Generate all small wah-focused datasets |
 | `vdr vd vimh-dump-recent` | Dump the metadata of the most recent VIMH dataset in ./data/ |
 | `vds vimh-dump-small` | Dump the metadata of the small example SawSynth dataset (256 samples) |
 | `vdl vimh-dump-large` | Dump the metadata of the larger example VIMH dataset with SawSynth (16k samples) |
@@ -42,10 +39,6 @@ Snapshot of `make h` output (auto-generated).
 | `evitml exp-trivial-vit-micro-large` | Micro ViT (~8K params) on large dataset (16K samples) |
 | `evittl exp-trivial-vit-tiny-large` | Tiny ViT (~25K params) on large dataset (16K samples) |
 | `evitall` | Run all ViT trivial dataset experiments |
-| `emb exp-moog-basic` | Train CNN on basic Moog VCF dataset (4 params) |
-| `eme exp-moog-envelope` | Train CNN on Moog envelope sweep dataset (10 params) |
-| `emer exp-moog-envelope-regression` | Train CNN on Moog envelope sweep dataset (10 params) using regression loss |
-| `emr exp-moog-resonance` | Train CNN on high-resonance Moog dataset (8 params) |
 | `ew exp-wah` | Train CNN on dataset gdws (small sawtooth + wah + decay envelope) |
 | `ewl exp-wah-large` | Train "large" (~1.4M) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~14 min to train on Mac MPS] |
 | `ewla exp-wah-large-aux` | Train "large" (~1.4M) Hybrid CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature |
@@ -55,14 +48,6 @@ Snapshot of `make h` output (auto-generated).
 | `ewtrq exp-wah-tiny-regression-quick` | Quick regression run (1 epoch, small dataset) to produce a checkpoint fast |
 | `ewta exp-wah-tiny-aux` | Train "tiny" (~43K) Hybrib CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature |
 | `ewe exp-wah-envelope` | CNN training on dataset gdwe (gdw + ADSR wah control) |
-| `emall` | Generate datasets and train CNNs on all Moog VCF experiments |
-| `emall-gen` | Generate all Moog datasets before training |
-| `emall-train` | Run all Moog dataset training experiments |
-| `emvitb exp-moog-vit-basic` | Train ViT on basic Moog VCF dataset (4 params) - square 32x32 |
-| `emvite exp-moog-vit-envelope` | Train ViT on Moog envelope sweep dataset (10 params) - rectangular 32x64 |
-| `emvitr exp-moog-vit-resonance` | Train ViT on high-resonance Moog dataset (8 params) - square 48x48 |
-| `emvit emvit-train-all` | Run all Moog ViT training experiments |
-| `emvitgta emvit-gen-train-all` | Generate datasets and train ViTs on all Moog VCF experiments |
 | `evwt eval-wah-tiny` | Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override) |
 | `evwtr eval-wah-tiny-regression` | Evaluate latest wah_cnn_tiny_regression best checkpoint (set CKPT=path/to.ckpt to override) |
 | `ae ae_latest audio-eval-latest` | Display eval of latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py |

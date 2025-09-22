@@ -72,7 +72,7 @@ make h
 
 # ===== SYNTHETIC DATASET GENERATION =====
 
-# Generate all small Wah and Moog VCF datasets
+# Generate all small wah pedal datasets
 make gdas
 
 # Generate small synthetic dataset (256 samples) using sawtooth into wah pedal
@@ -128,19 +128,6 @@ make ew     # CNN training on dataset gdws (sawtooth + wah + decay envelope)
 make ewe    # CNN training on dataset gdwe (gdw + ADSR wah control)
 make ewt    # Production wah CNN tiny (classification); expect >0.85 per-head accuracy
 make ewtr   # Production wah CNN tiny regression; expect <0.05 MAE per head
-
-# Moog VCF experiments using CNN architecture
-make emb    # Basic Moog VCF (4 params)
-make eme    # Moog envelope sweep (10 params), ordinal classification output
-make emer   # Moog envelope sweep (10 params), regression output
-make emr    # High-resonance Moog (8 params)
-make emall  # Generate datasets + train all Moog CNNs
-
-# Moog VCF experiments using ViT architecture
-make emvitb # ViT on basic Moog VCF
-make emvite # ViT on Moog envelope
-make emvitr # ViT on high-resonance Moog
-make emvitgta # Generate + train all Moog ViTs
 
 # ===== EVALS (Evaluate Saved Checkpoints) =====
 
@@ -228,7 +215,7 @@ dataset:
   name: "saw_wah"  # Custom dataset name for output directory
   size: 256
 synthesizer:
-  filter_type: "wah"  # "moog" or "wah" supported
+  filter_type: "wah"  # Template example uses wah pedal control
   parameters:
     log10_filter_cutoff_hz: # Variable wah pedal frequency
       min_value: 3.0
@@ -250,7 +237,7 @@ defaults:
 
 ### Use Cases
 
-- **Audio Effects Modeling**: Predict Moog VCF and wah pedal parameters from spectrograms
+- **Audio Effects Modeling**: Predict wah pedal parameters from spectrograms
 - **Audio Synthesis**: Image-to-audio parameter mapping with configurable filter types
 - **Computer Vision**: Multi-target regression tasks with custom dataset naming
 - **Scientific Computing**: Parameter prediction from visual data

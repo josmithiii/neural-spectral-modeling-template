@@ -42,7 +42,7 @@ This repository uses a layered data stack so spectrogram datasets, metadata, and
 
 ### `multihead_dataset.py`
 
-- Legacy strategy engine that synthesizes auxiliary labels for MNIST/CIFAR. Helpful for regression testing and demonstrations, but not used in the wah/Moog experiments.
+- Legacy strategy engine that synthesizes auxiliary labels for MNIST/CIFAR. Helpful for regression testing and demonstrations, but not used in the wah experiments.
 
 ## Why the Separation?
 
