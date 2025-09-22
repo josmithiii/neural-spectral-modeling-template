@@ -15,7 +15,7 @@ This is the Neural Spectral Modeling Template (NSMT), a fork of the Lightning-Hy
 
 ## Common Commands
 
-### Training
+### Training (from README.md)
 
 ```bash
 # Set up the environment (uv)
@@ -24,16 +24,19 @@ sh setup.sh
 # Look over all make targets available
 make h
 
-# ===== DATASET GENERATION =====
+# ===== SYNTHETIC DATASET GENERATION =====
 
-# Generate small synthetic wah dataset (256 samples)
-make gds    # wraps gdws; or: python generate_vimh.py --config-name=synth/generate_saw_wah
+# Generate all small wah pedal datasets
+make gdas
 
-# Generate large synthetic wah dataset (16k samples)
-make gdl    # wraps gdwl; or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
+# Generate small synthetic dataset (256 samples) using sawtooth into wah pedal
+make gdws    # or: python generate_vimh.py --config-name=synth/generate_saw_wah
 
-# Generate Moog VCF datasets (basic/envelope/resonance)
-make gdmb && make gdme && make gdmr
+# Generate large synthetic dataset (16384 samples) using sawtooth into wah pedal
+make gdwl    # or: python generate_vimh.py --config-name=synth/generate_saw_wah dataset.size=16384
+
+# Generate small synthetic dataset (512 samples) using sawtooth into wah pedal controlled by ADSR envelope
+make gdwe    # or: python generate_vimh.py --config-name=synth/generate_wah_envelope
 
 # ===== DATASET DISPLAY =====
 
@@ -44,9 +47,21 @@ make ddr    # or: python display_vimh.py
 make dds    # small dataset
 make ddl    # large dataset
 
+# Print dataset metadata
+make vdr    # or: python vimhd.py  # prints latest dataset metadata
+make vds    # or: python vimhd.py path/to/small-example-dataset
+make vdl    # or: python vimhd.py path/to/larger-example-dataset
+            # or: python vimhd.py path/to/any-dataset
+
+# Analyze parameter distributions (NEW!)
+make vpr    # or: python vimhd.py -p  # analyze latest dataset parameters
+make vps    # or: python vimhd.py -p path/to/small-example-dataset
+make vpl    # or: python vimhd.py -p path/to/larger-example-dataset
+            # Shows histograms, statistics, and uniformity tests
+
 # ===== TRAINING EXPERIMENTS =====
 
-# Quick example experiment
+# Quick example experiment (small and quick for testing)
 make ex     # CNN on default dataset
 
 # Trivial dataset experiments (small models for testing)
@@ -57,23 +72,34 @@ make etml   # Micro CNN on large dataset
 make ettl   # Tiny CNN on large dataset
 make etall  # Run all trivial experiments
 
-# ViT experiments on trivial datasets
+# ViT experiments on trivial datasets (quick tests)
 make evitms # Micro ViT (~8K params) on small dataset
 make evitts # Tiny ViT (~25K params) on small dataset
 make evitall # Run all ViT trivial experiments
 
-# Moog VCF experiments (CNN)
-make emb    # Basic Moog VCF (4 params)
-make eme    # Moog envelope sweep (10 params), ordinal classification output
-make emer   # Moog envelope sweep (10 params), regression output
-make emr    # High-resonance Moog (8 params)
-make emall  # Generate datasets + train all Moog CNNs
+# Wah Pedal experiments
+make ew     # CNN training on dataset gdws (sawtooth + wah + decay envelope)
+make ewe    # CNN training on dataset gdwe (gdw + ADSR wah control)
+make ewt    # Production wah CNN tiny (classification); expect >0.85 per-head accuracy
+make ewtr   # Production wah CNN tiny regression; expect <0.05 MAE per head
 
-# Moog VCF experiments (ViT)
-make emvitb # ViT on basic Moog VCF
-make emvite # ViT on Moog envelope
-make emvitr # ViT on high-resonance Moog
-make emvitgta # Generate + train all Moog ViTs
+# ===== EVALS (Evaluate Saved Checkpoints) =====
+
+# Evaluate the latest wah_cnn_tiny (classification) run
+make evwt
+# Or evaluate a specific checkpoint path
+make evwt CKPT=logs/train/runs/2025-09-15_03-09-10/checkpoints/epoch_068.ckpt
+
+# Evaluate the latest wah_cnn_tiny_regression (regression) run
+make evwtr
+# Or evaluate a specific regression checkpoint path
+make evwtr CKPT=logs/train/runs/2025-09-15_04-27-43/checkpoints/epoch_050.ckpt
+
+# Notes:
+# - These use the training entrypoint with train=false, test=true to ensure
+#   the exact same datamodule and model wiring as training.
+# - Classification prints per-head accuracy (e.g., test/log10_decay_time_acc).
+# - Regression prints per-head MAE (e.g., test/wah_position_mae).
 
 # ===== DIRECT TRAINING =====
 
