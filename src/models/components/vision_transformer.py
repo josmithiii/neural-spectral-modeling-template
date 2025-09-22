@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -222,12 +222,14 @@ class VisionTransformer(nn.Module):
         dropout: float = 0.1,
         use_torch_layers: bool = False,
         output_mode: str = "classification",
-        parameter_names: Optional[list] = None,
+        parameter_names: Optional[List[str]] = None,
+        parameter_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
     ):
         super().__init__()
 
         self.output_mode = output_mode
         self.parameter_names = parameter_names or []
+        self.parameter_ranges = parameter_ranges or {}
         self.use_torch_layers = use_torch_layers
         self.n_channels = n_channels
         self.image_size = image_size
@@ -327,37 +329,81 @@ class VisionTransformer(nn.Module):
         self.apply(self._init_weights)
 
     def _build_heads(self, heads_config: Dict[str, int]) -> None:
-        """Rebuild heads for auto-configuration (supports regression/classification)."""
-        embed_dim = self.embedding.pos_embedding.shape[-1]
-        if self.output_mode == "regression":
-            self.heads = nn.ModuleDict(
-                {
-                    head_name: nn.Sequential(
+        """Rebuild heads for auto-configuration (supports both classification and regression modes)."""
+        # Get embed_dim from existing layers
+        if hasattr(self, 'heads') and self.heads:
+            # Get embed_dim from existing head
+            first_head = next(iter(self.heads.values()))
+            if isinstance(first_head, nn.Sequential):
+                embed_dim = first_head[0].in_features
+            else:
+                embed_dim = first_head.in_features
+        elif hasattr(self, 'classifier'):
+            if isinstance(self.classifier, Classifier):
+                embed_dim = self.classifier.fc1.in_features
+            elif isinstance(self.classifier, nn.Sequential):
+                embed_dim = self.classifier[0].in_features
+            else:
+                embed_dim = self.classifier.in_features
+        else:
+            # Fallback to norm layer size or embedding
+            if hasattr(self, 'norm'):
+                embed_dim = self.norm.normalized_shape[0]
+            else:
+                embed_dim = self.embedding.pos_embedding.shape[-1]
+
+        # Update configuration
+        self.heads_config = heads_config
+        self.is_multihead = len(heads_config) > 1
+
+        # Remove old classifier if transitioning to multihead
+        if hasattr(self, 'classifier') and self.is_multihead:
+            delattr(self, 'classifier')
+
+        # Remove old heads if transitioning to single head
+        if hasattr(self, 'heads') and not self.is_multihead:
+            delattr(self, 'heads')
+
+        if self.is_multihead:
+            if self.output_mode == "regression":
+                # Create regression heads with sigmoid activation
+                self.heads = nn.ModuleDict(
+                    {
+                        head_name: nn.Sequential(
+                            nn.Linear(embed_dim, embed_dim),
+                            nn.Tanh(),
+                            nn.Linear(embed_dim, 1),
+                            nn.Sigmoid()
+                        )
+                        for head_name in heads_config.keys()
+                    }
+                )
+            else:
+                # Classification mode: create heads with appropriate number of classes
+                self.heads = nn.ModuleDict(
+                    {
+                        head_name: nn.Sequential(
+                            nn.Linear(embed_dim, embed_dim),
+                            nn.Tanh(),
+                            nn.Linear(embed_dim, num_classes)
+                        )
+                        for head_name, num_classes in heads_config.items()
+                    }
+                )
+        else:
+            # Single head (backward compatibility)
+            if heads_config:
+                head_name, num_classes = next(iter(heads_config.items()))
+                if self.output_mode == "regression":
+                    self.classifier = nn.Sequential(
                         nn.Linear(embed_dim, embed_dim),
                         nn.Tanh(),
                         nn.Linear(embed_dim, 1),
-                        nn.Sigmoid(),
+                        nn.Sigmoid()
                     )
-                    for head_name in heads_config.keys()
-                }
-            )
-        else:
-            self.heads = nn.ModuleDict(
-                {
-                    head_name: nn.Sequential(
-                        nn.Linear(embed_dim, embed_dim),
-                        nn.Tanh(),
-                        nn.Linear(embed_dim, num_classes),
-                    )
-                    for head_name, num_classes in heads_config.items()
-                }
-            )
-
-        self.heads_config = heads_config
-        self.is_multihead = len(heads_config) > 1
-        if hasattr(self, "classifier"):
-            del self.classifier
-        self.apply(self._init_weights)
+                else:
+                    self.classifier = Classifier(embed_dim, num_classes)
+            # If heads_config is empty, don't create classifier - will be auto-configured later
 
     def _init_weights(self, m):
         """Initialize the weights of the Vision Transformer."""
@@ -401,7 +447,12 @@ class VisionTransformer(nn.Module):
         if self.is_multihead:
             return {head_name: head(cls_embedding) for head_name, head in self.heads.items()}
         else:
-            return self.classifier(cls_embedding)
+            # Single head output (backward compatibility)
+            if hasattr(self, 'classifier'):
+                return self.classifier(cls_embedding)
+            else:
+                # No classifier configured - should not happen in normal operation
+                raise ValueError("No classifier configured. Model may not be properly initialized.")
 
 
 if __name__ == "__main__":
