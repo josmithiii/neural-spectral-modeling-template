@@ -128,6 +128,8 @@ class VIMHLitModule(LightningModule):
         self.train_loss = None
         self.val_loss = None
         self.test_loss = None
+        self.train_best_metrics = None
+        self.train_best_values: Dict[str, float] = {}
         self.val_acc_best = None
 
     def _setup_metrics(self) -> None:
@@ -139,35 +141,54 @@ class VIMHLitModule(LightningModule):
             # Fallback for backward compatibility
             head_configs = {"head_0": 10}
 
-        # Metrics for each head
-        self.train_metrics = torch.nn.ModuleDict()
-        self.val_metrics = torch.nn.ModuleDict()
-        self.test_metrics = torch.nn.ModuleDict()
+        if self.train_metrics is None:
+            self.train_metrics = torch.nn.ModuleDict()
+        if self.val_metrics is None:
+            self.val_metrics = torch.nn.ModuleDict()
+        if self.test_metrics is None:
+            self.test_metrics = torch.nn.ModuleDict()
+        if self.train_best_metrics is None:
+            self.train_best_metrics = torch.nn.ModuleDict()
 
         for head_name, num_classes in head_configs.items():
             if self.output_mode == "regression":
                 # For regression, we'll use MAE as the primary metric instead of accuracy
                 from torchmetrics.regression import MeanAbsoluteError
 
-                self.train_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
-                self.val_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
-                self.test_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
+                metric_key = f"{head_name}_mae"
+                if metric_key not in self.train_metrics:
+                    self.train_metrics[metric_key] = MeanAbsoluteError()
+                if metric_key not in self.val_metrics:
+                    self.val_metrics[metric_key] = MeanAbsoluteError()
+                if metric_key not in self.test_metrics:
+                    self.test_metrics[metric_key] = MeanAbsoluteError()
             else:
-                self.train_metrics[f"{head_name}_acc"] = Accuracy(
-                    task="multiclass", num_classes=num_classes
-                )
-                self.val_metrics[f"{head_name}_acc"] = Accuracy(
-                    task="multiclass", num_classes=num_classes
-                )
-                self.test_metrics[f"{head_name}_acc"] = Accuracy(
-                    task="multiclass", num_classes=num_classes
-                )
+                metric_key = f"{head_name}_acc"
+                if metric_key not in self.train_metrics:
+                    self.train_metrics[metric_key] = Accuracy(
+                        task="multiclass", num_classes=num_classes
+                    )
+                if metric_key not in self.val_metrics:
+                    self.val_metrics[metric_key] = Accuracy(
+                        task="multiclass", num_classes=num_classes
+                    )
+                if metric_key not in self.test_metrics:
+                    self.test_metrics[metric_key] = Accuracy(
+                        task="multiclass", num_classes=num_classes
+                    )
+                if metric_key not in self.train_best_metrics:
+                    self.train_best_metrics[metric_key] = MaxMetric()
+                if metric_key not in self.train_best_values:
+                    self.train_best_values[metric_key] = float("-inf")
 
-        # Loss tracking
-        self.train_loss = MeanMetric()
-        self.val_loss = MeanMetric()
-        self.test_loss = MeanMetric()
-        self.val_acc_best = MaxMetric()
+        if self.train_loss is None:
+            self.train_loss = MeanMetric()
+        if self.val_loss is None:
+            self.val_loss = MeanMetric()
+        if self.test_loss is None:
+            self.test_loss = MeanMetric()
+        if self.val_acc_best is None:
+            self.val_acc_best = MaxMetric()
 
     def _setup_criteria(self) -> None:
         """Setup loss criteria based on current network configuration."""
@@ -570,10 +591,24 @@ class VIMHLitModule(LightningModule):
                         preds_dict[head_name], targets_dict[head_name]
                     )
             else:
-                if f"{head_name}_acc" in self.train_metrics:
-                    self.train_metrics[f"{head_name}_acc"](
+                metric_key = f"{head_name}_acc"
+                if metric_key in self.train_metrics:
+                    self.train_metrics[metric_key](
                         preds_dict[head_name], targets_dict[head_name]
                     )
+                    current_acc = self.train_metrics[metric_key].compute()
+                    current_value = float(current_acc.detach())
+                    previous_best = self.train_best_values.get(metric_key, float("-inf"))
+                    best_value = max(previous_best, current_value)
+                    self.train_best_values[metric_key] = best_value
+                    if (
+                        self.train_best_metrics is not None
+                        and metric_key in self.train_best_metrics
+                    ):
+                        best_tensor = torch.tensor(
+                            best_value, dtype=current_acc.dtype, device=current_acc.device
+                        )
+                        self.train_best_metrics[metric_key](best_tensor)
 
         # Log metrics
         self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -589,11 +624,19 @@ class VIMHLitModule(LightningModule):
                         prog_bar=True,
                     )
             else:
-                if f"{head_name}_acc" in self.train_metrics:
+                metric_key = f"{head_name}_acc"
+                if metric_key in self.train_metrics:
                     metric_name = f"train/{head_name}_acc" if self.is_multihead else "train/acc"
+                    if (
+                        self.train_best_metrics is not None
+                        and metric_key in self.train_best_metrics
+                    ):
+                        metric_source = self.train_best_metrics[metric_key]
+                    else:
+                        metric_source = self.train_metrics[metric_key]
                     self.log(
                         metric_name,
-                        self.train_metrics[f"{head_name}_acc"],
+                        metric_source,
                         on_step=False,
                         on_epoch=True,
                         prog_bar=True,

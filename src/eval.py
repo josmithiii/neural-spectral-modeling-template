@@ -86,6 +86,7 @@ from src.utils import (
     log_hyperparameters,
     task_wrapper,
 )
+from src.utils.vimh_configurator import configure_vimh_model
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -101,6 +102,8 @@ def evaluate(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     :return: Tuple[dict, dict] with metrics and dict with all instantiated objects.
     """
     assert cfg.ckpt_path
+
+    configure_vimh_model(cfg)
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
