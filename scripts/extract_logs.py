@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import csv
 import os
 import re
@@ -172,6 +173,12 @@ def extract_info_final(filename):
             'num_epochs': 'N/A',
         }
 
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='Extract experiment log information')
+parser.add_argument('--csv', nargs='?', const='experiment_results.csv',
+                    help='Write CSV output to specified file (default: experiment_results.csv)')
+args = parser.parse_args()
+
 # Process all log files
 os.chdir('./experiment_logs')
 log_files = [f for f in os.listdir('.') if f.endswith('-log.txt')]
@@ -203,26 +210,27 @@ print('- Per-head columns report the exact metric logged (accuracy for classific
 print('- Batch Size and Num Epochs are parsed from the Hydra data/trainer configuration lines (num_epochs reflects the configured `max_epochs`).')
 print('- Runtime uses the shell `real` timer when present (falls back to log timestamps otherwise); Parameters come from the Lightning model summary output.')
 
-# Write CSV output
-csv_filename = 'experiment_results.csv'
-with open(csv_filename, 'w', newline='') as csvfile:
-    fieldnames = ['Experiment_Name', 'Loss_Type', 'Aggregate_Metric', 'log10_decay_time', 'wah_position', 'Batch_Size', 'Num_Epochs', 'Runtime', 'Parameters']
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+# Write CSV output if requested
+if args.csv:
+    csv_filename = args.csv
+    with open(csv_filename, 'w', newline='') as csvfile:
+        fieldnames = ['Experiment_Name', 'Loss_Type', 'Aggregate_Metric', 'log10_decay_time', 'wah_position', 'Batch_Size', 'Num_Epochs', 'Runtime', 'Parameters']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-    writer.writeheader()
-    for result in results:
-        exp_name = result['filename'].replace('-log.txt', '')
-        head_metrics = result['head_metrics']
-        writer.writerow({
-            'Experiment_Name': exp_name,
-            'Loss_Type': result['loss_type'],
-            'Aggregate_Metric': result['aggregate_metric'],
-            'log10_decay_time': head_metrics['log10_decay_time'],
-            'wah_position': head_metrics['wah_position'],
-            'Batch_Size': result['batch_size'],
-            'Num_Epochs': result['num_epochs'],
-            'Runtime': result['runtime'],
-            'Parameters': result['params']
-        })
+        writer.writeheader()
+        for result in results:
+            exp_name = result['filename'].replace('-log.txt', '')
+            head_metrics = result['head_metrics']
+            writer.writerow({
+                'Experiment_Name': exp_name,
+                'Loss_Type': result['loss_type'],
+                'Aggregate_Metric': result['aggregate_metric'],
+                'log10_decay_time': head_metrics['log10_decay_time'],
+                'wah_position': head_metrics['wah_position'],
+                'Batch_Size': result['batch_size'],
+                'Num_Epochs': result['num_epochs'],
+                'Runtime': result['runtime'],
+                'Parameters': result['params']
+            })
 
-print(f'\nCSV file written: {csv_filename}')
+    print(f'\nCSV file written: {csv_filename}')
