@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import csv
 import os
 import re
 from datetime import datetime
@@ -51,9 +52,10 @@ def _format_metric(value):
 def _format_runtime_from_seconds(seconds: float) -> str:
     if seconds < 0:
         return 'N/A'
+    seconds = round(seconds)
     minutes = int(seconds // 60)
     remainder = seconds - minutes * 60
-    return f"{minutes}m{remainder:.3f}s"
+    return f"{minutes}m{remainder}s"
 
 
 def _derive_runtime_from_timestamps(content: str) -> str:
@@ -200,3 +202,27 @@ print('- Aggregate Metric is the mean of the available per-head test metrics for
 print('- Per-head columns report the exact metric logged (accuracy for classification heads, MAE for regression heads); values are rounded to 4 decimals.')
 print('- Batch Size and Num Epochs are parsed from the Hydra data/trainer configuration lines (num_epochs reflects the configured `max_epochs`).')
 print('- Runtime uses the shell `real` timer when present (falls back to log timestamps otherwise); Parameters come from the Lightning model summary output.')
+
+# Write CSV output
+csv_filename = 'experiment_results.csv'
+with open(csv_filename, 'w', newline='') as csvfile:
+    fieldnames = ['Experiment_Name', 'Loss_Type', 'Aggregate_Metric', 'log10_decay_time', 'wah_position', 'Batch_Size', 'Num_Epochs', 'Runtime', 'Parameters']
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+    writer.writeheader()
+    for result in results:
+        exp_name = result['filename'].replace('-log.txt', '')
+        head_metrics = result['head_metrics']
+        writer.writerow({
+            'Experiment_Name': exp_name,
+            'Loss_Type': result['loss_type'],
+            'Aggregate_Metric': result['aggregate_metric'],
+            'log10_decay_time': head_metrics['log10_decay_time'],
+            'wah_position': head_metrics['wah_position'],
+            'Batch_Size': result['batch_size'],
+            'Num_Epochs': result['num_epochs'],
+            'Runtime': result['runtime'],
+            'Parameters': result['params']
+        })
+
+print(f'\nCSV file written: {csv_filename}')
