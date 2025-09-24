@@ -53,28 +53,28 @@ echo ""
 
 # Array of all experiment names (without .yaml extension)
 experiments=(
-    "Y auxiliary_cnn_16kdss.yaml"
-    "Y auxiliary_cnn_256dss.yaml"
-    "Y example.yaml"
-    "Y trivial_medium_large.yaml"
-    "Y trivial_micro_large_regression.yaml"
-    "Y trivial_micro_large.yaml"
-    "Y trivial_micro_small_regression.yaml"
-    "Y trivial_micro_small.yaml"
-    "Y trivial_tiny_large.yaml"
-    "Y trivial_tiny_small.yaml"
-    "Y trivial_vit_micro_large.yaml"
-    "Y trivial_vit_micro_small_regression.yaml"
-    "Y trivial_vit_micro_small.yaml"
-    "Y trivial_vit_tiny_large.yaml"
-    "Y trivial_vit_tiny_small.yaml"
-# TBD: "wah_cnn_envelope.yaml"
-    "Y wah_cnn_large_aux.yaml"
-    "Y wah_cnn_large.yaml"
-    "Y wah_cnn_tiny_aux.yaml"
-    "Y wah_cnn_tiny_regression.yaml"
-    "Y wah_cnn_tiny.yaml"
-    "Y wah_cnn.yaml"
+    "Y auxiliary_cnn_16kdss"
+    "Y auxiliary_cnn_256dss"
+    "Y example"
+    "Y trivial_medium_large"
+    "Y trivial_micro_large_regression"
+    "Y trivial_micro_large"
+    "Y trivial_micro_small_regression"
+    "Y trivial_micro_small"
+    "Y trivial_tiny_large"
+    "Y trivial_tiny_small"
+    "Y trivial_vit_micro_large"
+    "Y trivial_vit_micro_small_regression"
+    "Y trivial_vit_micro_small"
+    "Y trivial_vit_tiny_large"
+    "Y trivial_vit_tiny_small"
+# TBD: "wah_cnn_envelope"
+    "Y wah_cnn_large_aux"
+    "Y wah_cnn_large"
+    "Y wah_cnn_tiny_aux"
+    "Y wah_cnn_tiny_regression"
+    "Y wah_cnn_tiny"
+    "Y wah_cnn"
 )
 
 # Function to parse experiment name and return (marker, name)
@@ -214,6 +214,28 @@ run_parallel_experiments() {
     done
 }
 
+# Function to extract and display errors from log file
+show_errors_from_log() {
+    local log_file="$1"
+    local experiment_name="$2"
+
+    if [ ! -f "$log_file" ]; then
+        return
+    fi
+
+    # Extract error lines from the log file (lines containing common error patterns)
+    local error_lines=$(grep -E "(Error|ERROR|Exception|EXCEPTION|Traceback|Failed|FAILED|fatal|FATAL)" "$log_file" | head -20)
+
+    if [ -n "$error_lines" ]; then
+        echo -e "${RED}[$(date '+%H:%M:%S')] Error details for ${experiment_name}:${NC}"
+        echo -e "${YELLOW}--- Last 20 error lines from log ---${NC}"
+        echo "$error_lines"
+        echo -e "${YELLOW}--- End error extract ---${NC}"
+        echo -e "${BLUE}Full log: ${log_file}${NC}"
+        echo ""
+    fi
+}
+
 # Function to run a single experiment
 run_experiment() {
     local experiment_name="$1"
@@ -337,6 +359,7 @@ run_experiment() {
             local failed_log_file="${log_file_without_extension}_FAILED.${log_file_extension}"
             mv "${log_file}" "${failed_log_file}"
             echo -e "${YELLOW}  Debug mode failed - log moved to: ${failed_log_file}${NC}"
+            echo -e "${YELLOW}  (Errors were already displayed above in debug mode)${NC}"
         fi
     else
         # Normal mode - capture output to log file (including time output)
@@ -362,7 +385,9 @@ run_experiment() {
         local log_file_extension="${log_file##*.}"
         local failed_log_file="${log_file_without_extension}_FAILED.${log_file_extension}"
 
-        echo -e "${YELLOW}  Failed log will be saved to: ${failed_log_file}${NC}"
+        # Move log file to failed log file first
+        mv "${log_file}" "${failed_log_file}"
+        echo -e "${YELLOW}  Failed log saved to: ${failed_log_file}${NC}"
 
         # Add failure footer to failed log file
         {
@@ -373,6 +398,9 @@ run_experiment() {
             echo "FINISHED: $(date)"
             echo "==================================================================="
         } >> "${failed_log_file}"
+
+        # Show errors from the failed log file
+        show_errors_from_log "${failed_log_file}" "${experiment_name}"
     fi
 
     echo ""
