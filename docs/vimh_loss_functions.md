@@ -17,7 +17,7 @@ from Hydra configs. The factory understands standard PyTorch losses, the custom 
 `src/models/losses.py`, and `SoftTargetLoss` in `src/models/soft_target_loss.py`.
 
 - **CrossEntropyLoss** (`torch.nn.CrossEntropyLoss`): legacy classification heads;
-  argmax predictions; no distance signal.
+  argmax predictions; no distance signal.  Used by default (no `output_mode`).
 - **OrdinalRegressionLoss** (`src.models.losses.OrdinalRegressionLoss`): default for
   quantized continuous parameters; distance-aware and expressed in perceptual units.
 - **QuantizedRegressionLoss** (`src.models.losses.QuantizedRegressionLoss`): lightweight
