@@ -23,7 +23,7 @@ You should see a Lightning summary and a checkpoint created inside `logs/train/r
 ```bash
 make gds          # Generate 256-sample wah dataset (wraps gdws)
 make dds          # Visualize the most recently created dataset
-make vds          # Inspect metadata and parameter ranges using `vimhd` ("VIMH Dump")
+make vds          # Inspect metadata and parameter ranges using vimhd ("VIMH Dump")
 ```
 
 For larger runs:
@@ -44,9 +44,9 @@ python src/train.py experiment=wah_cnn_tiny trainer=mps
 ```
 
 Tips:
-- Append `trainer=mps data.num_workers=0` on Apple Silicon.
+- Append `trainer=mps data.num_workers=N` where N=4 is good (defaults to 0 for Apple MPS)
 - Override epochs inline: `trainer.max_epochs=25`.
-- Switch models via `model=cnn_tiny` or `model=vit_tiny`.
+- Switch models via `model=cnn_tiny` or `model=vit_tiny`, etc.
 
 ## Phase 4: Wah Reference Experiments
 
@@ -58,6 +58,8 @@ make evwtr        # Evaluate latest regression checkpoint
 ```
 
 Good runs produce per-head accuracies above 0.85 (classification) or MAE below 0.05 (regression) on the validation set. Sample logs live in `logs/train/runs/<timestamp>/`.
+
+See [`experiments_overview.md`](experiments_overview.md) for results from all experiments.
 
 ## Phase 5: Audio Reconstruction Evaluation
 

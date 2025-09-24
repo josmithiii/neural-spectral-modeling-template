@@ -92,7 +92,7 @@ criterion = QuantizedRegressionLoss(
 - Auto-configuration updates `param_range` using the same metadata pipeline as
   OrdinalRegressionLoss
 
-## 3. NormalizedRegressionLoss
+## 3. NormalizedRegressionLoss (Also Recommended)
 
 **Best for**: Pure regression mode (`model.output_mode=regression`) where heads emit
 sigmoid outputs in `[0, 1]`.
