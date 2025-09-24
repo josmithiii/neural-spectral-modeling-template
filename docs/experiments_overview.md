@@ -2,7 +2,7 @@
 
 This document summarizes the results of all experiments in the NSMT experiments directory `configs/experiment/`.
 
-## Experiment Summary Table
+## Experiment Summary Table - [CSV version](experiments_overview.csv)
 
 | Experiment Name | Loss Type | Aggregate Metric | log10_decay_time | wah_position | Batch Size | Num Epochs | Runtime | Parameters |
 |-----------------|-----------|------------------|------------------|----------------|------------|------------|---------|------------|
@@ -45,3 +45,4 @@ The table was created by
 [../scripts/extract_logs.py](../scripts/extract_logs.py)
 after running
 [../scripts/run_all_experiments.sh](../scripts/run_all_experiments.sh)
+(Run it with the `--csv [outpath]` option to write out a spreadsheet version.)
