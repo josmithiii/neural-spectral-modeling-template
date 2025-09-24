@@ -13,20 +13,8 @@ scheduler:
   factor: 0.5
   patience: 3
 
-# Explicit weighted cross-entropy loss configuration
-criteria:
-  log10_decay_time:
-    _target_: src.models.losses.WeightedCrossEntropyLoss
-    num_classes: 256
-    distance_power: 2.0
-    base_weight: 1.0
-  wah_position:
-    _target_: src.models.losses.WeightedCrossEntropyLoss
-    num_classes: 256
-    distance_power: 2.0
-    base_weight: 1.0
-
-loss_weights: {} # Will be auto-configured from dataset metadata
+# Simple loss type specification - auto-configures everything else!
+loss_type: "weighted_cross_entropy"
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN

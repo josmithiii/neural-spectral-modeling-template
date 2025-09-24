@@ -259,14 +259,30 @@ criteria:
     sigma: 3.0
 ```
 
-## Usage
+## Simple Usage (Recommended)
+
+The easiest way to use different loss functions is with the new `loss_type` parameter:
+
+```bash
+# OrdinalRegressionLoss (recommended for VIMH)
+python src/train.py experiment=wah_cnn_tiny_ordinal trainer=mps
+
+# All loss types available:
+python src/train.py experiment=wah_cnn_tiny trainer=mps                    # cross_entropy
+python src/train.py experiment=wah_cnn_tiny_regression trainer=mps         # normalized_regression
+python src/train.py experiment=wah_cnn_tiny_ordinal trainer=mps            # ordinal_regression
+python src/train.py experiment=wah_cnn_tiny_quantized trainer=mps          # quantized_regression
+python src/train.py experiment=wah_cnn_tiny_weighted trainer=mps           # weighted_cross_entropy
+python src/train.py experiment=wah_cnn_tiny_soft_target trainer=mps        # soft_target
+```
+
+## Advanced Usage (Explicit Configuration)
+
+For custom configurations, you can still specify explicit `criteria:`:
 
 ```bash
 # Enable ordinal losses on the wah tiny experiment
 python src/train.py experiment=wah_cnn_tiny model=cnn_medium_ordinal trainer=mps
-
-# Pure regression variant (NormalizedRegressionLoss heads)
-python src/train.py experiment=wah_cnn_tiny_regression model=cnn_medium_regression trainer=mps
 
 # Multi-scale spectral loss example
 python src/train.py experiment=wah_cnn_tiny model=cnn_medium_ordinal trainer=mps \

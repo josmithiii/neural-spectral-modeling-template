@@ -13,20 +13,8 @@ scheduler:
   factor: 0.5
   patience: 3
 
-# Explicit quantized regression loss configuration
-criteria:
-  log10_decay_time:
-    _target_: src.models.losses.QuantizedRegressionLoss
-    num_classes: 256
-    param_range: 1.0  # Will be auto-configured from dataset metadata
-    loss_type: l1
-  wah_position:
-    _target_: src.models.losses.QuantizedRegressionLoss
-    num_classes: 256
-    param_range: 1.0  # Will be auto-configured from dataset metadata
-    loss_type: l1
-
-loss_weights: {} # Will be auto-configured from dataset metadata
+# Simple loss type specification - auto-configures everything else!
+loss_type: "quantized_regression"
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN

@@ -14,12 +14,8 @@ scheduler:
   factor: 0.1
   patience: 5
 
-# Pure regression mode with sigmoid-activated outputs
-output_mode: regression
-
-# Criteria and loss_weights will be auto-configured from dataset metadata
-criteria: {}  # Will be auto-configured from dataset metadata
-loss_weights: {} # Will be auto-configured from dataset metadata
+# Simple loss type specification - auto-configures everything else!
+loss_type: "normalized_regression"
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN

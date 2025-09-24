@@ -13,22 +13,8 @@ scheduler:
   factor: 0.5
   patience: 3
 
-# Explicit ordinal regression loss configuration
-criteria:
-  log10_decay_time:
-    _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 256
-    param_range: 1.0  # Will be auto-configured from dataset metadata
-    regression_loss: l1
-    alpha: 0.1
-  wah_position:
-    _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 256
-    param_range: 1.0  # Will be auto-configured from dataset metadata
-    regression_loss: l1
-    alpha: 0.1
-
-loss_weights: {} # Will be auto-configured from dataset metadata
+# Simple loss type specification - auto-configures everything else!
+loss_type: "ordinal_regression"
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN

@@ -14,8 +14,8 @@ scheduler:
   factor: 0.1
   patience: 5
 
-# Loss weighting auto-configured from dataset JNDs (Just Noticeable Differences)
-loss_weights: {} # Empty - will be auto-configured from dataset metadata
+# Simple loss type specification - auto-configures everything else!
+loss_type: "cross_entropy"
 
 net:
   _target_: src.models.components.simple_cnn.SimpleCNN

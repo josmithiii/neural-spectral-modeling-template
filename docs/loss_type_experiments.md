@@ -74,26 +74,27 @@ done
 
 ## Configuration Examples
 
-Each loss type is configured through explicit `criteria:` sections in model configs:
+Each loss type is configured with a simple `loss_type` parameter - everything else is auto-configured!
 
 ```yaml
 # OrdinalRegressionLoss (configs/model/cnn_tiny_ordinal.yaml)
-criteria:
-  log10_decay_time:
-    _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 256
-    param_range: 1.0  # Auto-configured from dataset metadata
-    regression_loss: l1
-    alpha: 0.1
+loss_type: "ordinal_regression"
+auto_configure_from_dataset: true
 
 # SoftTargetLoss (configs/model/cnn_tiny_soft_target.yaml)
-criteria:
-  wah_position:
-    _target_: src.models.soft_target_loss.SoftTargetLoss
-    num_classes: 256
-    mode: triangular
-    width: 2
+loss_type: "soft_target"
+auto_configure_from_dataset: true
+
+# WeightedCrossEntropyLoss (configs/model/cnn_tiny_weighted.yaml)
+loss_type: "weighted_cross_entropy"
+auto_configure_from_dataset: true
 ```
+
+The system automatically:
+- Creates the appropriate loss functions for each head
+- Configures parameter ranges from dataset metadata
+- Sets up proper default hyperparameters for each loss type
+- Maintains backward compatibility with explicit `criteria:` configurations
 
 ## Expected Performance
 

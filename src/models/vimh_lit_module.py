@@ -14,6 +14,7 @@ from .losses import (
     QuantizedRegressionLoss,
     WeightedCrossEntropyLoss,
 )
+from .soft_target_loss import SoftTargetLoss
 
 
 class VIMHLitModule(LightningModule):
@@ -66,7 +67,8 @@ class VIMHLitModule(LightningModule):
         loss_weights: Optional[Dict[str, float]] = None,
         compile: bool = False,
         auto_configure_from_dataset: bool = True,
-        output_mode: str = "classification",
+        loss_type: str = "cross_entropy",
+        output_mode: Optional[str] = None,  # Deprecated, use loss_type instead
     ) -> None:
         """Initialize a `VIMHLitModule`.
 
@@ -78,7 +80,8 @@ class VIMHLitModule(LightningModule):
         :param loss_weights: Optional weights for combining losses from different heads.
         :param compile: Whether to compile the model.
         :param auto_configure_from_dataset: Whether to auto-configure heads from dataset.
-        :param output_mode: Output mode - "classification" or "regression".
+        :param loss_type: Type of loss function - "cross_entropy", "ordinal_regression", "quantized_regression", "weighted_cross_entropy", "soft_target", "normalized_regression".
+        :param output_mode: Deprecated, use loss_type instead.
         """
         super().__init__()
 
@@ -87,7 +90,17 @@ class VIMHLitModule(LightningModule):
         self._initial_criteria = criteria
         self._initial_criterion = criterion
         self._initial_loss_weights = loss_weights
-        self.output_mode = output_mode
+
+        # Handle backward compatibility for output_mode
+        if output_mode is not None:
+            if output_mode == "regression":
+                loss_type = "normalized_regression"
+            elif output_mode == "classification":
+                loss_type = "cross_entropy"
+
+        self.loss_type = loss_type
+        # Keep output_mode for backward compatibility in other parts of code
+        self.output_mode = "regression" if loss_type == "normalized_regression" else "classification"
 
         # Backward compatibility handling
         if criteria is None and criterion is not None:
@@ -101,7 +114,7 @@ class VIMHLitModule(LightningModule):
             criteria = {}
 
         # If auto_configure_from_dataset is True but we have a network with heads_config,
-        # initialize criteria based on network heads
+        # initialize placeholder criteria (will be replaced in setup with correct loss type)
         if auto_configure_from_dataset and not criteria and hasattr(net, "heads_config"):
             criteria = {
                 head_name: torch.nn.CrossEntropyLoss() for head_name in net.heads_config.keys()
@@ -129,6 +142,53 @@ class VIMHLitModule(LightningModule):
         self.val_loss = None
         self.test_loss = None
         self.val_acc_best = None
+
+    def _create_loss_function(self, loss_type: str, num_classes: int = 256, param_range: float = 1.0) -> torch.nn.Module:
+        """Create a loss function based on loss_type string.
+
+        :param loss_type: One of "cross_entropy", "ordinal_regression", "quantized_regression",
+                         "weighted_cross_entropy", "soft_target", "normalized_regression"
+        :param num_classes: Number of classes for classification-based losses
+        :param param_range: Parameter range for regression-based losses
+        :return: Configured loss function
+        """
+        if loss_type == "cross_entropy":
+            return torch.nn.CrossEntropyLoss()
+        elif loss_type == "ordinal_regression":
+            return OrdinalRegressionLoss(
+                num_classes=num_classes,
+                param_range=param_range,
+                regression_loss="l1",
+                alpha=0.1
+            )
+        elif loss_type == "quantized_regression":
+            return QuantizedRegressionLoss(
+                num_classes=num_classes,
+                param_range=param_range,
+                loss_type="l1"
+            )
+        elif loss_type == "weighted_cross_entropy":
+            return WeightedCrossEntropyLoss(
+                num_classes=num_classes,
+                distance_power=2.0,
+                base_weight=1.0
+            )
+        elif loss_type == "soft_target":
+            return SoftTargetLoss(
+                num_classes=num_classes,
+                mode="triangular",
+                width=2
+            )
+        elif loss_type == "normalized_regression":
+            return NormalizedRegressionLoss(
+                param_range=(0.0, 1.0),  # Will be updated by auto-configuration
+                loss_type="mse",
+                return_perceptual_units=True
+            )
+        else:
+            raise ValueError(f"Unknown loss_type: {loss_type}. Must be one of: "
+                           "cross_entropy, ordinal_regression, quantized_regression, "
+                           "weighted_cross_entropy, soft_target, normalized_regression")
 
     def _setup_metrics(self) -> None:
         """Setup metrics based on current network configuration."""
@@ -274,17 +334,17 @@ class VIMHLitModule(LightningModule):
                 # If criteria were pre-configured (and not hardcoded placeholder), preserve them and update with parameter ranges
                 self._update_criteria_with_parameter_ranges(dataset)
             else:
-                # No pre-configured criteria or hardcoded placeholder - replace with dataset heads
+                # No pre-configured criteria or hardcoded placeholder - replace with dataset heads using loss_type
                 self.criteria = {}
-                for head_name in heads_config.keys():
-                    if self.output_mode == "regression":
-                        # For regression mode, we need parameter ranges
-                        param_range = self._get_param_range_for_head(dataset, head_name)
-                        self.criteria[head_name] = NormalizedRegressionLoss(
-                            param_range=param_range
-                        )
-                    else:
-                        self.criteria[head_name] = torch.nn.CrossEntropyLoss()
+                for head_name, num_classes in heads_config.items():
+                    # Get parameter range for this head
+                    param_range = self._get_param_range_for_head(dataset, head_name)
+                    # Create loss function based on loss_type
+                    self.criteria[head_name] = self._create_loss_function(
+                        loss_type=self.loss_type,
+                        num_classes=num_classes,
+                        param_range=param_range
+                    )
 
             # Update loss weights - reset them if we replaced criteria due to hardcoded placeholder
             if not self.loss_weights or has_hardcoded_placeholder:
