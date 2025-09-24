@@ -13,7 +13,6 @@ source .venv/bin/activate    # Or activate.csh for csh/tcsh users
 
 ```bash
 make test         # Fast pytest subset
-make format       # Optional: confirm formatting hooks succeed
 make trq          # One-epoch smoke train (writes logs/train/runs/...)
 ```
 
@@ -23,8 +22,8 @@ You should see a Lightning summary and a checkpoint created inside `logs/train/r
 
 ```bash
 make gds          # Generate 256-sample wah dataset (wraps gdws)
-make dds          # Visualize the recent dataset
-make vds          # Inspect metadata and parameter ranges
+make dds          # Visualize the most recently created dataset
+make vds          # Inspect metadata and parameter ranges using `vimhd` ("VIMH Dump")
 ```
 
 For larger runs:

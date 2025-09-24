@@ -62,10 +62,10 @@ ddr display-dataset-recent: ## Display the most recently created dataset (defaul
 	python display_vimh.py
 
 dds display-dataset-small: generate-dataset-small ## Display the small example VIMH dataset (256 samples)
-	python display_vimh.py
+	python display_vimh.py ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
 ddl display-dataset-large: gdl ## Display the larger example VIMH dataset (16k samples)
-	python display_vimh.py
+	python display_vimh.py ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # EXPERIMENTS "e" - Complete Configuration Examples
 
