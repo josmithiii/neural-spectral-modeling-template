@@ -1,7 +1,5 @@
 # Disable PyTorch 2.6 weights_only restriction for trusted LOCAL checkpoints
-import json
 import os.path
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
@@ -10,7 +8,7 @@ import rootutils
 import torch
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
-from omegaconf import DictConfig, open_dict
+from omegaconf import DictConfig, OmegaConf, open_dict
 
 _original_torch_load = torch.load
 
@@ -72,7 +70,6 @@ from src.utils import (
     log_hyperparameters,
     task_wrapper,
 )
-from src.utils.vimh_configurator import configure_vimh_model
 from src.utils.architecture_utils import (
     ArchitectureMetadataExtractor,
     create_spectrogram_transforms,
@@ -81,7 +78,93 @@ from src.utils.architecture_utils import (
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
+def _configure_vimh_model_config(cfg: DictConfig) -> None:
+    """Configure model config for VIMH datasets before instantiation."""
+    try:
+        from src.utils.vimh_utils import (
+            get_heads_config_from_metadata,
+            get_parameter_names_from_metadata,
+            get_parameter_ranges_from_metadata,
+            load_vimh_metadata,
+        )
+    except ImportError as exc:
+        log.warning(f"VIMH utilities unavailable; skipping auto-configuration: {exc}")
+        return
 
+    if not getattr(cfg, "data", None) or not getattr(cfg.data, "data_dir", None):
+        return
+    if not getattr(cfg, "model", None) or not hasattr(cfg.model, "net"):
+        return
+
+    parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
+    if not parameter_names:
+        log.debug("No VIMH parameter names discovered; skipping auto-configuration.")
+        return
+
+    log.info(f"Configuring model with parameter names from dataset: {parameter_names}")
+    output_mode = getattr(cfg.model, "output_mode", None)
+
+    if output_mode == "regression":
+        with open_dict(cfg.model):
+            cfg.model.net.parameter_names = parameter_names
+            cfg.model.net.output_mode = "regression"
+            cfg.model.net.heads_config = None
+    else:
+        heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
+        with open_dict(cfg.model):
+            cfg.model.net.heads_config = heads_config
+
+    if output_mode == "regression":
+        param_ranges = get_parameter_ranges_from_metadata(cfg.data.data_dir)
+        base_criteria_cfg: Dict[str, Any] = {}
+        for param_name in parameter_names:
+            if param_name not in param_ranges:
+                raise KeyError(f"Missing parameter range for '{param_name}' in metadata")
+            param_range = param_ranges[param_name]
+            base_criteria_cfg[param_name] = {
+                "_target_": "src.models.losses.NormalizedRegressionLoss",
+                "param_range": tuple(param_range),
+            }
+
+        merged_criteria_cfg: Dict[str, Any] = {}
+        user_criteria = getattr(cfg.model, "criteria", None)
+        for head, base_cfg in base_criteria_cfg.items():
+            merged = dict(base_cfg)
+            if user_criteria and head in user_criteria:
+                for key, value in user_criteria[head].items():
+                    if key not in ("_target_", "param_range"):
+                        merged[key] = value
+            merged_criteria_cfg[head] = merged
+
+        with open_dict(cfg.model):
+            cfg.model.criteria = OmegaConf.create(merged_criteria_cfg)
+
+        log.info(
+            f"Auto-configured regression loss functions for: {list(merged_criteria_cfg.keys())}"
+        )
+
+    configure_loss_weights = not getattr(cfg.model, "loss_weights", None)
+    if configure_loss_weights:
+        metadata = load_vimh_metadata(cfg.data.data_dir)
+        param_mappings = metadata.get("parameter_mappings", {})
+        loss_weights = {}
+        for param_name in parameter_names:
+            if param_name not in param_mappings:
+                raise KeyError(f"Parameter '{param_name}' missing from parameter_mappings")
+            mapping = param_mappings[param_name]
+            step = float(mapping["step"])
+            if step <= 0:
+                raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
+            param_range = float(mapping["max"]) - float(mapping["min"])
+            loss_weights[param_name] = float(param_range / step)
+
+        if loss_weights:
+            max_weight = max(loss_weights.values()) or 1.0
+            loss_weights = {name: weight / max_weight for name, weight in loss_weights.items()}
+
+        with open_dict(cfg.model):
+            cfg.model.loss_weights = loss_weights
+        log.info(f"Auto-configured JND-based loss_weights (normalized): {cfg.model.loss_weights}")
 
 
 def _setup_datamodule_with_transforms(cfg: DictConfig) -> LightningDataModule:
@@ -195,18 +278,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # Setup datamodule with appropriate transforms
     datamodule: LightningDataModule = _setup_datamodule_with_transforms(cfg)
 
-
-best_metrics_path = Path(cfg.paths.output_dir) / "train_best_metrics.json"
-previous_best: Dict[str, float] = {}
-if best_metrics_path.exists():
-    try:
-        previous_best = json.loads(best_metrics_path.read_text())
-    except Exception as exc:
-        log.warning(f"Failed to read existing train_best_metrics.json: {exc}")
-        previous_best = {}
-
     # For VIMH datasets, configure model config BEFORE instantiation (cleaner approach from /l/av)
-    configure_vimh_model(cfg)
+    if (
+        "vimh" in cfg.data._target_.lower()
+        and hasattr(cfg.model, "auto_configure_from_dataset")
+        and cfg.model.auto_configure_from_dataset
+    ):
+        _configure_vimh_model_config(cfg)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
@@ -271,20 +349,7 @@ if best_metrics_path.exists():
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
 
-
-    train_metrics = dict(trainer.callback_metrics)
-
-    merged_best: Dict[str, float] = {k: float(v) for k, v in previous_best.items()}
-
-    if hasattr(model, "train_best_values"):
-        for metric_suffix, value in model.train_best_values.items():
-            if value != float("-inf"):
-                metric_name = f"train/{metric_suffix}"
-                best_value = max(merged_best.get(metric_name, float("-inf")), float(value))
-                merged_best[metric_name] = best_value
-
-    for metric_name, value in merged_best.items():
-        train_metrics[metric_name] = torch.tensor(value, dtype=torch.float32)
+    train_metrics = trainer.callback_metrics
 
     if cfg.get("test"):
         log.info("Starting testing!")
@@ -295,18 +360,7 @@ if best_metrics_path.exists():
         trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
         log.info(f"Best ckpt path: {ckpt_path}")
 
-    test_metrics = dict(trainer.callback_metrics)
-
-    if merged_best:
-        try:
-            best_metrics_path.write_text(json.dumps(merged_best))
-        except Exception as exc:
-            log.warning(f"Failed to write train_best_metrics.json: {exc}")
-    elif best_metrics_path.exists():
-        try:
-            best_metrics_path.unlink()
-        except OSError:
-            pass
+    test_metrics = trainer.callback_metrics
 
     # merge train and test metrics
     metric_dict = {**train_metrics, **test_metrics}
