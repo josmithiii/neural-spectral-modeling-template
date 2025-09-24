@@ -20,7 +20,7 @@ make ewtr
 
 Both targets regenerate the large dataset if missing, then run the corresponding Hydra experiment (`wah_cnn_tiny.yaml` or `wah_cnn_tiny_regression.yaml`). Logs and checkpoints appear under `logs/train/runs/<timestamp>/`.
 
-## Expected Results
+## Expected Results (from [../experiments_overview.md](../experiments_overview.md))
 
 | Experiment Name | Loss Type | Aggregate Metric | log10_decay_time | wah_position | Batch Size | Num Epochs | Runtime | Parameters |
 |-----------------|-----------|------------------|------------------|----------------|------------|------------|---------|------------|
@@ -47,3 +47,4 @@ Evaluation prints per-head metrics and writes audio comparisons to `audio_eval_r
 - **Loss spikes mid-training**: Check for GPU/Metal warnings. If reproducible, reduce `trainer.max_epochs` to 60 and rerun.
 - **Evaluation fails to load checkpoint**: Ensure `logs/train/runs/.../checkpoints/` contains `.ckpt` files; pass `CKPT=` to the make target if multiple runs exist.
 - **Audio artifacts in evaluation**: Confirm STFT parameters match the dataset by inspecting `vimh_dataset_info.json` and `configs/audio_eval.yaml`.
+z

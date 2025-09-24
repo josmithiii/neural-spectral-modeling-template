@@ -73,13 +73,10 @@ ex exp-example: generate-dataset-small ## Train CNN on default dataset
 	time python src/train.py experiment=example  # ./configs/experiment/example.yaml
 
 ea exp-all: ## Run ALL experiments, capturing outputs in experiment_logs/
-	time bash scripts/run_all_experiments.sh --force
-	python ./scripts/extract_logs.py
+	time bash scripts/run_all_experiments.sh --force && python ./scripts/extract_logs.py
 
 en exp-new: ## Run all new experiments not having a log yet, capturing their outputs in experiment_logs/
-	time bash scripts/run_all_experiments.sh --jobs 1
-	python ./scripts/extract_logs.py
-
+	time bash scripts/run_all_experiments.sh --jobs 1 && python ./scripts/extract_logs.py
 
 exp-clean: ## Clean all experiment logs in ./experiment_logs/
 	/bin/rm -rf ./experiment_logs/
