@@ -22,32 +22,14 @@ Snapshot of `make h` output (auto-generated).
 | `dds display-dataset-small` | Display the small example VIMH dataset (256 samples) |
 | `ddl display-dataset-large` | Display the larger example VIMH dataset (16k samples) |
 | `ex exp-example` | Train CNN on default dataset |
-| `etms exp-trivial-micro-small` | Micro CNN (~2K params) on small dataset (256 samples) - ordinal classification loss |
-| `etmsr exp-trivial-micro-small-regression` | Micro CNN (~2K params) on small dataset (256 samples) - regression loss |
-| `etmsrdt exp-trivial-micro-small-regression-decay-time` | Micro CNN (~2K params) on small dataset (256 samples) - regression loss on log10_decay_time only |
-| `etts exp-trivial-tiny-small` | Tiny CNN (~8K params) on small dataset (256 samples) |
-| `etml exp-trivial-micro-large` | Micro CNN (~2K params) on large dataset (16K samples) |
-| `etmlr exp-trivial-micro-large-regression` | Micro CNN (~2K params) on large dataset (16K samples) - regression loss |
-| `etmlrdt exp-trivial-micro-large-regression-decay-time` | Micro CNN (~2K params) on large dataset (16K samples) - regression loss on log10_decay_time only |
-| `etmldt exp-trivial-micro-large-decay-time` | Micro CNN (~2K params) on large dataset (16K samples) - ordinal loss on log10_decay_time only |
-| `ettl exp-trivial-tiny-large` | Tiny CNN (~8K params) on large dataset (16K samples) |
-| `etml exp-trivial-medium-large` | "Medium" CNN (actually 1.4M params) on large dataset - for comparison |
-| `etall` | Run all trivial dataset experiments: ex etms etts etml ettl et64l |
-| `evitms exp-trivial-vit-micro-small` | Micro ViT (~8K params) on small dataset (256 samples) |
-| `evitmsr exp-trivial-vit-micro-small-regression` | Micro ViT (~8K params) on small dataset (256 samples) - regression variant (placeholder) |
-| `evitts exp-trivial-vit-tiny-small` | Tiny ViT (~25K params) on small dataset (256 samples) |
-| `evitml exp-trivial-vit-micro-large` | Micro ViT (~8K params) on large dataset (16K samples) |
-| `evittl exp-trivial-vit-tiny-large` | Tiny ViT (~25K params) on large dataset (16K samples) |
-| `evitall` | Run all ViT trivial dataset experiments |
-| `ew exp-wah` | Train CNN on dataset gdws (small sawtooth + wah + decay envelope) |
-| `ewl exp-wah-large` | Train "large" (~1.4M) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~14 min to train on Mac MPS] |
-| `ewla exp-wah-large-aux` | Train "large" (~1.4M) Hybrid CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature |
-| `ewt exp-wah-tiny` | Train "tiny" (~41K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~10 min to train on Mac MPS] |
+| `etms exp-trivial-micro-small` | Micro CNN (~10K params) on small dataset (256 samples) - ordinal classification loss |
+| `etmsr exp-trivial-micro-small-regression` | Micro CNN (~10K params) on small dataset (256 samples) - regression loss |
+| `etts exp-trivial-tiny-small` | Tiny CNN (~40K params) on small dataset (256 samples) |
+| `evitms exp-trivial-vit-micro-small` | Micro ViT (~23K params) on small dataset (256 samples) |
+| `ewt exp-wah-tiny` | Train "tiny" (~40K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~9 min to train on Mac MPS] |
 | `ewtq exp-wah-tiny-quick` | Quick version ewt (exp-wah-tiny) to produce a checkpoint fast for testing (1 epoch, small dataset) |
-| `ewtr exp-wah-tiny-regression` | Train "tiny" (1.1M) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.2 min to train on Mac MPS] |
+| `ewtr exp-wah-tiny-regression` | Train "tiny" (1.1M) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.6 min to train on Mac MPS] |
 | `ewtrq exp-wah-tiny-regression-quick` | Quick regression run (1 epoch, small dataset) to produce a checkpoint fast |
-| `ewta exp-wah-tiny-aux` | Train "tiny" (~43K) Hybrib CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature |
-| `ewe exp-wah-envelope` | CNN training on dataset gdwe (gdw + ADSR wah control) |
 | `evwt eval-wah-tiny` | Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override) |
 | `evwtr eval-wah-tiny-regression` | Evaluate latest wah_cnn_tiny_regression best checkpoint (set CKPT=path/to.ckpt to override) |
 | `ae ae_latest audio-eval-latest` | Display eval of latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py |

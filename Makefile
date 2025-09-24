@@ -83,84 +83,32 @@ exp-clean: ## Clean all experiment logs in ./experiment_logs/
 
 # TRIVIAL DATASET EXPERIMENTS "et" - Small models for testing on trivial synthetic data
 
-etms exp-trivial-micro-small: gds ## Micro CNN (~2K params) on small dataset (256 samples) - ordinal classification loss
+etms exp-trivial-micro-small: gds ## Micro CNN (~10K params) on small dataset (256 samples) - ordinal classification loss
 	time python src/train.py experiment=trivial_micro_small
 
-etmsr exp-trivial-micro-small-regression: gds ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss
+etmsr exp-trivial-micro-small-regression: gds ## Micro CNN (~10K params) on small dataset (256 samples) - regression loss
 	time python src/train.py experiment=trivial_micro_small_regression
 
-etmsrdt exp-trivial-micro-small-regression-decay-time: gds ## Micro CNN (~2K params) on small dataset (256 samples) - regression loss on log10_decay_time only
-	time python src/train.py experiment=trivial_micro_small_regression callbacks.model_checkpoint.monitor="val/log10_decay_time_mae" callbacks.early_stopping.monitor="val/log10_decay_time_mae" optimized_metric="val/log10_decay_time_mae"
-
-etts exp-trivial-tiny-small: gds ## Tiny CNN (~8K params) on small dataset (256 samples)
+etts exp-trivial-tiny-small: gds ## Tiny CNN (~40K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_tiny_small
-
-etml exp-trivial-micro-large: gdl ## Micro CNN (~2K params) on large dataset (16K samples)
-	time python src/train.py experiment=trivial_micro_large
-
-etmlr exp-trivial-micro-large-regression: gdl ## Micro CNN (~2K params) on large dataset (16K samples) - regression loss
-	time python src/train.py experiment=trivial_micro_large_regression
-
-etmlrdt exp-trivial-micro-large-regression-decay-time: gdl ## Micro CNN (~2K params) on large dataset (16K samples) - regression loss on log10_decay_time only
-	time python src/train.py experiment=trivial_micro_large_regression callbacks.model_checkpoint.monitor="val/log10_decay_time_mae" callbacks.early_stopping.monitor="val/log10_decay_time_mae" optimized_metric="val/log10_decay_time_mae"
-
-etmldt exp-trivial-micro-large-decay-time: gdl ## Micro CNN (~2K params) on large dataset (16K samples) - ordinal loss on log10_decay_time only
-	time python src/train.py experiment=trivial_micro_large callbacks.model_checkpoint.monitor="val/log10_decay_time_acc" callbacks.early_stopping.monitor="val/log10_decay_time_acc" optimized_metric="val/log10_decay_time_acc"
-
-ettl exp-trivial-tiny-large: gdl ## Tiny CNN (~8K params) on large dataset (16K samples)
-	time python src/train.py experiment=trivial_tiny_large
-
-etmedl exp-trivial-medium-large: gdl ## "Medium" CNN (actually 1.4M params) on large dataset - for comparison
-	time python src/train.py experiment=trivial_medium_large
-
-etall: ex etms etts etml ettl et64l ## Run all trivial dataset experiments: ex etms etts etml ettl et64l
 
 # TRIVIAL DATASET ViT EXPERIMENTS "evit" - Small ViT models for testing on trivial synthetic data
 
-evitms exp-trivial-vit-micro-small: gds ## Micro ViT (~8K params) on small dataset (256 samples)
+evitms exp-trivial-vit-micro-small: gds ## Micro ViT (~23K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_vit_micro_small
 
-evitmsr exp-trivial-vit-micro-small-regression: gds ## Micro ViT (~8K params) on small dataset (256 samples) - regression variant (placeholder)
-	time python src/train.py experiment=trivial_vit_micro_small_regression
-
-evitts exp-trivial-vit-tiny-small: gds ## Tiny ViT (~25K params) on small dataset (256 samples)
-	time python src/train.py experiment=trivial_vit_tiny_small
-
-evitml exp-trivial-vit-micro-large: gdl ## Micro ViT (~8K params) on large dataset (16K samples)
-	time python src/train.py experiment=trivial_vit_micro_large
-
-evittl exp-trivial-vit-tiny-large: gdl ## Tiny ViT (~25K params) on large dataset (16K samples)
-	time python src/train.py experiment=trivial_vit_tiny_large
-
-evitall: evitms evitts evitml evittl ## Run all ViT trivial dataset experiments
-
-ew exp-wah: gdws ## Train CNN on dataset gdws (small sawtooth + wah + decay envelope)
-	time python src/train.py experiment=wah_cnn
-
-ewl exp-wah-large: gdwl ## Train "large" (~1.4M) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~14 min to train on Mac MPS]
-	time python src/train.py experiment=wah_cnn_large
-
-ewla exp-wah-large-aux: gdwl ## Train "large" (~1.4M) Hybrid CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature
-	time python src/train.py experiment=wah_cnn_large_aux
-
-ewt exp-wah-tiny: gdwl ## Train "tiny" (~41K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~10 min to train on Mac MPS]
+ewt exp-wah-tiny: gdwl ## Train "tiny" (~40K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~9 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_tiny
 
 ewtq exp-wah-tiny-quick: gdwl ## Quick version ewt (exp-wah-tiny) to produce a checkpoint fast for testing (1 epoch, small dataset)
 	time python src/train.py experiment=wah_cnn_tiny trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (1.1M) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.2 min to train on Mac MPS]
+ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (1.1M) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.6 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_tiny_regression
 
 # Quick variant of ewtr: 1 epoch on the small dataset to produce a checkpoint fast
 ewtrq exp-wah-tiny-regression-quick: gdws ## Quick regression run (1 epoch, small dataset) to produce a checkpoint fast
 	python src/train.py experiment=wah_cnn_tiny_regression trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
-
-ewta exp-wah-tiny-aux: gdwl ## Train "tiny" (~43K) Hybrib CNN-MLP on dataset gdwl (large sawtooth + wah + decay envelope) extracting decay as aux feature
-	time python src/train.py experiment=wah_cnn_tiny_aux  # Result: hurts slightly - bug?  It helped in the regression case
-
-ewe exp-wah-envelope: gdwe ## CNN training on dataset gdwe (gdw + ADSR wah control)
-	time python src/train.py experiment=wah_cnn_envelope
 # EVALS "ev" - Evaluate saved checkpoints
 
 evwt eval-wah-tiny: ## Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override)
@@ -317,7 +265,7 @@ dc distclean: clean clean-data clean-logs ## Clean back to original distribution
 
 # TESTING TARGETS "t", "ta"
 
-t0 tests0: etms sep etmsr sep evitms sep evitmsr ## Tests of basic CNN and ViT archs on classes and regression
+t0 tests0: etms sep etmsr sep evitms ## Tests of basic CNN and ViT archs on classes and regression
 
 t test: ## Run fast pytest tests
 	pytest -k "not slow"

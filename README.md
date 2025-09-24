@@ -111,21 +111,14 @@ make vpl    # or: python vimhd.py -p path/to/larger-example-dataset
 make ex     # CNN on default dataset
 
 # Trivial dataset experiments (small models for testing)
-make etms   # Micro CNN (~2K params) on small dataset, ordinal classification output
-make etmsr  # Micro CNN (~2K params) on small dataset, regression output (1 float/head)
-make etts   # Tiny CNN (~8K params) on small dataset
-make etml   # Micro CNN on large dataset
-make ettl   # Tiny CNN on large dataset
-make etall  # Run all trivial experiments
+make etms   # Micro CNN (~10K params) on small dataset, ordinal classification output
+make etmsr  # Micro CNN (~10K params) on small dataset, regression output (1 float/head)
+make etts   # Tiny CNN (~40K params) on small dataset
 
 # ViT experiments on trivial datasets (quick tests)
-make evitms # Micro ViT (~8K params) on small dataset
-make evitts # Tiny ViT (~25K params) on small dataset
-make evitall # Run all ViT trivial experiments
+make evitms # Micro ViT (~23K params) on small dataset
 
 # Wah Pedal experiments
-make ew     # CNN training on dataset gdws (sawtooth + wah + decay envelope)
-make ewe    # CNN training on dataset gdwe (gdw + ADSR wah control)
 make ewt    # Production wah CNN tiny (classification); expect >0.85 per-head accuracy
 make ewtr   # Production wah CNN tiny regression; expect <0.05 MAE per head
 
