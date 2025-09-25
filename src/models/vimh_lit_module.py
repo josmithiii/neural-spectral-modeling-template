@@ -464,12 +464,12 @@ class VIMHLitModule(LightningModule):
 
     def _get_param_range_for_head(
         self, dataset: MultiheadDatasetBase, head_name: str
-    ) -> Tuple[float, float]:
+    ) -> float:
         """Get parameter range for a specific head from dataset metadata.
 
         :param dataset: The dataset containing parameter range information
         :param head_name: Name of the parameter head
-        :return: Tuple of (min, max) parameter range
+        :return: Parameter range size (max - min) as float
         """
         # Try to get parameter ranges from datamodule first
         param_ranges = {}
@@ -489,10 +489,15 @@ class VIMHLitModule(LightningModule):
         if head_name in param_ranges:
             param_range = param_ranges[head_name]
             if isinstance(param_range, (tuple, list)) and len(param_range) == 2:
-                return tuple(param_range)
-            raise ValueError(
-                f"Parameter range for '{head_name}' must be a (min, max) tuple; received {param_range}."
-            )
+                # Return range size (max - min)
+                return float(param_range[1] - param_range[0])
+            elif isinstance(param_range, (int, float)):
+                # Already a range size
+                return float(param_range)
+            else:
+                raise ValueError(
+                    f"Parameter range for '{head_name}' must be a number or (min, max) tuple; received {param_range}."
+                )
 
         # Try to get from dataset metadata if it's a VIMH dataset
         if hasattr(dataset, "_metadata") and dataset._metadata:
@@ -500,12 +505,15 @@ class VIMHLitModule(LightningModule):
             if head_name in param_mappings:
                 mapping = param_mappings[head_name]
                 if "min" in mapping and "max" in mapping:
-                    return (mapping["min"], mapping["max"])
+                    # Return range size (max - min)
+                    return float(mapping["max"] - mapping["min"])
                 raise KeyError(
                     f"Parameter '{head_name}' metadata missing 'min' or 'max' bounds."
                 )
 
-        raise KeyError(f"No parameter range information available for head '{head_name}'.")
+        # Default fallback
+        print(f"Warning: No parameter range information available for head '{head_name}', using default: 1.0")
+        return 1.0
 
     def _is_regression_loss(self, criterion) -> bool:
         """Check if a loss function is regression-based."""
