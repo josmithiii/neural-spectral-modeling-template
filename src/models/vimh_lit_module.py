@@ -379,11 +379,21 @@ class VIMHLitModule(LightningModule):
                     has_hardcoded_placeholder = True
                     break
 
-            if self.criteria and not has_hardcoded_placeholder:
-                # If criteria were pre-configured (and not hardcoded placeholder), preserve them and update with parameter ranges
+            # Check if criteria are auto-generated placeholders from initialization
+            has_auto_generated_placeholder = False
+            if self.criteria and hasattr(self.net, "heads_config"):
+                # If all criteria are CrossEntropyLoss and match the network's heads_config,
+                # they were likely auto-generated placeholders that should be replaced
+                criteria_types = [type(loss).__name__ for loss in self.criteria.values()]
+                if (all(loss_type == "CrossEntropyLoss" for loss_type in criteria_types) and
+                    set(self.criteria.keys()) == set(self.net.heads_config.keys())):
+                    has_auto_generated_placeholder = True
+
+            if self.criteria and not has_hardcoded_placeholder and not has_auto_generated_placeholder:
+                # If criteria were pre-configured (and not placeholders), preserve them and update with parameter ranges
                 self._update_criteria_with_parameter_ranges(dataset)
             else:
-                # No pre-configured criteria or hardcoded placeholder - replace with dataset heads using loss_type
+                # No pre-configured criteria or has placeholders - replace with dataset heads using loss_type
                 self.criteria = {}
                 for head_name, num_classes in heads_config.items():
                     # Get parameter range for this head
