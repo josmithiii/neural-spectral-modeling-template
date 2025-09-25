@@ -100,7 +100,7 @@ class VIMHLitModule(LightningModule):
 
         self.loss_type = loss_type
         # Keep output_mode for backward compatibility in other parts of code
-        self.output_mode = "regression" if loss_type == "normalized_regression" else "classification"
+        self.output_mode = "regression" if loss_type in ["normalized_regression", "quantized_regression"] else "classification"
 
         # Backward compatibility handling
         if criteria is None and criterion is not None:
@@ -348,6 +348,9 @@ class VIMHLitModule(LightningModule):
             if hasattr(self.net, "_build_heads") and callable(getattr(self.net, "_build_heads")):
                 network_name = type(self.net).__name__
                 if network_name in ["VisionTransformer", "SimpleCNN"]:
+                    # Update the network's output_mode to match the LitModule's mode
+                    if hasattr(self.net, "output_mode"):
+                        self.net.output_mode = self.output_mode
                     self.net._build_heads(heads_config)
                     # Update the network's multihead flag after rebuilding
                     if hasattr(self.net, "is_multihead"):

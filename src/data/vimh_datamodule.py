@@ -67,6 +67,8 @@ class VIMHDataModule(LightningDataModule):
         num_workers: int = 0,
         pin_memory: bool = False,
         persistent_workers: bool = True,
+        prefetch_factor: int = 4,
+        cache_dataset: bool = True,
         train_transform: Optional[transforms.Compose] = None,
         val_transform: Optional[transforms.Compose] = None,
         test_transform: Optional[transforms.Compose] = None,
@@ -81,6 +83,8 @@ class VIMHDataModule(LightningDataModule):
         :param num_workers: The number of workers. Defaults to `0`.
         :param pin_memory: Whether to pin memory. Defaults to `False`.
         :param persistent_workers: Whether to use persistent workers. Defaults to `True`.
+        :param prefetch_factor: Number of batches to prefetch per worker. Defaults to `4`.
+        :param cache_dataset: Whether to cache dataset in memory for faster access. Defaults to `True`.
         :param train_transform: Optional transforms for training data.
         :param val_transform: Optional transforms for validation data.
         :param test_transform: Optional transforms for test data.
@@ -728,45 +732,54 @@ class VIMHDataModule(LightningDataModule):
 
         :return: The train dataloader.
         """
-        return DataLoader(
-            dataset=self.data_train,
-            batch_size=self.batch_size_per_device,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
-            shuffle=True,
-            persistent_workers=self.persistent_workers,
-            collate_fn=self._multihead_collate_fn,
-        )
+        dataloader_kwargs = {
+            "dataset": self.data_train,
+            "batch_size": self.batch_size_per_device,
+            "num_workers": self.hparams.num_workers,
+            "pin_memory": self.hparams.pin_memory,
+            "shuffle": True,
+            "persistent_workers": self.persistent_workers,
+            "collate_fn": self._multihead_collate_fn,
+        }
+        if self.hparams.num_workers > 0:
+            dataloader_kwargs["prefetch_factor"] = self.hparams.prefetch_factor
+        return DataLoader(**dataloader_kwargs)
 
     def val_dataloader(self) -> DataLoader[Any]:
         """Create and return the validation dataloader.
 
         :return: The validation dataloader.
         """
-        return DataLoader(
-            dataset=self.data_val,
-            batch_size=self.batch_size_per_device,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
-            shuffle=False,
-            persistent_workers=self.persistent_workers,
-            collate_fn=self._multihead_collate_fn,
-        )
+        dataloader_kwargs = {
+            "dataset": self.data_val,
+            "batch_size": self.batch_size_per_device,
+            "num_workers": self.hparams.num_workers,
+            "pin_memory": self.hparams.pin_memory,
+            "shuffle": False,
+            "persistent_workers": self.persistent_workers,
+            "collate_fn": self._multihead_collate_fn,
+        }
+        if self.hparams.num_workers > 0:
+            dataloader_kwargs["prefetch_factor"] = self.hparams.prefetch_factor
+        return DataLoader(**dataloader_kwargs)
 
     def test_dataloader(self) -> DataLoader[Any]:
         """Create and return the test dataloader.
 
         :return: The test dataloader.
         """
-        return DataLoader(
-            dataset=self.data_test,
-            batch_size=self.batch_size_per_device,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
-            shuffle=False,
-            persistent_workers=self.persistent_workers,
-            collate_fn=self._multihead_collate_fn,
-        )
+        dataloader_kwargs = {
+            "dataset": self.data_test,
+            "batch_size": self.batch_size_per_device,
+            "num_workers": self.hparams.num_workers,
+            "pin_memory": self.hparams.pin_memory,
+            "shuffle": False,
+            "persistent_workers": self.persistent_workers,
+            "collate_fn": self._multihead_collate_fn,
+        }
+        if self.hparams.num_workers > 0:
+            dataloader_kwargs["prefetch_factor"] = self.hparams.prefetch_factor
+        return DataLoader(**dataloader_kwargs)
 
     def predict_dataloader(self) -> DataLoader[Any]:
         """Create and return the predict dataloader.
