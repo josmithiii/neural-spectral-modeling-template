@@ -81,6 +81,12 @@ en exp-new: ## Run all new experiments not having a log yet, capturing their out
 exp-clean: ## Clean all experiment logs in ./experiment_logs/
 	/bin/rm -rf ./experiment_logs/*-log.txt
 
+xl extract-logs:
+	python ./scripts/extract_logs.py
+
+xlu extract-logs-update:
+	python ./scripts/extract_logs.py --csv > experiments_overview.md
+
 # TRIVIAL DATASET EXPERIMENTS "et" - Small models for testing on trivial synthetic data
 
 etms exp-trivial-micro-small: gds ## Micro CNN (~10K params) on small dataset (256 samples) - ordinal classification loss
