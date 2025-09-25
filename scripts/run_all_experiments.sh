@@ -65,12 +65,12 @@ experiments=(
     "wah_cnn_tiny_quantized"
     "Y wah_cnn_tiny_regression"
     "Y wah_cnn_tiny_soft_target"
-    "wah_cnn_tiny_weighted"
-    "wah_cnn_tiny"
-    "wah_vit_medium_regression"
-    "wah_vit_medium"
-    "wah_vit_tiny_regression"
-    "wah_vit_tiny"
+    "Y wah_cnn_tiny_weighted"
+    "Y wah_cnn_tiny"
+    "Y wah_vit_medium_regression"
+    "Y wah_vit_medium"
+    "Y wah_vit_tiny_regression"
+    "Y wah_vit_tiny"
 )
 
 # Function to parse experiment name and return (marker, name)
