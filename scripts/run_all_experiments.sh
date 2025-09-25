@@ -54,17 +54,23 @@ echo ""
 # Array of all experiment names (without .yaml extension)
 # Template experiments - ready to run fresh
 experiments=(
-    "example"
-    "trivial_micro_small"
-    "trivial_micro_small_regression"
-    "trivial_tiny_small"
-    "trivial_vit_micro_small"
-    "wah_cnn_tiny"
-    "wah_cnn_tiny_regression"
+    "Y example"
+    "Y trivial_micro_small"
+    "Y trivial_micro_small_regression"
+    "Y trivial_tiny_small"
+    "Y trivial_vit_micro_small"
+    "wah_cnn_medium_regression"
+    "Y wah_cnn_medium"
     "wah_cnn_tiny_ordinal"
     "wah_cnn_tiny_quantized"
-    "wah_cnn_tiny_weighted"
+    "wah_cnn_tiny_regression"
     "wah_cnn_tiny_soft_target"
+    "wah_cnn_tiny_weighted"
+    "wah_cnn_tiny"
+    "wah_vit_medium_regression"
+    "wah_vit_medium"
+    "wah_vit_tiny_regression"
+    "wah_vit_tiny"
 )
 
 # Function to parse experiment name and return (marker, name)
