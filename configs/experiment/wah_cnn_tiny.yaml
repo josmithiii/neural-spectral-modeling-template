@@ -5,11 +5,11 @@
 
 defaults:
   - override /data: vimh
-  - override /model: cnn_tiny # ~41K trainable parameters
+  - override /model: cnn_tiny # ~41K trainable parameters, cross_entropy loss
   - override /callbacks: default
   - override /trainer: default
 
-tags: ["wah", "cnn_tiny"]
+tags: ["wah", "cnn_tiny", "cross_entropy"]
 
 seed: 12345
 
