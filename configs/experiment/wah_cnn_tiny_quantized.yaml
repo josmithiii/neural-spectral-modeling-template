@@ -13,9 +13,20 @@ tags: ["wah", "cnn_tiny", "quantized_regression"]
 
 seed: 12345
 
+# Use the correct metric for regression models (MAE instead of accuracy)
+optimized_metric: "val/mae_best"
+
 trainer:
   min_epochs: 20
   max_epochs: 200
+
+callbacks:
+  model_checkpoint:
+    monitor: "val/mae_best"
+    mode: "min"
+  early_stopping:
+    monitor: "val/mae_best"
+    mode: "min"
 
 model:
   optimizer:
