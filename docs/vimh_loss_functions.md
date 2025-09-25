@@ -10,6 +10,27 @@ parameters (0-255), treating them as independent classes. This is suboptimal bec
 3. **Poor generalization**: The model fails to learn that neighbouring values are more
    similar than distant ones
 
+## VIMH Dataset Step Parameter Foundation
+
+The VIMH dataset format stores parameter metadata with each parameter having:
+- `min`: minimum value in perceptual units (e.g., 50.0 Hz)
+- `max`: maximum value in perceptual units (e.g., 52.0 Hz)
+- `step`: quantization step size in perceptual units (e.g., 0.00784 Hz)
+
+This `step` parameter is fundamental to the loss function design:
+
+**Quantization Structure**: `num_classes = 1 + round((max - min) / step)`
+- Ensures the discrete class space properly represents the continuous parameter space
+- Each class boundary corresponds to one perceptual step size
+
+**Loss Scaling**: `quantization_step = param_range / (num_classes - 1)`
+- Converts discrete class distances to perceptual units for interpretable loss values
+- Enables direct comparison of loss magnitudes across parameters with different ranges
+
+**JND-Based Weighting**: `loss_weight = param_range / step`
+- Parameters with finer quantization (smaller steps) get higher loss weights
+- Balances learning across parameters based on their perceptual resolution
+
 ## Supported Loss Functions
 
 `src/train.py` relies on `src.models.losses.create_loss_function` to instantiate criteria
@@ -50,7 +71,10 @@ criterion = OrdinalRegressionLoss(
 
 - Converts logits to probabilities with softmax
 - Computes continuous prediction as weighted average: `pred = Σ(prob_i × class_center_i)`
-- Maps quantized distance to perceptual units via dataset-specific `param_range`
+- Calculates distance in quantization steps between prediction and target
+- Converts to perceptual units: `loss = distance_steps * quantization_step`
+  - Where `quantization_step = param_range / (num_classes - 1)`
+  - This ensures loss values are in the same units as the original parameter
 - Applies regression loss (L1/L2/Huber) in perceptual space
 - Optionally adds cross-entropy regularization (`alpha > 0`)
 
@@ -80,9 +104,12 @@ criterion = QuantizedRegressionLoss(
 
 **How it works**:
 
-- Treats the model output as a single continuous value
-- Clamps predictions to `[0, num_classes-1]`
-- Applies regression loss in quantization steps, then scales to perceptual units
+- Treats the model output as a single continuous value in range `[0, num_classes-1]`
+- Clamps predictions to valid range
+- Calculates distance in quantization steps between prediction and target
+- Converts to perceptual units: `loss = distance_steps * quantization_step`
+  - Uses the same `quantization_step = param_range / (num_classes - 1)` formula
+- Applies regression loss (L1/L2/Huber) directly in perceptual space
 
 **Benefits**:
 
@@ -291,9 +318,21 @@ python src/train.py experiment=wah_cnn_tiny model=cnn_medium_ordinal trainer=mps
 
 ## Implementation Details
 
+### Step Parameter Integration
+
+The VIMH dataset's `step` parameter drives the entire loss function architecture:
+
+1. **Dataset Loading**: `idx = int(round((actual_value - min) / step))` converts perceptual values to class indices
+2. **Class Count Calculation**: `num_classes = 1 + round((max - min) / step)` ensures proper quantization coverage
+3. **Loss Scaling**: `quantization_step = param_range / (num_classes - 1)` converts class distances to perceptual units
+4. **JND Weighting**: `loss_weight = param_range / step` balances multi-head learning based on perceptual resolution
+
+### Runtime Configuration
+
 - `VIMHLitModule` updates loss instances with dataset metadata during `setup()`.
   `param_range` is refreshed for ordinal or quantized losses, and `(min, max)` bounds feed
   normalized regression.
+- The `step` parameter from dataset metadata automatically determines `num_classes` and `quantization_step`
 - `_compute_predictions` returns continuous outputs for regression-aware losses and argmax
   for classification, keeping metrics consistent.
 - `create_loss_function` raises a clear `ValueError` if an unknown `_target_` appears, so
@@ -318,43 +357,64 @@ Both achieve similar accuracy because the task is challenging, but ordinal regre
 ## Loss Function Comparison Example
 
 ```python
-# Target: 100, Predictions: [101, 105, 200]
+# Example parameter: frequency range 50.0-52.0 Hz, step=0.00784 Hz
+# This gives: num_classes = 1 + round((52.0 - 50.0) / 0.00784) = 256
+# And: quantization_step = 2.0 / (256 - 1) = 0.00784 Hz per class
+
+# Target: class 100 (50.784 Hz), Predictions: classes [101, 105, 200]
 # Distances: [1, 5, 100] quantization steps
-# Parameter range: 2.0 units (e.g., 50-52 Hz)
+# Perceptual distances: [0.00784, 0.0392, 0.784] Hz
 
 # CrossEntropyLoss: all wrong answers penalized equally
-# Loss: [6.84, 4.51, 6.23] - no correlation with distance
+# Loss: [6.84, 4.51, 6.23] - arbitrary units, no correlation with perceptual distance
 
-# OrdinalRegressionLoss: distant errors penalized more (perceptual units)
-# Quantization step: 2.0/255 = 0.00784 units per step
-# Loss: [0.00784, 0.0392, 0.784] - directly interpretable as parameter error
+# OrdinalRegressionLoss: distant errors penalized proportionally (perceptual units)
+# Loss: [0.00784, 0.0392, 0.784] Hz - directly interpretable as frequency error
+# A loss of 0.0392 means the prediction is ~0.04 Hz off target
+
+# This demonstrates how the step parameter enables perceptually meaningful loss values
 ```
 
-## Benefits of Perceptual Units
+## Benefits of Step-Based Perceptual Units
 
 1. **Direct interpretability**: Loss values equal parameter deviations (e.g., loss=0.05 ->
-   0.05 units off)
+   0.05 units off in the original parameter space)
 2. **Consistent learning rates**: One learning rate works across parameters with different ranges
+   because losses are normalized to their perceptual scales
 3. **Meaningful comparisons**: Loss values are comparable across heterogeneous heads
-4. **Physical intuition**: Easy to relate metrics to domain knowledge
-5. **Automatic configuration**: Parameter bounds are pulled from `vimh_dataset_info.json`
-   when available
+   since they're all in their respective perceptual units
+4. **Physical intuition**: Easy to relate metrics to domain knowledge (e.g., "0.1 Hz error")
+5. **Automatic configuration**: Parameter bounds and steps are pulled from dataset metadata,
+   ensuring the quantization structure matches the data generation process
+6. **JND-aware weighting**: Parameters with finer perceptual resolution (smaller steps)
+   automatically receive higher loss weights, balancing multi-head learning
 
-### Example: Mixed Parameter Ranges
+### Example: Mixed Parameter Ranges with Step-Based Weighting
 
 ```yaml
 # Parameters with different ranges - all return loss in perceptual units
+# Step parameter determines both quantization and loss weighting automatically
+
+# Dataset metadata example:
+# parameter_mappings:
+#   frequency: {min: 440.0, max: 880.0, step: 1.72}    # 256 classes, coarse steps
+#   amplitude: {min: 0.0, max: 1.0, step: 0.00392}     # 256 classes, fine steps
+
 criteria:
-  frequency:  # Range: 440-880 Hz (440 Hz span)
+  frequency:  # Range: 440 Hz, step: 1.72 Hz -> weight = 440/1.72 = 256
     _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 256
-    param_range: 440.0  # placeholder
+    num_classes: 256  # = 1 + round(440/1.72)
+    param_range: 440.0  # auto-configured from metadata
     regression_loss: l1
-  amplitude:  # Range: 0.0-1.0 (unit span)
+  amplitude:  # Range: 1.0, step: 0.00392 -> weight = 1.0/0.00392 = 255
     _target_: src.models.losses.OrdinalRegressionLoss
-    num_classes: 256
-    param_range: 1.0
+    num_classes: 256  # = 1 + round(1.0/0.00392)
+    param_range: 1.0  # auto-configured from metadata
     regression_loss: l1
+
+# Final loss weights (normalized): {frequency: 1.0, amplitude: 0.996}
+# Both parameters get nearly equal weighting despite vastly different ranges
+# because they have similar perceptual resolution (256 steps each)
 ```
 
 ## Best Practices
