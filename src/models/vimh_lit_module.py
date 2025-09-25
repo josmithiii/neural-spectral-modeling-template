@@ -127,9 +127,10 @@ class VIMHLitModule(LightningModule):
         )
 
         self.net = net
-        self.criteria = criteria
-        self.loss_weights = loss_weights or {name: 1.0 for name in criteria.keys()}
-        self.is_multihead = len(criteria) > 1
+        # Handle DictConfig objects in criteria (from Hydra configuration)
+        self.criteria = self._process_criteria(criteria)
+        self.loss_weights = loss_weights or {name: 1.0 for name in self.criteria.keys()}
+        self.is_multihead = len(self.criteria) > 1
 
         # Store scheduler separately since it's not in hparams
         self.scheduler = scheduler
@@ -143,13 +144,14 @@ class VIMHLitModule(LightningModule):
         self.test_loss = None
         self.val_acc_best = None
 
-    def _create_loss_function(self, loss_type: str, num_classes: int = 256, param_range: float = 1.0) -> torch.nn.Module:
+    def _create_loss_function(self, loss_type: str, num_classes: int = 256, param_range: float = 1.0, regression_loss_type: str = "mse") -> torch.nn.Module:
         """Create a loss function based on loss_type string.
 
         :param loss_type: One of "cross_entropy", "ordinal_regression", "quantized_regression",
                          "weighted_cross_entropy", "soft_target", "normalized_regression"
         :param num_classes: Number of classes for classification-based losses
         :param param_range: Parameter range for regression-based losses
+        :param regression_loss_type: Loss type for normalized regression ('mse', 'l1', 'huber')
         :return: Configured loss function
         """
         if loss_type == "cross_entropy":
@@ -182,13 +184,60 @@ class VIMHLitModule(LightningModule):
         elif loss_type == "normalized_regression":
             return NormalizedRegressionLoss(
                 param_range=(0.0, 1.0),  # Will be updated by auto-configuration
-                loss_type="mse",
+                loss_type=regression_loss_type,
                 return_perceptual_units=True
             )
         else:
             raise ValueError(f"Unknown loss_type: {loss_type}. Must be one of: "
                            "cross_entropy, ordinal_regression, quantized_regression, "
                            "weighted_cross_entropy, soft_target, normalized_regression")
+
+    def _process_criteria(self, criteria: Dict[str, any]) -> Dict[str, torch.nn.Module]:
+        """Process criteria dict, handling DictConfig objects from Hydra.
+
+        :param criteria: Dict that may contain DictConfig objects with loss_type fields
+        :return: Dict of instantiated loss functions
+        """
+        if not criteria:
+            return {}
+
+        from omegaconf import DictConfig
+        processed_criteria = {}
+
+        for head_name, criterion in criteria.items():
+            if isinstance(criterion, DictConfig):
+                # Extract loss_type from DictConfig
+                if 'loss_type' in criterion:
+                    loss_type_config = criterion['loss_type']
+
+                    # Map specific regression loss types to normalized_regression
+                    if loss_type_config in ['l1', 'mse', 'huber']:
+                        loss_type = 'normalized_regression'
+                        regression_loss_type = loss_type_config
+                    else:
+                        loss_type = loss_type_config
+                        regression_loss_type = 'mse'  # default
+
+                    # Create the loss function with default parameters
+                    # Will be updated with proper ranges in auto-configuration
+                    processed_criteria[head_name] = self._create_loss_function(
+                        loss_type=loss_type,
+                        num_classes=256,
+                        param_range=1.0,
+                        regression_loss_type=regression_loss_type
+                    )
+                else:
+                    # Fallback to default normalized regression for DictConfig without loss_type
+                    processed_criteria[head_name] = self._create_loss_function(
+                        loss_type='normalized_regression',
+                        num_classes=256,
+                        param_range=1.0
+                    )
+            else:
+                # Already a proper loss function
+                processed_criteria[head_name] = criterion
+
+        return processed_criteria
 
     def _setup_metrics(self) -> None:
         """Setup metrics based on current network configuration."""
