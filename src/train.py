@@ -211,6 +211,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         }
         log.info(f"Model loss functions: {criteria_info}")
 
+    # Log the configured loss type for experiment tracking
+    loss_type = getattr(cfg.model, 'loss_type', 'unknown')
+    log.info(f"EXPERIMENT CONFIG: loss_type={loss_type}")
+
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
 
@@ -261,6 +265,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
+
+        # Log actual number of epochs completed for experiment tracking
+        actual_epochs = trainer.current_epoch + 1 if trainer.current_epoch >= 0 else 0
+        log.info(f"TRAINING COMPLETED: actual_epochs={actual_epochs}")
 
     train_metrics = trainer.callback_metrics
 

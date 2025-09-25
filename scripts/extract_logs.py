@@ -9,6 +9,8 @@ HEAD_NAMES = ("log10_decay_time", "wah_position")
 METRIC_PRIORITY = ("loss", "mae", "rmse", "mse", "acc")
 BATCH_SIZE_PATTERN = re.compile(r"batch_size=([0-9]+)")
 MAX_EPOCHS_PATTERN = re.compile(r"max_epochs=([0-9]+)")
+ACTUAL_EPOCHS_PATTERN = re.compile(r"TRAINING COMPLETED: actual_epochs=([0-9]+)")
+LOSS_TYPE_PATTERN = re.compile(r"EXPERIMENT CONFIG: loss_type=([^\s]+)")
 
 
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
@@ -34,16 +36,26 @@ def _select_head_metric(metrics: dict, head: str):
     prefix = f"test/{head}"
     candidates = {k: v for k, v in metrics.items() if k.startswith(prefix)}
     if not candidates:
-        return None, None
+        return None, None, None
 
     for suffix in METRIC_PRIORITY:
         key = f"{prefix}_{suffix}"
         if key in candidates:
-            return candidates[key], suffix
+            return candidates[key], suffix, _get_metric_direction(suffix)
 
     name, value = next(iter(candidates.items()))
     metric_label = name.split("_")[-1] if "_" in name else name.split("/")[-1]
-    return value, metric_label
+    return value, metric_label, _get_metric_direction(metric_label)
+
+
+def _get_metric_direction(metric_type: str) -> str:
+    """Return arrow indicating better direction: ↑ for higher-is-better, ↓ for lower-is-better"""
+    if metric_type in ('acc', 'accuracy'):
+        return '↑'  # Higher accuracy is better
+    elif metric_type in ('loss', 'mae', 'rmse', 'mse'):
+        return '↓'  # Lower error/loss is better
+    else:
+        return '↑'  # Default to higher-is-better
 
 
 def _format_metric(value):
@@ -103,43 +115,56 @@ def extract_info_final(filename):
         batch_size = batch_size_match.group(1) if batch_size_match else 'N/A'
 
         max_epochs_match = MAX_EPOCHS_PATTERN.search(clean_content)
-        num_epochs = max_epochs_match.group(1) if max_epochs_match else 'N/A'
+        max_epochs = max_epochs_match.group(1) if max_epochs_match else 'N/A'
+
+        # Try to get actual epochs completed, fall back to max_epochs
+        actual_epochs_match = ACTUAL_EPOCHS_PATTERN.search(clean_content)
+        num_epochs = actual_epochs_match.group(1) if actual_epochs_match else max_epochs
+
+        # Extract configured loss type from experiment config log
+        loss_type_match = LOSS_TYPE_PATTERN.search(clean_content)
+        if loss_type_match:
+            loss_type = loss_type_match.group(1)
+        else:
+            # Fallback to old heuristic method for older logs
+            if 'ordinal' in filename:
+                loss_type = 'ordinal'
+            elif 'regression' in filename:
+                loss_type = 'normalized_regression'
+            else:
+                loss_type = 'cross_entropy'
 
         if metrics:
             head_values = {}
+            head_directions = {}
             for head in HEAD_NAMES:
-                value, _ = _select_head_metric(metrics, head)
+                value, metric_type, direction = _select_head_metric(metrics, head)
                 head_values[head] = value
-
-            acc_metrics = [v for k, v in metrics.items() if k.endswith('_acc')]
-            mae_metrics = [v for k, v in metrics.items() if k.endswith('_mae')]
-            loss_metrics = [v for k, v in metrics.items() if k.endswith('/loss') or k.endswith('_loss')]
-
-            if len(acc_metrics) > 1:
-                loss_type = 'JND-weighted'
-            elif 'ordinal' in filename:
-                loss_type = 'Ordinal'
-            elif mae_metrics:
-                loss_type = 'MSE/MAE'
-            elif acc_metrics:
-                loss_type = 'CrossEntropy'
-            elif loss_metrics:
-                loss_type = 'CrossEntropy'
-            else:
-                loss_type = 'Unknown'
+                head_directions[head] = direction
 
             relevant_values = [v for v in head_values.values() if v is not None]
+            fallback_used = False
             if relevant_values:
                 aggregate_metric = sum(relevant_values) / len(relevant_values)
+                # Aggregate direction: use majority direction from heads, or ↑ for mixed
+                directions = [d for d in head_directions.values() if d is not None]
+                aggregate_direction = max(set(directions), key=directions.count) if directions else '↑'
             elif 'test/loss' in metrics:
                 aggregate_metric = metrics['test/loss']
+                aggregate_direction = '↓'  # Loss is lower-is-better
+                fallback_used = True
             elif metrics:
                 aggregate_metric = next(iter(metrics.values()))
+                aggregate_direction = '↓'  # Default fallback assumes loss-like metric
+                fallback_used = True
             else:
                 aggregate_metric = None
+                aggregate_direction = '↑'
 
             per_head_display = {head: _format_metric(head_values[head]) for head in HEAD_NAMES}
             aggregate_display = _format_metric(aggregate_metric)
+            if fallback_used and aggregate_display != 'N/A':
+                aggregate_display += '*'
         else:
             if 'EXPERIMENT COMPLETED SUCCESSFULLY' in content:
                 loss_type = 'No test phase'
@@ -148,15 +173,19 @@ def extract_info_final(filename):
             else:
                 loss_type = 'Failed/Incomplete'
             aggregate_display = 'N/A'
+            aggregate_direction = '↑'
             per_head_display = {head: 'N/A' for head in HEAD_NAMES}
+            head_directions = {head: '↑' for head in HEAD_NAMES}
 
         return {
             'filename': filename,
             'loss_type': loss_type,
             'aggregate_metric': aggregate_display,
+            'aggregate_direction': aggregate_direction,
             'runtime': runtime,
             'params': params,
             'head_metrics': per_head_display,
+            'head_directions': head_directions,
             'batch_size': batch_size,
             'num_epochs': num_epochs,
         }
@@ -166,9 +195,11 @@ def extract_info_final(filename):
             'filename': filename,
             'loss_type': 'Error',
             'aggregate_metric': str(e)[:20],
+            'aggregate_direction': '↑',
             'runtime': 'N/A',
             'params': 'N/A',
             'head_metrics': {head: 'N/A' for head in HEAD_NAMES},
+            'head_directions': {head: '↑' for head in HEAD_NAMES},
             'batch_size': 'N/A',
             'num_epochs': 'N/A',
         }
@@ -197,17 +228,27 @@ print('|-----------------|-----------|------------------|------------------|----
 for result in results:
     exp_name = result['filename'].replace('-log.txt', '')
     head_metrics = result['head_metrics']
-    decay_metric = head_metrics['log10_decay_time']
-    wah_metric = head_metrics['wah_position']
+    head_directions = result['head_directions']
+
+    # Format metrics with arrows
+    aggregate_metric = f"{result['aggregate_metric']}{result['aggregate_direction']}"
+    decay_metric = f"{head_metrics['log10_decay_time']}{head_directions['log10_decay_time']}"
+    wah_metric = f"{head_metrics['wah_position']}{head_directions['wah_position']}"
+
     print(
-        f"| {exp_name:<30} | {result['loss_type']:<11} | {result['aggregate_metric']:<16} | "
+        f"| {exp_name:<30} | {result['loss_type']:<11} | {aggregate_metric:<16} | "
         f"{decay_metric:<16} | {wah_metric:<14} | {result['batch_size']:<10} | {result['num_epochs']:<10} | {result['runtime']:<8} | {result['params']} |"
     )
 
 print('\nNotes:')
+print('- Loss Type shows the configured loss function from model config (e.g., cross_entropy, normalized_regression, ordinal).')
+print('- Classification models (cross_entropy, ordinal) use JND-weighted accuracy metrics; regression models use MSE/MAE loss functions.')
+print('- Arrows indicate optimization direction: ↑ for higher-is-better (accuracies), ↓ for lower-is-better (losses/errors).')
 print('- Aggregate Metric is the mean of the available per-head test metrics for log10_decay_time and wah_position (falls back to test/loss when heads are missing).')
+print('- Values marked with * indicate fallback to test/loss due to missing head metrics.')
 print('- Per-head columns report the exact metric logged (accuracy for classification heads, MAE for regression heads); values are rounded to 4 decimals.')
-print('- Batch Size and Num Epochs are parsed from the Hydra data/trainer configuration lines (num_epochs reflects the configured `max_epochs`).')
+print('- Batch Size is parsed from the Hydra data configuration line.')
+print('- Num Epochs shows actual epochs completed when available (from training completion log), otherwise falls back to configured max_epochs.')
 print('- Runtime uses the shell `real` timer when present (falls back to log timestamps otherwise); Parameters come from the Lightning model summary output.')
 
 # Write CSV output if requested
