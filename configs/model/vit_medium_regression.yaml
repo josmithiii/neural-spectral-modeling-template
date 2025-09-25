@@ -1,0 +1,38 @@
+# Medium ViT with ~1M+ parameters for regression
+_target_: src.models.vimh_lit_module.VIMHLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001  # Lower LR for larger model
+  weight_decay: 0.0001  # Match CNN medium regression
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+# Enable regression in the Lightning module
+output_mode: regression
+
+# Loss weighting auto-configured from dataset JNDs (Just Noticeable Differences)
+loss_weights: {} # Empty - will be auto-configured from dataset metadata
+
+net:
+  _target_: src.models.components.vision_transformer.VisionTransformer
+  n_channels: 1
+  image_size: 32
+  patch_size: 4 # Keep same patch size as tiny
+  embed_dim: 256 # Much larger embedding (was 64)
+  n_layers: 8 # More layers (was 3)
+  n_attention_heads: 8 # More heads (was 4)
+  forward_mul: 4 # Larger MLP expansion (was 2)
+  dropout: 0.1 # Lower dropout for larger model
+  use_torch_layers: false
+  output_mode: regression
+  parameter_names: [synth_param1] # Placeholder; will be auto-configured from dataset metadata
+
+compile: false
+auto_configure_from_dataset: true

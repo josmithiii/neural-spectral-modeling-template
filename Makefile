@@ -109,12 +109,30 @@ ewt exp-wah-tiny: gdwl ## Train "tiny" (~40K) CNN on dataset gdwl (large sawtoot
 ewtq exp-wah-tiny-quick: gdwl ## Quick version ewt (exp-wah-tiny) to produce a checkpoint fast for testing (1 epoch, small dataset)
 	time python src/train.py experiment=wah_cnn_tiny trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (1.1M) CNN-pure-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.6 min to train on Mac MPS]
+ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (~40K) CNN-regression on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn_tiny_regression
 
 # Quick variant of ewtr: 1 epoch on the small dataset to produce a checkpoint fast
-ewtrq exp-wah-tiny-regression-quick: gdws ## Quick regression run (1 epoch, small dataset) to produce a checkpoint fast
+ewtrq exp-wah-tiny-regression-quick: gdws ## Quick tiny regression run (1 epoch, small dataset) to produce a checkpoint fast
 	python src/train.py experiment=wah_cnn_tiny_regression trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
+
+ewm exp-wah-medium: gdwl ## Train "medium" (~1.1M) CNN on dataset gdwl (large sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_cnn_medium
+
+ewmr exp-wah-medium-regression: gdwl ## Train "medium" (1.1M) CNN-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.6 min to train on Mac MPS]
+	time python src/train.py experiment=wah_cnn_medium_regression
+
+ewvt exp-wah-vit-tiny: gdwl ## Train "tiny" (~25K) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_vit_tiny
+
+ewvtr exp-wah-vit-tiny-regression: gdwl ## Train "tiny" (~25K) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_vit_tiny_regression
+
+ewvm exp-wah-vit-medium: gdwl ## Train "medium" (~1M+) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_vit_medium
+
+ewvmr exp-wah-vit-medium-regression: gdwl ## Train "medium" (~1M+) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
+	time python src/train.py experiment=wah_vit_medium_regression
 # EVALS "ev" - Evaluate saved checkpoints
 
 evwt eval-wah-tiny: ## Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override)

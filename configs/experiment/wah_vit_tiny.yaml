@@ -1,0 +1,37 @@
+# @package _global_
+
+# Wah Pedal ViT experiment: Tiny ViT on Decaying Sawtooth into Fixed Wah Pedal
+# python src/train.py experiment=wah_vit_tiny
+
+defaults:
+  - override /data: vimh
+  - override /model: vit_tiny # ~25K trainable parameters, cross_entropy loss
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["wah", "vit_tiny", "cross_entropy"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 20
+  max_epochs: 200  # Same as CNN for comparison
+
+model:
+  optimizer:
+    lr: 0.003  # ViT typically needs lower LR than CNN
+    weight_decay: 0.001  # Lower weight decay for ViT
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    _partial_: true
+    mode: min
+    factor: 0.5
+    patience: 5  # Longer patience for ViT
+
+data:
+  data_dir: data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p  # Use same large dataset
+  batch_size: 64  # Same batch size for comparison
+
+logger:
+  tensorboard:
+    name: "wah_vit_tiny"

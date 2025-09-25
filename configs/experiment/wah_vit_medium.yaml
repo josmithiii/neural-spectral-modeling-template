@@ -1,0 +1,37 @@
+# @package _global_
+
+# Wah Pedal ViT experiment: Medium ViT on Decaying Sawtooth into Fixed Wah Pedal
+# python src/train.py experiment=wah_vit_medium
+
+defaults:
+  - override /data: vimh
+  - override /model: vit_medium # ~1M+ trainable parameters, cross_entropy loss
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["wah", "vit_medium", "cross_entropy"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 20
+  max_epochs: 200  # Same as other medium models for comparison
+
+model:
+  optimizer:
+    lr: 0.001  # Lower LR for larger ViT
+    weight_decay: 0.0001  # Match CNN medium
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    _partial_: true
+    mode: min
+    factor: 0.1
+    patience: 10  # Longer patience for larger model
+
+data:
+  data_dir: data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p  # Use same large dataset
+  batch_size: 32  # Smaller batch for larger model (memory)
+
+logger:
+  tensorboard:
+    name: "wah_vit_medium"
