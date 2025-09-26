@@ -15,6 +15,7 @@ from .losses import (
     WeightedCrossEntropyLoss,
 )
 from .soft_target_loss import SoftTargetLoss
+from .jnd_accuracy import JNDToleranceAccuracy, ExactAccuracy
 
 
 class VIMHLitModule(LightningModule):
@@ -255,22 +256,43 @@ class VIMHLitModule(LightningModule):
 
         for head_name, num_classes in head_configs.items():
             if self.output_mode == "regression":
-                # For regression, we'll use MAE as the primary metric instead of accuracy
+                # For regression, use MAE as the primary metric
                 from torchmetrics.regression import MeanAbsoluteError
 
                 self.train_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
                 self.val_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
                 self.test_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
+
+                # Add JND tolerance accuracies for regression (converting continuous predictions to class indices)
+                for tolerance in [1, 3, 5]:
+                    metric_name = f"{head_name}_acc_jnd{tolerance}"
+                    self.train_metrics[metric_name] = JNDToleranceAccuracy(
+                        tolerance_jnds=tolerance, num_classes=num_classes
+                    )
+                    self.val_metrics[metric_name] = JNDToleranceAccuracy(
+                        tolerance_jnds=tolerance, num_classes=num_classes
+                    )
+                    self.test_metrics[metric_name] = JNDToleranceAccuracy(
+                        tolerance_jnds=tolerance, num_classes=num_classes
+                    )
             else:
-                self.train_metrics[f"{head_name}_acc"] = Accuracy(
-                    task="multiclass", num_classes=num_classes
-                )
-                self.val_metrics[f"{head_name}_acc"] = Accuracy(
-                    task="multiclass", num_classes=num_classes
-                )
-                self.test_metrics[f"{head_name}_acc"] = Accuracy(
-                    task="multiclass", num_classes=num_classes
-                )
+                # For classification, use exact accuracy
+                self.train_metrics[f"{head_name}_acc"] = ExactAccuracy()
+                self.val_metrics[f"{head_name}_acc"] = ExactAccuracy()
+                self.test_metrics[f"{head_name}_acc"] = ExactAccuracy()
+
+                # Add JND tolerance accuracies for classification
+                for tolerance in [1, 3, 5]:
+                    metric_name = f"{head_name}_acc_jnd{tolerance}"
+                    self.train_metrics[metric_name] = JNDToleranceAccuracy(
+                        tolerance_jnds=tolerance, num_classes=num_classes
+                    )
+                    self.val_metrics[metric_name] = JNDToleranceAccuracy(
+                        tolerance_jnds=tolerance, num_classes=num_classes
+                    )
+                    self.test_metrics[metric_name] = JNDToleranceAccuracy(
+                        tolerance_jnds=tolerance, num_classes=num_classes
+                    )
 
         # Loss tracking
         self.train_loss = MeanMetric()
@@ -692,11 +714,27 @@ class VIMHLitModule(LightningModule):
                     self.train_metrics[f"{head_name}_mae"](
                         preds_dict[head_name], targets_dict[head_name]
                     )
+
+                # Update JND tolerance accuracies for regression
+                for tolerance in [1, 3, 5]:
+                    metric_name = f"{head_name}_acc_jnd{tolerance}"
+                    if metric_name in self.train_metrics:
+                        self.train_metrics[metric_name](
+                            preds_dict[head_name], targets_dict[head_name]
+                        )
             else:
                 if f"{head_name}_acc" in self.train_metrics:
                     self.train_metrics[f"{head_name}_acc"](
                         preds_dict[head_name], targets_dict[head_name]
                     )
+
+                # Update JND tolerance accuracies for classification
+                for tolerance in [1, 3, 5]:
+                    metric_name = f"{head_name}_acc_jnd{tolerance}"
+                    if metric_name in self.train_metrics:
+                        self.train_metrics[metric_name](
+                            preds_dict[head_name], targets_dict[head_name]
+                        )
 
         # Log metrics
         self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -748,11 +786,27 @@ class VIMHLitModule(LightningModule):
                     self.val_metrics[f"{head_name}_mae"](
                         preds_dict[head_name], targets_dict[head_name]
                     )
+
+                # Update JND tolerance accuracies for regression
+                for tolerance in [1, 3, 5]:
+                    metric_name = f"{head_name}_acc_jnd{tolerance}"
+                    if metric_name in self.val_metrics:
+                        self.val_metrics[metric_name](
+                            preds_dict[head_name], targets_dict[head_name]
+                        )
             else:
                 if f"{head_name}_acc" in self.val_metrics:
                     self.val_metrics[f"{head_name}_acc"](
                         preds_dict[head_name], targets_dict[head_name]
                     )
+
+                # Update JND tolerance accuracies for classification
+                for tolerance in [1, 3, 5]:
+                    metric_name = f"{head_name}_acc_jnd{tolerance}"
+                    if metric_name in self.val_metrics:
+                        self.val_metrics[metric_name](
+                            preds_dict[head_name], targets_dict[head_name]
+                        )
 
         # Log metrics
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -826,11 +880,27 @@ class VIMHLitModule(LightningModule):
                     self.test_metrics[f"{head_name}_mae"](
                         preds_dict[head_name], targets_dict[head_name]
                     )
+
+                # Update JND tolerance accuracies for regression
+                for tolerance in [1, 3, 5]:
+                    metric_name = f"{head_name}_acc_jnd{tolerance}"
+                    if metric_name in self.test_metrics:
+                        self.test_metrics[metric_name](
+                            preds_dict[head_name], targets_dict[head_name]
+                        )
             else:
                 if f"{head_name}_acc" in self.test_metrics:
                     self.test_metrics[f"{head_name}_acc"](
                         preds_dict[head_name], targets_dict[head_name]
                     )
+
+                # Update JND tolerance accuracies for classification
+                for tolerance in [1, 3, 5]:
+                    metric_name = f"{head_name}_acc_jnd{tolerance}"
+                    if metric_name in self.test_metrics:
+                        self.test_metrics[metric_name](
+                            preds_dict[head_name], targets_dict[head_name]
+                        )
 
         # Log metrics
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -845,6 +915,19 @@ class VIMHLitModule(LightningModule):
                         on_epoch=True,
                         prog_bar=True,
                     )
+
+                # Log JND tolerance accuracies for regression
+                for tolerance in [1, 3, 5]:
+                    metric_name_base = f"{head_name}_acc_jnd{tolerance}"
+                    if metric_name_base in self.test_metrics:
+                        metric_name = f"test/{metric_name_base}" if self.is_multihead else f"test/acc_jnd{tolerance}"
+                        self.log(
+                            metric_name,
+                            self.test_metrics[metric_name_base],
+                            on_step=False,
+                            on_epoch=True,
+                            prog_bar=False,  # Don't clutter progress bar, but do log
+                        )
             else:
                 if f"{head_name}_acc" in self.test_metrics:
                     metric_name = f"test/{head_name}_acc" if self.is_multihead else "test/acc"
@@ -855,6 +938,19 @@ class VIMHLitModule(LightningModule):
                         on_epoch=True,
                         prog_bar=True,
                     )
+
+                # Log JND tolerance accuracies for classification
+                for tolerance in [1, 3, 5]:
+                    metric_name_base = f"{head_name}_acc_jnd{tolerance}"
+                    if metric_name_base in self.test_metrics:
+                        metric_name = f"test/{metric_name_base}" if self.is_multihead else f"test/acc_jnd{tolerance}"
+                        self.log(
+                            metric_name,
+                            self.test_metrics[metric_name_base],
+                            on_step=False,
+                            on_epoch=True,
+                            prog_bar=False,  # Don't clutter progress bar, but do log
+                        )
 
     def on_test_epoch_end(self) -> None:
         """Lightning hook that is called when a test epoch ends."""

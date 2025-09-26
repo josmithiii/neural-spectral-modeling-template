@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 
 HEAD_NAMES = ("log10_decay_time", "wah_position")
-METRIC_PRIORITY = ("loss", "mae", "rmse", "mse", "acc")
+METRIC_PRIORITY = ("loss", "mae", "rmse", "mse", "acc", "acc_jnd1", "acc_jnd3", "acc_jnd5")
 BATCH_SIZE_PATTERN = re.compile(r"batch_size=([0-9]+)")
 MAX_EPOCHS_PATTERN = re.compile(r"max_epochs=([0-9]+)")
 ACTUAL_EPOCHS_PATTERN = re.compile(r"TRAINING COMPLETED: actual_epochs=([0-9]+)")
@@ -48,9 +48,17 @@ def _select_head_metric(metrics: dict, head: str):
     return value, metric_label, _get_metric_direction(metric_label)
 
 
+def _select_jnd_metric(metrics: dict, head: str, jnd_level: int):
+    """Select JND accuracy metric for a specific head and JND level."""
+    key = f"test/{head}_acc_jnd{jnd_level}"
+    if key in metrics:
+        return metrics[key]
+    return None
+
+
 def _get_metric_direction(metric_type: str) -> str:
     """Return arrow indicating better direction: ↑ for higher-is-better, ↓ for lower-is-better"""
-    if metric_type in ('acc', 'accuracy'):
+    if metric_type in ('acc', 'accuracy', 'acc_jnd1', 'acc_jnd3', 'acc_jnd5'):
         return '↑'  # Higher accuracy is better
     elif metric_type in ('loss', 'mae', 'rmse', 'mse'):
         return '↓'  # Lower error/loss is better
@@ -165,6 +173,19 @@ def extract_info_final(filename):
             aggregate_display = _format_metric(aggregate_metric)
             if fallback_used and aggregate_display != 'N/A':
                 aggregate_display += '*'
+
+            # Collect JND accuracy metrics for unified reporting
+            jnd_metrics = {}
+            for jnd_level in [1, 3, 5]:
+                jnd_values = []
+                for head in HEAD_NAMES:
+                    jnd_value = _select_jnd_metric(metrics, head, jnd_level)
+                    if jnd_value is not None:
+                        jnd_values.append(jnd_value)
+                if jnd_values:
+                    jnd_metrics[f'jnd_{jnd_level}'] = sum(jnd_values) / len(jnd_values)
+                else:
+                    jnd_metrics[f'jnd_{jnd_level}'] = None
         else:
             if 'EXPERIMENT COMPLETED SUCCESSFULLY' in content:
                 loss_type = 'No test phase'
@@ -176,6 +197,7 @@ def extract_info_final(filename):
             aggregate_direction = '↑'
             per_head_display = {head: 'N/A' for head in HEAD_NAMES}
             head_directions = {head: '↑' for head in HEAD_NAMES}
+            jnd_metrics = {f'jnd_{level}': None for level in [1, 3, 5]}
 
         return {
             'filename': filename,
@@ -188,6 +210,7 @@ def extract_info_final(filename):
             'head_directions': head_directions,
             'batch_size': batch_size,
             'num_epochs': num_epochs,
+            'jnd_metrics': jnd_metrics,
         }
 
     except Exception as e:
@@ -202,6 +225,7 @@ def extract_info_final(filename):
             'head_directions': {head: '↑' for head in HEAD_NAMES},
             'batch_size': 'N/A',
             'num_epochs': 'N/A',
+            'jnd_metrics': {f'jnd_{level}': None for level in [1, 3, 5]},
         }
 
 # Parse command line arguments
@@ -221,32 +245,41 @@ for log_file in sorted(log_files):
 # Print results in structured format
 header = (
     '| Experiment Name | Loss Type | Aggregate Metric | '
-    'log10_decay_time | wah_position | Batch Size | Num Epochs | Runtime | Parameters |'
+    'log10_decay_time | wah_position | JND-1 Acc | JND-3 Acc | JND-5 Acc | Batch Size | Num Epochs | Runtime | Parameters |'
 )
 print(header)
-print('|-----------------|-----------|------------------|------------------|----------------|------------|------------|---------|------------|')
+print('|-----------------|-----------|------------------|------------------|----------------|-----------|-----------|-----------|------------|------------|---------|------------|')
 for result in results:
     exp_name = result['filename'].replace('-log.txt', '')
     head_metrics = result['head_metrics']
     head_directions = result['head_directions']
+    jnd_metrics = result.get('jnd_metrics', {})
 
     # Format metrics with arrows
     aggregate_metric = f"{result['aggregate_metric']}{result['aggregate_direction']}"
     decay_metric = f"{head_metrics['log10_decay_time']}{head_directions['log10_decay_time']}"
     wah_metric = f"{head_metrics['wah_position']}{head_directions['wah_position']}"
 
+    # Format JND accuracy metrics
+    jnd1_metric = _format_metric(jnd_metrics.get('jnd_1')) + '↑' if jnd_metrics.get('jnd_1') is not None else 'N/A'
+    jnd3_metric = _format_metric(jnd_metrics.get('jnd_3')) + '↑' if jnd_metrics.get('jnd_3') is not None else 'N/A'
+    jnd5_metric = _format_metric(jnd_metrics.get('jnd_5')) + '↑' if jnd_metrics.get('jnd_5') is not None else 'N/A'
+
     print(
-        f"| {exp_name:<30} | {result['loss_type']:<11} | {aggregate_metric:<16} | "
-        f"{decay_metric:<16} | {wah_metric:<14} | {result['batch_size']:<10} | {result['num_epochs']:<10} | {result['runtime']:<8} | {result['params']} |"
+        f"| {exp_name:<30} | {result['loss_type']:<9} | {aggregate_metric:<16} | "
+        f"{decay_metric:<16} | {wah_metric:<14} | {jnd1_metric:<9} | {jnd3_metric:<9} | {jnd5_metric:<9} | "
+        f"{result['batch_size']:<10} | {result['num_epochs']:<10} | {result['runtime']:<7} | {result['params']} |"
     )
 
 print('\nNotes:')
 print('- Loss Type shows the configured loss function from model config (e.g., cross_entropy, normalized_regression, ordinal).')
-print('- Classification models (cross_entropy, ordinal) use JND-weighted accuracy metrics; regression models use MSE/MAE loss functions.')
+print('- JND-X Acc columns show unified Just Noticeable Difference accuracy: percentage of predictions within X JND steps.')
+print('- JND accuracy works for both classification (discrete bins) and regression (continuous values quantized to JND steps).')
+print('- Per-head columns report the primary metric: accuracy for classification, MAE for regression.')
 print('- Arrows indicate optimization direction: ↑ for higher-is-better (accuracies), ↓ for lower-is-better (losses/errors).')
 print('- Aggregate Metric is the mean of the available per-head test metrics for log10_decay_time and wah_position (falls back to test/loss when heads are missing).')
 print('- Values marked with * indicate fallback to test/loss due to missing head metrics.')
-print('- Per-head columns report the exact metric logged (accuracy for classification heads, MAE for regression heads); values are rounded to 4 decimals.')
+print('- All metrics are rounded to 4 decimals.')
 print('- Batch Size is parsed from the Hydra data configuration line.')
 print('- Num Epochs shows actual epochs completed when available (from training completion log), otherwise falls back to configured max_epochs.')
 print('- Runtime uses the shell `real` timer when present (falls back to log timestamps otherwise); Parameters come from the Lightning model summary output.')
@@ -255,19 +288,24 @@ print('- Runtime uses the shell `real` timer when present (falls back to log tim
 if args.csv:
     csv_filename = args.csv
     with open(csv_filename, 'w', newline='') as csvfile:
-        fieldnames = ['Experiment_Name', 'Loss_Type', 'Aggregate_Metric', 'log10_decay_time', 'wah_position', 'Batch_Size', 'Num_Epochs', 'Runtime', 'Parameters']
+        fieldnames = ['Experiment_Name', 'Loss_Type', 'Aggregate_Metric', 'log10_decay_time', 'wah_position',
+                     'JND_1_Acc', 'JND_3_Acc', 'JND_5_Acc', 'Batch_Size', 'Num_Epochs', 'Runtime', 'Parameters']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
         for result in results:
             exp_name = result['filename'].replace('-log.txt', '')
             head_metrics = result['head_metrics']
+            jnd_metrics = result.get('jnd_metrics', {})
             writer.writerow({
                 'Experiment_Name': exp_name,
                 'Loss_Type': result['loss_type'],
                 'Aggregate_Metric': result['aggregate_metric'],
                 'log10_decay_time': head_metrics['log10_decay_time'],
                 'wah_position': head_metrics['wah_position'],
+                'JND_1_Acc': _format_metric(jnd_metrics.get('jnd_1')) if jnd_metrics.get('jnd_1') is not None else 'N/A',
+                'JND_3_Acc': _format_metric(jnd_metrics.get('jnd_3')) if jnd_metrics.get('jnd_3') is not None else 'N/A',
+                'JND_5_Acc': _format_metric(jnd_metrics.get('jnd_5')) if jnd_metrics.get('jnd_5') is not None else 'N/A',
                 'Batch_Size': result['batch_size'],
                 'Num_Epochs': result['num_epochs'],
                 'Runtime': result['runtime'],
