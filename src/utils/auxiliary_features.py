@@ -139,21 +139,21 @@ def compute_temporal_envelope_from_spectrogram(
 
 
 def extract_auxiliary_features(
-    data: Dict[str, torch.Tensor], feature_types: List[str] = ["decay_time"]
+    data: Dict[str, torch.Tensor], feature_types: List[str] = ["log10_decay_time"]
 ) -> torch.Tensor:
     """
     Extract auxiliary scalar features from VIMH data dict.
 
     Args:
         data: Dictionary with 'image', 'temporal_envelope', etc.
-        feature_types: List of feature types to extract
+        feature_types: List of feature types to extract (e.g., ["log10_decay_time"])
 
     Returns:
         auxiliary_features: [B, num_features] tensor
     """
     features_list = []
 
-    if "decay_time" in feature_types:
+    if "log10_decay_time" in feature_types:
         # First try to use pre-computed temporal envelope (faster)
         if "temporal_envelope" in data:
             decay_features = extract_decay_time_features(data["temporal_envelope"])

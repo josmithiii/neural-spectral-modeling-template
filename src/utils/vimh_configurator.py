@@ -108,3 +108,12 @@ def configure_vimh_model(cfg: DictConfig) -> None:
             cfg.model.loss_weights = loss_weights
         log.info(f"Auto-configured JND-based loss_weights (normalized): {cfg.model.loss_weights}")
 
+    # Configure auxiliary input size based on auxiliary features
+    auxiliary_features = getattr(cfg.data, "auxiliary_features", None)
+    if auxiliary_features and len(auxiliary_features) > 0:
+        # Each auxiliary feature contributes 1 input dimension
+        aux_input_size = len(auxiliary_features)
+        with open_dict(cfg.model):
+            cfg.model.net.auxiliary_input_size = aux_input_size
+        log.info(f"Auto-configured auxiliary_input_size: {aux_input_size} (features: {auxiliary_features})")
+

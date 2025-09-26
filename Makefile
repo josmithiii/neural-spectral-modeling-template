@@ -116,11 +116,23 @@ ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (~40K) CNN-regression on data
 ewtrq exp-wah-tiny-regression-quick: gdws ## Quick tiny regression run (1 epoch, small dataset) to produce a checkpoint fast
 	python src/train.py experiment=wah_cnn_tiny_regression trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
+ewta exp-wah-tiny-auxiliary: gdwl ## Train "tiny" (~40K) CNN with auxiliary input (decay_time) on dataset gdwl - classification
+	time python src/train.py experiment=wah_cnn_tiny_auxiliary
+
+ewtar exp-wah-tiny-auxiliary-regression: gdwl ## Train "tiny" (~40K) CNN with auxiliary input (decay_time) on dataset gdwl - regression
+	time python src/train.py experiment=wah_cnn_tiny_auxiliary_regression
+
 ewm exp-wah-medium: gdwl ## Train "medium" (~1.1M) CNN on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn_medium
 
 ewmr exp-wah-medium-regression: gdwl ## Train "medium" (1.1M) CNN-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.6 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_medium_regression
+
+ewma exp-wah-medium-auxiliary: gdwl ## Train "medium" (~1.1M) CNN with auxiliary input (decay_time) on dataset gdwl - classification
+	time python src/train.py experiment=wah_cnn_medium_auxiliary
+
+ewmar exp-wah-medium-auxiliary-regression: gdwl ## Train "medium" (~1.1M) CNN with auxiliary input (decay_time) on dataset gdwl - regression
+	time python src/train.py experiment=wah_cnn_medium_auxiliary_regression
 
 ewvt exp-wah-vit-tiny: gdwl ## Train "tiny" (~25K) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_tiny
