@@ -1,17 +1,32 @@
 SHELL := /bin/bash
 
+# ENVIRONMENT CHECKING
+
+check-env: ## Check if virtual environment is activated
+	@if [ -z "$$VIRTUAL_ENV" ]; then \
+		echo "ERROR: Virtual environment is not activated!"; \
+		echo ""; \
+		echo "Please activate the environment first:"; \
+		echo "  source .venv/bin/activate    # for bash/zsh"; \
+		echo "  source .venv/bin/activate.csh # for csh/tcsh"; \
+		echo ""; \
+		echo "Or run: bash setup.bash to create the environment first"; \
+		exit 1; \
+	fi
+	@echo "Virtual environment is active: $$VIRTUAL_ENV"
+
 h help:  ## Show help
 	@grep -E '^[.a-zA-Z0-9_ -]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' | less -R
 
 # GENERATE DATASET MAKE TARGETS "gd"
 
-gds generate-dataset-small: ## Synthesize a small example VIMH dataset with SawSynth + Wah (256 samples)
+gds generate-dataset-small: check-env ## Synthesize a small example VIMH dataset with SawSynth + Wah (256 samples)
 	(make gdws)          # Default is currently the Saw + Wah dataset below
 
-gdl generate-dataset-large: ## Synthesize a larger example VIMH dataset with SawSynth + Wah (16k samples)
+gdl generate-dataset-large: check-env ## Synthesize a larger example VIMH dataset with SawSynth + Wah (16k samples)
 	(make gdwl)          # Default is currently the Saw + Wah dataset below
 
-gdws generate-dataset-wah-small: ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (256 samples)
+gdws generate-dataset-wah-small: check-env ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (256 samples)
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p"; \
 	else \
@@ -19,7 +34,7 @@ gdws generate-dataset-wah-small: ## Synthesize VIMH dataset with Saw + Wah - dec
 	fi
 	ls ./data/
 
-gdwl generate-dataset-wah-large: ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (16k samples)
+gdwl generate-dataset-wah-large: check-env ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (16k samples)
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p"; \
 	else \
@@ -27,7 +42,7 @@ gdwl generate-dataset-wah-large: ## Synthesize VIMH dataset with Saw + Wah - dec
 	fi
 	ls ./data/
 
-gdwe generate-dataset-wah-envelope: ## Synthesize VIMH dataset with Saw + Wah ADSR envelope settings varied (512 samples)
+gdwe generate-dataset-wah-envelope: check-env ## Synthesize VIMH dataset with Saw + Wah ADSR envelope settings varied (512 samples)
 	@if [ -f ./data/vimh-32x64x1_8000Hz_2p0s_512dss_wah_envelope_9p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: data/vimh-32x64x1_8000Hz_2p0s_512dss_wah_envelope_9p"; \
 	else \
@@ -38,118 +53,118 @@ gdas generate-dataset-all-small: gdws gdwe ## Generate all small wah datasets
 
 # DUMP VIMH DATASET METADATA "vd"
 
-vdr vd vimh-dump-recent: ## Dump the metadata of the most recent VIMH dataset in ./data/
+vdr vd vimh-dump-recent: check-env ## Dump the metadata of the most recent VIMH dataset in ./data/
 	python vimhd.py
 
-vds vimh-dump-small: ## Dump the metadata of the small example SawSynth dataset (256 samples)
+vds vimh-dump-small: check-env ## Dump the metadata of the small example SawSynth dataset (256 samples)
 	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-vdl vimh-dump-large: ## Dump the metadata of the larger example VIMH dataset with SawSynth (16k samples)
+vdl vimh-dump-large: check-env ## Dump the metadata of the larger example VIMH dataset with SawSynth (16k samples)
 	python vimhd.py ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # ANALYZE VIMH PARAMETER DISTRIBUTIONS "vp"
 
-vpr vp vimh-params-recent: ## Analyze parameter distributions in the most recent VIMH dataset
+vpr vp vimh-params-recent: check-env ## Analyze parameter distributions in the most recent VIMH dataset
 	python vimhd.py -p
 
-vps vimh-params-small: ## Analyze parameter distributions in the small example SawSynth dataset (256 samples)
+vps vimh-params-small: check-env ## Analyze parameter distributions in the small example SawSynth dataset (256 samples)
 	python vimhd.py -p ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-vpl vimh-params-large: ## Analyze parameter distributions in the larger example VIMH dataset (16k samples)
+vpl vimh-params-large: check-env ## Analyze parameter distributions in the larger example VIMH dataset (16k samples)
 	python vimhd.py -p ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # DISPLAY VIMH DATASETS "dd"
 
-ddr display-dataset-recent: ## Display the most recently created dataset (default)
+ddr display-dataset-recent: check-env ## Display the most recently created dataset (default)
 	python display_vimh.py
 
-dds display-dataset-small: generate-dataset-small ## Display the small example VIMH dataset (256 samples)
+dds display-dataset-small: check-env generate-dataset-small ## Display the small example VIMH dataset (256 samples)
 	python display_vimh.py ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-ddl display-dataset-large: gdl ## Display the larger example VIMH dataset (16k samples)
+ddl display-dataset-large: check-env gdl ## Display the larger example VIMH dataset (16k samples)
 	python display_vimh.py ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # EXPERIMENTS "e" - Complete Configuration Examples
 
-ex exp-example: generate-dataset-small ## Train CNN on default dataset
+ex exp-example: check-env generate-dataset-small ## Train CNN on default dataset
 	time python src/train.py experiment=example  # ./configs/experiment/example.yaml
 
-ea exp-all: ## Run ALL experiments, capturing outputs in experiment_logs/
+ea exp-all: check-env ## Run ALL experiments, capturing outputs in experiment_logs/
 	time bash scripts/run_all_experiments.sh --force && python ./scripts/extract_logs.py --csv > experiments_overview.md
 
-en exp-new: ## Run all new experiments not having a log yet, capturing their outputs in experiment_logs/
+en exp-new: check-env ## Run all new experiments not having a log yet, capturing their outputs in experiment_logs/
 	time bash scripts/run_all_experiments.sh --jobs 1 && python ./scripts/extract_logs.py --csv > experiments_overview.md
 
 exp-clean: ## Clean all experiment logs in ./experiment_logs/
 	/bin/rm -rf ./experiment_logs/*-log.txt
 
-xl extract-logs:
+xl extract-logs: check-env
 	python ./scripts/extract_logs.py
 
-xlu extract-logs-update:
+xlu extract-logs-update: check-env
 	python ./scripts/extract_logs.py --csv > experiments_overview.md
 
 # TRIVIAL DATASET EXPERIMENTS "et" - Small models for testing on trivial synthetic data
 
-etms exp-trivial-micro-small: gds ## Micro CNN (~10K params) on small dataset (256 samples) - ordinal classification loss
+etms exp-trivial-micro-small: check-env gds ## Micro CNN (~10K params) on small dataset (256 samples) - ordinal classification loss
 	time python src/train.py experiment=trivial_micro_small
 
-etmsr exp-trivial-micro-small-regression: gds ## Micro CNN (~10K params) on small dataset (256 samples) - regression loss
+etmsr exp-trivial-micro-small-regression: check-env gds ## Micro CNN (~10K params) on small dataset (256 samples) - regression loss
 	time python src/train.py experiment=trivial_micro_small_regression
 
-etts exp-trivial-tiny-small: gds ## Tiny CNN (~40K params) on small dataset (256 samples)
+etts exp-trivial-tiny-small: check-env gds ## Tiny CNN (~40K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_tiny_small
 
 # TRIVIAL DATASET ViT EXPERIMENTS "evit" - Small ViT models for testing on trivial synthetic data
 
-evitms exp-trivial-vit-micro-small: gds ## Micro ViT (~23K params) on small dataset (256 samples)
+evitms exp-trivial-vit-micro-small: check-env gds ## Micro ViT (~23K params) on small dataset (256 samples)
 	time python src/train.py experiment=trivial_vit_micro_small
 
-ewt exp-wah-tiny: gdwl ## Train "tiny" (~40K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~9 min to train on Mac MPS]
+ewt exp-wah-tiny: check-env gdwl ## Train "tiny" (~40K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~9 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_tiny
 
-ewtq exp-wah-tiny-quick: gdwl ## Quick version ewt (exp-wah-tiny) to produce a checkpoint fast for testing (1 epoch, small dataset)
+ewtq exp-wah-tiny-quick: check-env gdwl ## Quick version ewt (exp-wah-tiny) to produce a checkpoint fast for testing (1 epoch, small dataset)
 	time python src/train.py experiment=wah_cnn_tiny trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-ewtr exp-wah-tiny-regression: gdwl ## Train "tiny" (~40K) CNN-regression on dataset gdwl (large sawtooth + wah + decay envelope)
+ewtr exp-wah-tiny-regression: check-env gdwl ## Train "tiny" (~40K) CNN-regression on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn_tiny_regression
 
 # Quick variant of ewtr: 1 epoch on the small dataset to produce a checkpoint fast
-ewtrq exp-wah-tiny-regression-quick: gdws ## Quick tiny regression run (1 epoch, small dataset) to produce a checkpoint fast
+ewtrq exp-wah-tiny-regression-quick: check-env gdws ## Quick tiny regression run (1 epoch, small dataset) to produce a checkpoint fast
 	python src/train.py experiment=wah_cnn_tiny_regression trainer.max_epochs=1 data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-ewta exp-wah-tiny-auxiliary: gdwl ## Train "tiny" (~40K) CNN with auxiliary input (decay_time) on dataset gdwl - classification
+ewta exp-wah-tiny-auxiliary: check-env gdwl ## Train "tiny" (~40K) CNN with auxiliary input (decay_time) on dataset gdwl - classification
 	time python src/train.py experiment=wah_cnn_tiny_auxiliary
 
-ewtar exp-wah-tiny-auxiliary-regression: gdwl ## Train "tiny" (~40K) CNN with auxiliary input (decay_time) on dataset gdwl - regression
+ewtar exp-wah-tiny-auxiliary-regression: check-env gdwl ## Train "tiny" (~40K) CNN with auxiliary input (decay_time) on dataset gdwl - regression
 	time python src/train.py experiment=wah_cnn_tiny_auxiliary_regression
 
-ewm exp-wah-medium: gdwl ## Train "medium" (~1.1M) CNN on dataset gdwl (large sawtooth + wah + decay envelope)
+ewm exp-wah-medium: check-env gdwl ## Train "medium" (~1.1M) CNN on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_cnn_medium
 
-ewmr exp-wah-medium-regression: gdwl ## Train "medium" (1.1M) CNN-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.6 min to train on Mac MPS]
+ewmr exp-wah-medium-regression: check-env gdwl ## Train "medium" (1.1M) CNN-regression on dataset gdwl (large sawtooth + wah + decay envelope) [~4.6 min to train on Mac MPS]
 	time python src/train.py experiment=wah_cnn_medium_regression
 
-ewma exp-wah-medium-auxiliary: gdwl ## Train "medium" (~1.1M) CNN with auxiliary input (decay_time) on dataset gdwl - classification
+ewma exp-wah-medium-auxiliary: check-env gdwl ## Train "medium" (~1.1M) CNN with auxiliary input (decay_time) on dataset gdwl - classification
 	time python src/train.py experiment=wah_cnn_medium_auxiliary
 
-ewmar exp-wah-medium-auxiliary-regression: gdwl ## Train "medium" (~1.1M) CNN with auxiliary input (decay_time) on dataset gdwl - regression
+ewmar exp-wah-medium-auxiliary-regression: check-env gdwl ## Train "medium" (~1.1M) CNN with auxiliary input (decay_time) on dataset gdwl - regression
 	time python src/train.py experiment=wah_cnn_medium_auxiliary_regression
 
-ewvt exp-wah-vit-tiny: gdwl ## Train "tiny" (~25K) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
+ewvt exp-wah-vit-tiny: check-env gdwl ## Train "tiny" (~25K) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_tiny
 
-ewvtr exp-wah-vit-tiny-regression: gdwl ## Train "tiny" (~25K) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
+ewvtr exp-wah-vit-tiny-regression: check-env gdwl ## Train "tiny" (~25K) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_tiny_regression
 
-ewvm exp-wah-vit-medium: gdwl ## Train "medium" (~1M+) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
+ewvm exp-wah-vit-medium: check-env gdwl ## Train "medium" (~1M+) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_medium
 
-ewvmr exp-wah-vit-medium-regression: gdwl ## Train "medium" (~1M+) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
+ewvmr exp-wah-vit-medium-regression: check-env gdwl ## Train "medium" (~1M+) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_medium_regression
 # EVALS "ev" - Evaluate saved checkpoints
 
-evwt eval-wah-tiny: ## Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override)
+evwt eval-wah-tiny: check-env ## Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		echo "[eval] Locating latest wah_cnn_tiny (classification) run..."; \
@@ -172,7 +187,7 @@ evwt eval-wah-tiny: ## Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=pa
 		time python src/train.py experiment=wah_cnn_tiny train=false test=true ckpt_path=$(CKPT); \
 	fi
 
-evwtr eval-wah-tiny-regression: ## Evaluate latest wah_cnn_tiny_regression best checkpoint (set CKPT=path/to.ckpt to override)
+evwtr eval-wah-tiny-regression: check-env ## Evaluate latest wah_cnn_tiny_regression best checkpoint (set CKPT=path/to.ckpt to override)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		echo "[eval] Locating latest wah_cnn_tiny_regression run..."; \
@@ -196,7 +211,7 @@ evwtr eval-wah-tiny-regression: ## Evaluate latest wah_cnn_tiny_regression best 
 	fi
 
 # AUDIO EVAL
-ae ae_latest audio-eval-latest: ## Display eval of latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py
+ae ae_latest audio-eval-latest: check-env ## Display eval of latest best model checkpoint using default dataset using src/audio_reconstruction_eval.py
 	python src/audio_reconstruction_eval.py
 
 # AUDIO-EVAL helpers: select specific runs/checkpoints quickly
@@ -208,7 +223,7 @@ ae ae_latest audio-eval-latest: ## Display eval of latest best model checkpoint 
 #     make aef FILTER=regression
 # - You can still override with CKPT=path/to/checkpoint.ckpt
 
-aer ae_reg audio-eval-regression: ## Audio-eval latest run with "regression" tag (auto-picks best/last ckpt)
+aer ae_reg audio-eval-regression: check-env ## Audio-eval latest run with "regression" tag (auto-picks best/last ckpt)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		echo "[ae] Locating latest run tagged 'regression'..."; \
@@ -226,7 +241,7 @@ aer ae_reg audio-eval-regression: ## Audio-eval latest run with "regression" tag
 		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
 	fi
 
-aep ae_prev audio-eval-previous: ## Audio-eval the second most recent run (any experiment)
+aep ae_prev audio-eval-previous: check-env ## Audio-eval the second most recent run (any experiment)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		echo "[ae] Locating previous run (2nd newest)..."; \
@@ -242,7 +257,7 @@ aep ae_prev audio-eval-previous: ## Audio-eval the second most recent run (any e
 		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
 	fi
 
-aef ae_filter audio-eval-filter: ## Audio-eval latest run whose tags.log contains FILTER=... (optional EXCLUDE=...)
+aef ae_filter audio-eval-filter: check-env ## Audio-eval latest run whose tags.log contains FILTER=... (optional EXCLUDE=...)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		if [ -z "$(FILTER)" ]; then echo "Provide FILTER=... or CKPT=..."; exit 2; fi; \
@@ -261,7 +276,7 @@ aef ae_filter audio-eval-filter: ## Audio-eval latest run whose tags.log contain
 		python src/audio_reconstruction_eval.py ckpt_path=$(CKPT); \
 	fi
 
-ae_cls audio-eval-classification: ## Audio-eval latest classification run (exclude 'regression')
+ae_cls audio-eval-classification: check-env ## Audio-eval latest classification run (exclude 'regression')
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		echo "[ae] Locating latest classification run (excluding 'regression')..."; \
@@ -303,32 +318,32 @@ dc distclean: clean clean-data clean-logs ## Clean back to original distribution
 
 # TESTING TARGETS "t", "ta"
 
-t0 tests0: etms sep etmsr sep evitms ## Tests of basic CNN and ViT archs on classes and regression
+t0 tests0: check-env etms sep etmsr sep evitms ## Tests of basic CNN and ViT archs on classes and regression
 
-t test: ## Run fast pytest tests
+t test: check-env ## Run fast pytest tests
 	pytest -k "not slow"
 
-ta test-all: ## Run all pytest tests
+ta test-all: check-env ## Run all pytest tests
 	pytest
 
 # TEST DIAGRAM TARGETS "td*"
 
-td tda text-diagram-all: ## Generate enhanced diagrams for all architectures (text + graphical)
+td tda text-diagram-all: check-env ## Generate enhanced diagrams for all architectures (text + graphical)
 	python viz/enhanced_model_diagrams.py
 
-tdl text-diagram-list: ## List available model configs for diagrams
+tdl text-diagram-list: check-env ## List available model configs for diagrams
 	python viz/enhanced_model_diagrams.py --list-configs
 
-tds text-diagram-simple: ## Generate simple text-only diagrams (default cnn_medium)
+tds text-diagram-simple: check-env ## Generate simple text-only diagrams (default cnn_medium)
 	python viz/simple_model_diagram.py
 
-tdsc text-diagram-simple-config: ## Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_medium)
+tdsc text-diagram-simple-config: check-env ## Generate simple diagram for specific config (usage: make tdsc CONFIG=cnn_medium)
 	python viz/simple_model_diagram.py --config $(CONFIG)
 
-tdsl text-diagram-simple-list: ## List available configs for simple diagrams
+tdsl text-diagram-simple-list: check-env ## List available configs for simple diagrams
 	python viz/simple_model_diagram.py --list-configs
 
-tdsa text-diagram-simple-all: ## Generate simple diagrams for all architectures
+tdsa text-diagram-simple-all: check-env ## Generate simple diagrams for all architectures
 	python viz/simple_model_diagram.py --config cnn_medium
 	python viz/simple_model_diagram.py --config cnn_medium_ordinal
 	python viz/simple_model_diagram.py --config cnn_medium_regression
@@ -338,21 +353,21 @@ tdsa text-diagram-simple-all: ## Generate simple diagrams for all architectures
 	python viz/simple_model_diagram.py --config vit_micro
 	python viz/simple_model_diagram.py --config vit_tiny
 
-tdv text-diagram-vgg: ## Generate VGG-style architecture diagrams (EPS + PNG)
+tdv text-diagram-vgg: check-env ## Generate VGG-style architecture diagrams (EPS + PNG)
 	python viz/vgg_style_diagrams.py
 
 # RAW TRAINING TARGETS "tr" (no "experiment" - use hydra overrides to set desired config - experiments recommended instead)
 
-tr train: generate-dataset-small ## Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml
+tr train: check-env generate-dataset-small ## Train default model on default dataset (`make tr`) - defaults defined in ./configs/train.yaml
 	time python src/train.py
 
-trq train-quick: gds ## Train super quickly the default model and dataset (quick sanity test to see if things are working)
+trq train-quick: check-env gds ## Train super quickly the default model and dataset (quick sanity test to see if things are working)
 	python src/train.py trainer.max_epochs=1
 
-trs train-vimh-small: gds ## Train the small example VIMH dataset using the default model (CNN medium)
+trs train-vimh-small: check-env gds ## Train the small example VIMH dataset using the default model (CNN medium)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p
 
-trl train-vimh-large: gdl ## Train the large example VIMH dataset using the default model (CNN medium)
+trl train-vimh-large: check-env gdl ## Train the large example VIMH dataset using the default model (CNN medium)
 	time python src/train.py data.data_dir=data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
 # UTILITY TARGETS
@@ -360,7 +375,7 @@ trl train-vimh-large: gdl ## Train the large example VIMH dataset using the defa
 f format: ## Run pre-commit hooks
 	pre-commit run -a
 
-verify-docs: ## Run documentation checks (links, headings, deprecated commands)
+verify-docs: check-env ## Run documentation checks (links, headings, deprecated commands)
 	python scripts/verify_docs.py
 
 fp format-preview: ## Preview docformatter actions
