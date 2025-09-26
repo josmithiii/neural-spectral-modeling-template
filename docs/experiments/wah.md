@@ -6,7 +6,7 @@ The wah pedal experiments are the first polished examples in NSMT. Use this guid
 
 - Dataset: `make gdl` (16K saw + wah, decay + pedal-angle variation). Use `make gds` for fast smoke tests.
 - Hardware: Apple Silicon with MPS acceleration or a recent CUDA GPU. CPU works but takes much longer.
-- Environment: virtualenv created via `sh setup.sh`; activate before running commands.
+- Environment: virtualenv created via `bash setup.bash`; activate before running commands.
 
 ## Training Commands
 

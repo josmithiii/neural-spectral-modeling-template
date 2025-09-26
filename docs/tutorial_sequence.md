@@ -5,7 +5,7 @@ Follow this sequence to go from a clean checkout to the supported wah-pedal expe
 ## Phase 0: Environment
 
 ```bash
-sh setup.sh                 # Create uv-based virtualenv and install deps
+bash setup.bash             # Create uv-based virtualenv and install deps
 source .venv/bin/activate    # Or activate.csh for csh/tcsh users
 ```
 

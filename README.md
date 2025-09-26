@@ -65,7 +65,7 @@ channel depths, and metadata, as special cases.
 
 ```bash
 # Set up the environment (uv)
-sh setup.sh
+bash setup.bash
 
 # Look over all make targets available
 make h

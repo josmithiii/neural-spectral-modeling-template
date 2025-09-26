@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Setup script for nsmt project using uv
 # Creates virtual environment and installs dependencies

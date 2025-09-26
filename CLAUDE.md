@@ -19,7 +19,7 @@ This is the Neural Spectral Modeling Template (NSMT), a fork of the Lightning-Hy
 
 ```bash
 # Set up the environment (uv)
-sh setup.sh
+bash setup.bash
 
 # Look over all make targets available
 make h
