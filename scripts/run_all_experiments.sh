@@ -60,7 +60,11 @@ experiments=(
     "trivial_tiny_small"
     "trivial_vit_micro_small"
     "wah_cnn_medium_regression"
+<<<<<<< Updated upstream
     "Y wah_cnn_medium"
+=======
+    "wah_cnn_medium"
+>>>>>>> Stashed changes
     "wah_cnn_tiny_ordinal"
     "wah_cnn_tiny_quantized"
     "wah_cnn_tiny_regression"
