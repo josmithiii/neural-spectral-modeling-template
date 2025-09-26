@@ -75,6 +75,7 @@ class VIMHDataModule(LightningDataModule):
         target_width: float = 0.0,
         auxiliary_features: Optional[List[str]] = None,
         label_mode: str = "classification",
+        **kwargs,  # Accept any additional kwargs to prevent Hydra errors
     ) -> None:
         """Initialize a `VIMHDataModule`.
 
@@ -93,12 +94,19 @@ class VIMHDataModule(LightningDataModule):
         """
         super().__init__()
 
+        # Handle any unexpected kwargs (helps with Hydra compatibility)
+        if kwargs:
+            warnings.warn(
+                f"VIMHDataModule received unexpected parameters: {list(kwargs.keys())}. "
+                f"These will be ignored. Check your config for typos."
+            )
+
         # persistent_workers requires num_workers > 0
         self.persistent_workers = persistent_workers and num_workers > 0
 
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
-        self.save_hyperparameters(logger=False)
+        self.save_hyperparameters(logger=False, ignore=["kwargs"])
 
         # Default transforms for variable-size images
         # These will be adjusted based on the actual image dimensions
@@ -742,7 +750,7 @@ class VIMHDataModule(LightningDataModule):
             "collate_fn": self._multihead_collate_fn,
         }
         if self.hparams.num_workers > 0:
-            dataloader_kwargs["prefetch_factor"] = self.hparams.prefetch_factor
+            dataloader_kwargs["prefetch_factor"] = getattr(self.hparams, "prefetch_factor", 4)
         return DataLoader(**dataloader_kwargs)
 
     def val_dataloader(self) -> DataLoader[Any]:
@@ -760,7 +768,7 @@ class VIMHDataModule(LightningDataModule):
             "collate_fn": self._multihead_collate_fn,
         }
         if self.hparams.num_workers > 0:
-            dataloader_kwargs["prefetch_factor"] = self.hparams.prefetch_factor
+            dataloader_kwargs["prefetch_factor"] = getattr(self.hparams, "prefetch_factor", 4)
         return DataLoader(**dataloader_kwargs)
 
     def test_dataloader(self) -> DataLoader[Any]:
@@ -778,7 +786,7 @@ class VIMHDataModule(LightningDataModule):
             "collate_fn": self._multihead_collate_fn,
         }
         if self.hparams.num_workers > 0:
-            dataloader_kwargs["prefetch_factor"] = self.hparams.prefetch_factor
+            dataloader_kwargs["prefetch_factor"] = getattr(self.hparams, "prefetch_factor", 4)
         return DataLoader(**dataloader_kwargs)
 
     def predict_dataloader(self) -> DataLoader[Any]:
