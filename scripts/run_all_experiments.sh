@@ -54,27 +54,27 @@ echo ""
 # Array of all experiment names (without .yaml extension)
 # Template experiments - ready to run fresh
 experiments=(
-    "Y example"
-    "Y trivial_micro_small"
-    "Y trivial_micro_small_regression"
-    "Y trivial_tiny_small"
-    "Y trivial_vit_micro_small"
-    "Y wah_cnn_medium_regression"
-    "Y Y wah_cnn_medium"
-    "Y wah_cnn_tiny_ordinal"
-    "Y wah_cnn_tiny_quantized"
-    "Y wah_cnn_tiny_regression"
-    "Y wah_cnn_tiny_soft_target"
-    "Y wah_cnn_tiny_weighted"
-    "Y wah_cnn_tiny"
+    "example"
+    "trivial_micro_small"
+    "trivial_micro_small_regression"
+    "trivial_tiny_small"
+    "trivial_vit_micro_small"
+    "wah_cnn_medium_regression"
+    "Y wah_cnn_medium"
+    "wah_cnn_tiny_ordinal"
+    "wah_cnn_tiny_quantized"
+    "wah_cnn_tiny_regression"
+    "wah_cnn_tiny_soft_target"
+    "wah_cnn_tiny_weighted"
+    "wah_cnn_tiny"
     "wah_cnn_tiny_auxiliary"
     "wah_cnn_tiny_auxiliary_regression"
     "wah_cnn_medium_auxiliary"
     "wah_cnn_medium_auxiliary_regression"
-    "Y wah_vit_medium_regression"
-    "Y wah_vit_medium"
-    "Y wah_vit_tiny_regression"
-    "Y wah_vit_tiny"
+    "wah_vit_medium_regression"
+    "wah_vit_medium"
+    "wah_vit_tiny_regression"
+    "wah_vit_tiny"
 )
 
 # Function to parse experiment name and return (marker, name)
@@ -264,68 +264,45 @@ run_experiment() {
 
     # Check if log file already exists and rename it if so
     if [ -f "${log_file}" ]; then
-        # Get the modification time of the existing file (macOS compatible)
-        local mod_time=$(stat -f %Sm -t %Y%m%d%H%M%S "${log_file}" 2>/dev/null)
-        local exit_code=$?
-
-        if [ $exit_code -eq 0 ] && [ -n "${mod_time}" ]; then
-            # Convert YYYYMMDDHHMMSS to YYYY-MM-DD-HH-MM-SS format
-            local formatted_date=$(echo "${mod_time}" | sed -E 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3-\4-\5-\6/')
-            local backup_file="${log_file%.*}-${formatted_date}.txt"
-            echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
-            mv "${log_file}" "${backup_file}"
-        else
-            # Fallback: parse from stat output or use current timestamp
-            local stat_output=$(stat "${log_file}" 2>/dev/null)
-            if [ $? -eq 0 ]; then
-                # Extract date from stat output (format: "Sep 20 23:47:44 2025")
-                local extracted_date=$(echo "${stat_output}" | awk '{print $9, $10, $11}' | sed 's/ /-/g' | tr -d '"')
-                if [ -n "${extracted_date}" ]; then
-                    # Convert month name to number and format as YYYY-MM-DD-HH:MM:SS
-                    local month_num
-                    case "${extracted_date%%-*}" in
-                        "Jan") month_num="01" ;;
-                        "Feb") month_num="02" ;;
-                        "Mar") month_num="03" ;;
-                        "Apr") month_num="04" ;;
-                        "May") month_num="05" ;;
-                        "Jun") month_num="06" ;;
-                        "Jul") month_num="07" ;;
-                        "Aug") month_num="08" ;;
-                        "Sep") month_num="09" ;;
-                        "Oct") month_num="10" ;;
-                        "Nov") month_num="11" ;;
-                        "Dec") month_num="12" ;;
-                        *) month_num="??"
-                    esac
-
-                    if [ "${month_num}" != "??" ]; then
-                        # Extract components: Sep-20-23:47:47 -> year=20, month=Sep, day=20, time=23:47:47
-                        local year=$(echo "${extracted_date}" | cut -d'-' -f2)
-                        local day=$(echo "${extracted_date}" | cut -d'-' -f2 | cut -d':' -f1)
-                        local time_part=$(echo "${extracted_date}" | cut -d'-' -f3)
-                        local formatted_date="20${year}-${month_num}-${day}-${time_part}"
-                        local backup_file="${log_file%.*}-${formatted_date}.txt"
-                        echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
-                        mv "${log_file}" "${backup_file}"
-                    else
-                        # Fallback to simple date format
-                        local backup_file="${log_file%.*}-${extracted_date}.txt"
-                        echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
-                        mv "${log_file}" "${backup_file}"
-                    fi
+        # Try Linux stat format first, then macOS format
+        local mod_time=""
+        if command -v stat >/dev/null 2>&1; then
+            # Linux format
+            mod_time=$(stat -c %Y "${log_file}" 2>/dev/null)
+            if [ $? -eq 0 ] && [ -n "${mod_time}" ]; then
+                # Convert epoch time to YYYY-MM-DD-HH-MM-SS format
+                local formatted_date=$(date -d "@${mod_time}" +%Y-%m-%d-%H-%M-%S 2>/dev/null)
+                if [ $? -eq 0 ] && [ -n "${formatted_date}" ]; then
+                    local backup_file="${log_file%.*}-${formatted_date}.txt"
+                    echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
+                    mv "${log_file}" "${backup_file}"
+                else
+                    # Fallback to current timestamp
+                    local backup_file="${log_file%.*}-$(date +%Y-%m-%d-%H-%M-%S).txt"
+                    echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
+                    mv "${log_file}" "${backup_file}"
+                fi
+            else
+                # Try macOS format
+                mod_time=$(stat -f %Sm -t %Y%m%d%H%M%S "${log_file}" 2>/dev/null)
+                if [ $? -eq 0 ] && [ -n "${mod_time}" ]; then
+                    # Convert YYYYMMDDHHMMSS to YYYY-MM-DD-HH-MM-SS format
+                    local formatted_date=$(echo "${mod_time}" | sed -E 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3-\4-\5-\6/')
+                    local backup_file="${log_file%.*}-${formatted_date}.txt"
+                    echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
+                    mv "${log_file}" "${backup_file}"
                 else
                     # Final fallback: use current timestamp
                     local backup_file="${log_file%.*}-$(date +%Y-%m-%d-%H-%M-%S).txt"
                     echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
                     mv "${log_file}" "${backup_file}"
                 fi
-            else
-                # Final fallback: use current timestamp
-                local backup_file="${log_file%.*}-$(date +%Y-%m-%d-%H-%M-%S).txt"
-                echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
-                mv "${log_file}" "${backup_file}"
             fi
+        else
+            # Final fallback: use current timestamp
+            local backup_file="${log_file%.*}-$(date +%Y-%m-%d-%H-%M-%S).txt"
+            echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
+            mv "${log_file}" "${backup_file}"
         fi
     fi
 
