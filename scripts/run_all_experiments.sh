@@ -264,40 +264,31 @@ run_experiment() {
 
     # Check if log file already exists and rename it if so
     if [ -f "${log_file}" ]; then
-        # Try Linux stat format first, then macOS format
+        # Detect platform and use appropriate stat command
         local mod_time=""
-        if command -v stat >/dev/null 2>&1; then
-            # Linux format
+        local formatted_date=""
+
+        # Try macOS format first (since we're likely on macOS)
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            mod_time=$(stat -f %Sm -t %Y%m%d%H%M%S "${log_file}" 2>/dev/null)
+            if [ $? -eq 0 ] && [ -n "${mod_time}" ]; then
+                # Convert YYYYMMDDHHMMSS to YYYY-MM-DD-HH-MM-SS format
+                formatted_date=$(echo "${mod_time}" | sed -E 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3-\4-\5-\6/')
+            fi
+        else
+            # Try Linux format
             mod_time=$(stat -c %Y "${log_file}" 2>/dev/null)
             if [ $? -eq 0 ] && [ -n "${mod_time}" ]; then
                 # Convert epoch time to YYYY-MM-DD-HH-MM-SS format
-                local formatted_date=$(date -d "@${mod_time}" +%Y-%m-%d-%H-%M-%S 2>/dev/null)
-                if [ $? -eq 0 ] && [ -n "${formatted_date}" ]; then
-                    local backup_file="${log_file%.*}-${formatted_date}.txt"
-                    echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
-                    mv "${log_file}" "${backup_file}"
-                else
-                    # Fallback to current timestamp
-                    local backup_file="${log_file%.*}-$(date +%Y-%m-%d-%H-%M-%S).txt"
-                    echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
-                    mv "${log_file}" "${backup_file}"
-                fi
-            else
-                # Try macOS format
-                mod_time=$(stat -f %Sm -t %Y%m%d%H%M%S "${log_file}" 2>/dev/null)
-                if [ $? -eq 0 ] && [ -n "${mod_time}" ]; then
-                    # Convert YYYYMMDDHHMMSS to YYYY-MM-DD-HH-MM-SS format
-                    local formatted_date=$(echo "${mod_time}" | sed -E 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3-\4-\5-\6/')
-                    local backup_file="${log_file%.*}-${formatted_date}.txt"
-                    echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
-                    mv "${log_file}" "${backup_file}"
-                else
-                    # Final fallback: use current timestamp
-                    local backup_file="${log_file%.*}-$(date +%Y-%m-%d-%H-%M-%S).txt"
-                    echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
-                    mv "${log_file}" "${backup_file}"
-                fi
+                formatted_date=$(date -d "@${mod_time}" +%Y-%m-%d-%H-%M-%S 2>/dev/null)
             fi
+        fi
+
+        # If we got a formatted date, use it; otherwise fallback to current timestamp
+        if [ -n "${formatted_date}" ]; then
+            local backup_file="${log_file%.*}-${formatted_date}.txt"
+            echo -e "${YELLOW}  Existing log file found, renaming to: ${backup_file}${NC}"
+            mv "${log_file}" "${backup_file}"
         else
             # Final fallback: use current timestamp
             local backup_file="${log_file%.*}-$(date +%Y-%m-%d-%H-%M-%S).txt"
