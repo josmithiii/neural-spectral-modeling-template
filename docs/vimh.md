@@ -4,7 +4,7 @@ Variable Image MultiHead (VIMH) is the dataset format used throughout NSMT. It p
 
 ## Audio-Centric Design
 
-- **Variable resolution**: Height = frequency bins, width = time frames, channels = alternate representations (e.g., magnitude, instantaneous frequency).
+- **Variable resolution**: Height = frequency bins, width = time frames, channels = alternate spectral representations, successive time frames, adjacent spectra, layer neural capacity, etc.
 - **Quantized parameters**: Each sample stores up to 255 varying synthesis parameters (0–255 codes) with metadata describing min/max/step for dequantization.
 - **Self-contained metadata**: `vimh_dataset_info.json` records dimensions, audio settings, parameter names, and perceptual scaling choices.
 
