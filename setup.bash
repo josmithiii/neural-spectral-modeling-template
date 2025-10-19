@@ -20,6 +20,7 @@ uv venv .venv --python 3.9
 
 # Activate environment and install dependencies
 echo "Installing dependencies..."
+source .venv/bin/activate
 uv pip install -e .
 
 echo "Setup complete! To activate the environment, run:"
