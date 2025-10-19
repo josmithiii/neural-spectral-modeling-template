@@ -49,6 +49,7 @@ gdwe generate-dataset-wah-envelope: check-env ## Synthesize VIMH dataset with Sa
 		python generate_vimh.py --config-name=synth/generate_wah_envelope; \
 	fi
 	ls ./data/
+
 gdas generate-dataset-all-small: gdws gdwe ## Generate all small wah datasets
 
 # DUMP VIMH DATASET METADATA "vd"
@@ -117,7 +118,7 @@ etts exp-trivial-tiny-small: check-env gds ## Tiny CNN (~40K params) on small da
 
 # TRIVIAL DATASET ViT EXPERIMENTS "evit" - Small ViT models for testing on trivial synthetic data
 
-evitms exp-trivial-vit-micro-small: check-env gds ## Micro ViT (~23K params) on small dataset (256 samples)
+evitms exp-trivial-vit-micro-small: check-env gds ## Micro ViT (~23K params) on small dataset (256 samples) - ordinal classification loss
 	time python src/train.py experiment=trivial_vit_micro_small
 
 ewt exp-wah-tiny: check-env gdwl ## Train "tiny" (~40K) CNN on dataset gdwl (large sawtooth + wah + decay envelope) [~9 min to train on Mac MPS]
@@ -162,6 +163,7 @@ ewvm exp-wah-vit-medium: check-env gdwl ## Train "medium" (~1M+) ViT on dataset 
 
 ewvmr exp-wah-vit-medium-regression: check-env gdwl ## Train "medium" (~1M+) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_medium_regression
+
 # EVALS "ev" - Evaluate saved checkpoints
 
 evwt eval-wah-tiny: check-env ## Evaluate latest wah_cnn_tiny best checkpoint (set CKPT=path/to.ckpt to override)
