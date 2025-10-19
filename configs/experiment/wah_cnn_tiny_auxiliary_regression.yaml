@@ -1,0 +1,56 @@
+# @package _global_
+
+# Wah Pedal CNN experiment: Tiny CNN with Auxiliary Input (decay_time) - Regression
+# python src/train.py experiment=wah_cnn_tiny_auxiliary_regression
+
+defaults:
+  - override /data: vimh
+  - override /model: cnn_tiny_regression # ~40K parameters
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["wah", "cnn_tiny", "auxiliary", "regression"]
+
+seed: 12345
+
+# Use the correct metric for regression models (MAE instead of accuracy)
+optimized_metric: "val/mae_best"
+
+trainer:
+  min_epochs: 20
+  max_epochs: 200  # Same as regular tiny regression
+
+callbacks:
+  model_checkpoint:
+    monitor: "val/mae_best"
+    mode: "min"
+  early_stopping:
+    monitor: "val/mae_best"
+    mode: "min"
+
+model:
+  optimizer:
+    lr: 0.005  # Same as regular tiny regression
+    weight_decay: 0.005
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    _partial_: true
+    mode: min
+    factor: 0.5
+    patience: 3
+  loss_type: "normalized_regression"  # Best regression loss type
+  criteria:
+    log10_decay_time:
+      loss_type: l1
+    wah_position:
+      loss_type: l1
+
+data:
+  data_dir: data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
+  batch_size: 128  # Same as regular tiny regression
+  label_mode: regression  # Return continuous targets
+  auxiliary_features: ["log10_decay_time"]  # Use decay_time as auxiliary input
+
+logger:
+  tensorboard:
+    name: "wah_cnn_tiny_auxiliary_regr"
