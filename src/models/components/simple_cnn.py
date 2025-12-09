@@ -5,7 +5,13 @@ from torch import nn
 
 
 class SimpleCNN(nn.Module):
-    """Lightweight convolutional network for VIMH spectrogram inputs."""
+    """Lightweight convolutional network for VIMH spectrogram inputs.
+
+    Supports:
+      - classification (single or multi-head)
+      - regression (single or multi-head, with sigmoid outputs in [0, 1])
+      - optional auxiliary scalar inputs
+    """
 
     def __init__(
         self,
@@ -17,31 +23,15 @@ class SimpleCNN(nn.Module):
         heads_config: Optional[Dict[str, int]] = None,
         dropout: float = 0.25,
         input_size: int = 28,
-        output_mode: str = "classification",
+        output_mode: str = "classification",  # "classification" or "regression"
         parameter_names: Optional[List[str]] = None,
         parameter_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
         auxiliary_input_size: int = 0,
         auxiliary_hidden_size: int = 32,
     ) -> None:
-        """Initialize a SimpleCNN module.
-
-        :param input_channels: Number of input channels (spectrogram representations, default 1).
-        :param conv1_channels: Number of output channels for first conv layer.
-        :param conv2_channels: Number of output channels for second conv layer.
-        :param fc_hidden: Number of hidden units in fully connected layer.
-        :param output_size: Number of output classes (backward compatibility).
-        :param heads_config: Dict mapping head names to number of classes for multihead.
-        :param dropout: Dropout probability.
-        :param input_size: Input spectrogram size (e.g., 32 for default wah datasets).
-        :param output_mode: Output mode - "classification" or "regression".
-        :param parameter_names: List of parameter names for regression mode.
-        :param parameter_ranges: Dict mapping parameter names to (min, max) ranges.
-        :param auxiliary_input_size: Size of auxiliary scalar input vector (0 = no aux input).
-        :param auxiliary_hidden_size: Hidden size for auxiliary input processing.
-        """
         super().__init__()
 
-        # Store output mode and parameter information
+        # ---- store basic config ----
         self.output_mode = output_mode
         self.parameter_names = parameter_names or []
         self.parameter_ranges = parameter_ranges or {}
@@ -51,37 +41,21 @@ class SimpleCNN(nn.Module):
         self.input_size = input_size
         self.input_resolution = (input_size, input_size)
 
-        # Handle configuration based on output mode
-        if output_mode == "regression":
-            # For regression, we need parameter names (can be empty if auto-configured later)
-            if parameter_names:
-                # Create heads_config for regression (each parameter gets 1 output)
-                heads_config = {name: 1 for name in parameter_names}
-            else:
-                # Will be auto-configured later from dataset
-                heads_config = {}
-        else:
-            # Backward compatibility: convert old single-head config to multihead
-            if heads_config is None:
-                if output_size is not None:
-                    heads_config = {"digit": output_size}
-                else:
-                    heads_config = {"digit": 10}  # Legacy default for backward compatibility
+        # Normalize heads_config to a dict (may be empty, meaning "auto-configure later")
+        if heads_config is None:
+            heads_config = {}
+        self.heads_config: Dict[str, int] = heads_config
+        self.is_multihead: bool = len(heads_config) > 1
 
-        self.heads_config = heads_config
-        self.is_multihead = len(heads_config) > 1
-
-        # Calculate pooling size based on input size to avoid MPS issues
-        # After two MaxPool2d with stride 2: input_size -> input_size/4
+        # ---- convolutional front-end ----
+        # After two MaxPool2d(stride=2), size becomes input_size / 4
         pooled_size = input_size // 4
-        # Choose adaptive pool size that divides evenly into pooled_size
-        if pooled_size == 7:  # Example: 28px height inputs
+        if pooled_size == 7:          # 28 input -> 7 after pooling
             self.adaptive_pool_size = (7, 7)
-        elif pooled_size == 8:  # Example: 32px height wah spectrograms
-            self.adaptive_pool_size = (4, 4)  # 8 is divisible by 4
+        elif pooled_size == 8:        # 32 input -> 8 after pooling
+            self.adaptive_pool_size = (4, 4)  # 8 divisible by 4
         else:
-            # For other sizes, use a safe default
-            self.adaptive_pool_size = (4, 4)
+            self.adaptive_pool_size = (4, 4)  # safe default
 
         self.conv_layers = nn.Sequential(
             # First conv block
@@ -89,16 +63,17 @@ class SimpleCNN(nn.Module):
             nn.BatchNorm2d(conv1_channels),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
+
             # Second conv block
             nn.Conv2d(conv1_channels, conv2_channels, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(conv2_channels),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            # Adaptive pooling with MPS-safe size
+
+            # Adaptive pooling
             nn.AdaptiveAvgPool2d(self.adaptive_pool_size),
         )
 
-        # Calculate linear layer input size based on adaptive pool size
         linear_input_size = (
             conv2_channels * self.adaptive_pool_size[0] * self.adaptive_pool_size[1]
         )
@@ -110,93 +85,107 @@ class SimpleCNN(nn.Module):
             nn.Dropout(dropout),
         )
 
-        # Auxiliary input processing (if enabled)
+        # ---- auxiliary input branch (optional) ----
+        self.auxiliary_net: Optional[nn.Module]
         if auxiliary_input_size > 0:
             self.auxiliary_net = nn.Sequential(
                 nn.Linear(auxiliary_input_size, auxiliary_hidden_size),
                 nn.ReLU(),
-                nn.Dropout(dropout / 2),  # Less dropout for auxiliary features
+                nn.Dropout(dropout / 2),
                 nn.Linear(auxiliary_hidden_size, auxiliary_hidden_size),
                 nn.ReLU(),
             )
-            # Combined feature size includes auxiliary features
             combined_feature_size = fc_hidden + auxiliary_hidden_size
         else:
             self.auxiliary_net = None
             combined_feature_size = fc_hidden
 
-        # Multiple heads or single head for backward compatibility
-        if self.is_multihead:
-            if output_mode == "regression":
-                # For regression, create heads with sigmoid activation
-                self.heads = nn.ModuleDict(
-                    {
-                        head_name: nn.Sequential(nn.Linear(combined_feature_size, 1), nn.Sigmoid())
-                        for head_name in heads_config.keys()
-                    }
+        self._combined_feature_size = combined_feature_size
+
+        # ---- output heads / classifier ----
+        # Always define a heads ModuleDict so auto-config code can fill it later.
+        self.heads = nn.ModuleDict()
+
+        if len(self.heads_config) > 0:
+            # We have a heads_config from the config/metadata: build heads now.
+            self._build_heads(self.heads_config)
+        else:
+            # No heads_config yet -> single-head fallback.
+            # This is mainly for backward compatibility and trivial experiments.
+            if self.output_mode == "regression":
+                # Single regression vector; by default length = len(parameter_names) or 1.
+                out_dim = len(self.parameter_names) if self.parameter_names else 1
+                self.classifier = nn.Sequential(
+                    nn.Linear(combined_feature_size, out_dim),
+                    nn.Sigmoid(),
                 )
             else:
-                # Classification heads
-                self.heads = nn.ModuleDict(
-                    {
-                        head_name: nn.Linear(combined_feature_size, num_classes)
-                        for head_name, num_classes in heads_config.items()
-                    }
-                )
-        else:
-            # Single head (backward compatibility)
-            if heads_config:
-                head_name, num_classes = next(iter(heads_config.items()))
-                if output_mode == "regression":
-                    self.classifier = nn.Sequential(
-                        nn.Linear(combined_feature_size, 1), nn.Sigmoid()
-                    )
-                else:
-                    self.classifier = nn.Linear(combined_feature_size, num_classes)
-            # If heads_config is empty, don't create classifier - will be auto-configured later
+                # Single classification head; default to output_size or 1
+                num_classes = output_size if output_size is not None else 1
+                self.classifier = nn.Linear(combined_feature_size, num_classes)
 
+    # -------------------------------------------------------------------------
+    # Forward
+    # -------------------------------------------------------------------------
     def forward(self, x: torch.Tensor, auxiliary: Optional[torch.Tensor] = None):
-        """Perform a single forward pass through the network.
+        """Forward pass.
 
-        :param x: Input tensor of shape (batch_size, channels, height, width).
-        :param auxiliary: Optional auxiliary input tensor of shape (batch_size, auxiliary_input_size).
-        :return: A tensor of logits (single head) or dict of logits (multihead).
+        Args:
+            x: (batch, C, H, W) spectrogram tensor.
+            auxiliary: Optional (batch, auxiliary_input_size) tensor.
+
+        Returns:
+            - If heads are defined: dict[str, Tensor] with shape (batch, head_dim)
+            - Else: Tensor with shape (batch, out_dim) from self.classifier
         """
-        # Process main input through CNN
         x = self.conv_layers(x)
         shared_features = self.shared_features(x)
 
-        # Combine with auxiliary features if provided
         if self.auxiliary_net is not None and auxiliary is not None:
-            auxiliary_features = self.auxiliary_net(auxiliary)
-            combined_features = torch.cat([shared_features, auxiliary_features], dim=1)
+            aux_features = self.auxiliary_net(auxiliary)
+            features = torch.cat([shared_features, aux_features], dim=1)
         else:
-            combined_features = shared_features
+            features = shared_features
 
-        if self.is_multihead:
-            return {head_name: head(combined_features) for head_name, head in self.heads.items()}
-        else:
-            # Single head output (backward compatibility)
-            return self.classifier(combined_features)
+        # Prefer multi-head (or single-head via heads_config) if heads are present
+        if hasattr(self, "heads") and len(self.heads) > 0:
+            return {name: head(features) for name, head in self.heads.items()}
 
+        # Fall back to single classifier
+        if not hasattr(self, "classifier"):
+            raise RuntimeError(
+                "SimpleCNN is misconfigured: no heads and no classifier. "
+                "Did you forget to call _build_heads or provide heads_config?"
+            )
+        return self.classifier(features)
+
+    # -------------------------------------------------------------------------
+    # Helpers for auto-configuration from dataset metadata
+    # -------------------------------------------------------------------------
     def _build_heads(self, heads_config: Dict[str, int]) -> None:
-        """Rebuild heads for auto-configuration (supports both classification and regression modes)."""
-        # Calculate combined feature size (same as in __init__)
-        if self.auxiliary_input_size > 0:
-            combined_feature_size = self.fc_hidden + self.auxiliary_hidden_size
-        else:
-            combined_feature_size = self.fc_hidden
+        """(Re)build heads for auto-configuration.
+
+        For regression:
+            each head -> Sequential(Linear(combined_features, 1), Sigmoid())
+        For classification:
+            each head -> Linear(combined_features, num_classes)
+        """
+        self.heads_config = heads_config
+        self.is_multihead = len(heads_config) > 1
+
+        combined_feature_size = self._combined_feature_size
 
         if self.output_mode == "regression":
-            # Create regression heads with sigmoid activation
             self.heads = nn.ModuleDict(
                 {
-                    head_name: nn.Sequential(nn.Linear(combined_feature_size, 1), nn.Sigmoid())
+                    head_name: nn.Sequential(
+                        nn.Linear(combined_feature_size, 1),
+                        nn.Sigmoid(),
+                    )
                     for head_name in heads_config.keys()
                 }
             )
         else:
-            # Classification mode: create heads with appropriate number of classes
             self.heads = nn.ModuleDict(
                 {
                     head_name: nn.Linear(combined_feature_size, num_classes)
@@ -204,26 +193,19 @@ class SimpleCNN(nn.Module):
                 }
             )
 
-        self.heads_config = heads_config
-        self.is_multihead = len(heads_config) > 1
-
     def _rebuild_auxiliary_and_heads(self) -> None:
-        """Rebuild auxiliary network and heads when auxiliary_input_size changes."""
-        import torch.nn as nn
-
-        # Rebuild auxiliary network if needed
+        """Rebuild auxiliary_net and heads if auxiliary_input_size changes."""
+        # Rebuild auxiliary network
         if self.auxiliary_input_size > 0:
             if self.auxiliary_net is None:
-                # Create auxiliary network for the first time
                 self.auxiliary_net = nn.Sequential(
                     nn.Linear(self.auxiliary_input_size, self.auxiliary_hidden_size),
                     nn.ReLU(),
-                    nn.Dropout(0.25 / 2),  # Less dropout for auxiliary features
+                    nn.Dropout(0.25 / 2),
                     nn.Linear(self.auxiliary_hidden_size, self.auxiliary_hidden_size),
                     nn.ReLU(),
                 )
             else:
-                # Update existing auxiliary network input size
                 first_layer = self.auxiliary_net[0]
                 if (
                     hasattr(first_layer, "in_features")
@@ -232,57 +214,80 @@ class SimpleCNN(nn.Module):
                     self.auxiliary_net[0] = nn.Linear(
                         self.auxiliary_input_size, self.auxiliary_hidden_size
                     )
-        else:
-            self.auxiliary_net = None
-
-        # Recalculate combined feature size
-        if self.auxiliary_input_size > 0:
             combined_feature_size = self.fc_hidden + self.auxiliary_hidden_size
         else:
+            self.auxiliary_net = None
             combined_feature_size = self.fc_hidden
 
-        # Rebuild heads with correct feature size
-        if hasattr(self, "heads_config") and self.heads_config:
-            if self.is_multihead:
-                if self.output_mode == "regression":
-                    # For regression, create heads with sigmoid activation
-                    self.heads = nn.ModuleDict(
-                        {
-                            head_name: nn.Sequential(
-                                nn.Linear(combined_feature_size, 1), nn.Sigmoid()
-                            )
-                            for head_name in self.heads_config.keys()
-                        }
-                    )
-                else:
-                    # Classification heads
-                    self.heads = nn.ModuleDict(
-                        {
-                            head_name: nn.Linear(combined_feature_size, num_classes)
-                            for head_name, num_classes in self.heads_config.items()
-                        }
-                    )
+        self._combined_feature_size = combined_feature_size
+
+        # Rebuild heads with the new combined feature size
+        if hasattr(self, "heads_config") and len(self.heads_config) > 0:
+            if self.output_mode == "regression":
+                self.heads = nn.ModuleDict(
+                    {
+                        head_name: nn.Sequential(
+                            nn.Linear(combined_feature_size, 1),
+                            nn.Sigmoid(),
+                        )
+                        for head_name in self.heads_config.keys()
+                    }
+                )
             else:
-                # Single head (backward compatibility)
-                head_name, num_classes = next(iter(self.heads_config.items()))
-                if self.output_mode == "regression":
-                    self.classifier = nn.Sequential(
-                        nn.Linear(combined_feature_size, 1), nn.Sigmoid()
-                    )
-                else:
-                    self.classifier = nn.Linear(combined_feature_size, num_classes)
+                self.heads = nn.ModuleDict(
+                    {
+                        head_name: nn.Linear(combined_feature_size, num_classes)
+                        for head_name, num_classes in self.heads_config.items()
+                    }
+                )
+        else:
+            # No heads_config -> rebuild single-head classifier
+            if self.output_mode == "regression":
+                out_dim = len(self.parameter_names) if self.parameter_names else 1
+                self.classifier = nn.Sequential(
+                    nn.Linear(combined_feature_size, out_dim),
+                    nn.Sigmoid(),
+                )
+            else:
+                # default to 1 logit if nothing else is known
+                self.classifier = nn.Linear(combined_feature_size, 1)
 
 
 if __name__ == "__main__":
     # Quick smoke tests using VIMH-style spectrogram tensors
     batch = torch.randn(2, 1, 32, 32)  # Batch of 32x32 spectrograms
 
-    model_multi = SimpleCNN(
+    # Multihead classification example
+    model_multi_cls = SimpleCNN(
         input_channels=1,
-        heads_config={"log10_decay_time": 96, "wah_position": 96},
+        heads_config={"digit": 10, "other_head": 5},
         input_size=32,
+        output_mode="classification",
     )
-    outputs = model_multi(batch)
-    print(f"Input shape: {batch.shape}")
-    for head, tensor in outputs.items():
-        print(f"{head}: {tensor.shape}")
+    out_multi_cls = model_multi_cls(batch)
+    print("Multihead classification:")
+    for name, tensor in out_multi_cls.items():
+        print(f"  {name}: {tensor.shape}")
+
+    # Multihead regression example
+    model_multi_reg = SimpleCNN(
+        input_channels=1,
+        heads_config={"midi_pitch": 1},
+        input_size=32,
+        output_mode="regression",
+    )
+    out_multi_reg = model_multi_reg(batch)
+    print("\nMultihead regression:")
+    for name, tensor in out_multi_reg.items():
+        print(f"  {name}: {tensor.shape}")
+
+    # Single-head regression fallback
+    model_single_reg = SimpleCNN(
+        input_channels=1,
+        heads_config={},        # no heads yet
+        input_size=32,
+        output_mode="regression",
+        parameter_names=["midi_pitch"],
+    )
+    out_single_reg = model_single_reg(batch)
+    print("\nSingle-head regression fallback:", out_single_reg.shape)
