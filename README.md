@@ -1,5 +1,7 @@
 # Neural Spectral Modeling Template (NSMT)
 
+Summer Branch: new experiments
+
 ### Status: _**Alpha**_
 
 ## Overview
