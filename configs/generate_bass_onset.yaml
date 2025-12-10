@@ -1,0 +1,41 @@
+# configs/generate_bass_onset.yaml
+# Minimal config to work with generate_vimh.py
+
+dataset:
+  name: bass_onset        # <-- this name is what generate_vimh.py checks
+  size: 8192              # number of examples to generate
+  sampling_rate: 44100
+  duration: 1.0           # seconds per example (frame length)
+
+generate:
+  batch_size: 64
+  height: 32              # spectrogram height (freq bins)
+  width: 32               # spectrogram width (time bins)
+  channels: 1             # start with 1 channel (gray)
+  pre_emphasis_coefficient: 0.0
+  output_dir: data        # where VIMH dataset folder will be created
+
+stft:
+  type: "mel"             # must be "mel" or "stft" per validate_config()
+  n_fft: 1024
+  n_window: 1024
+  hop_length: 256
+  window_type: "hann"
+  bins_per_harmonic: 1.0
+
+mel:
+  freq_min: 40.0
+  freq_max_ratio: 0.9
+
+synthesizer:
+  parameters:
+    onset_delay_ms:
+      min_value: 0.0
+      max_value: 25.0      # <- FIXED
+    note_duration_s:
+      min_value: 0.7
+      max_value: 1.0      # <- FIXED
+    midi_pitch:
+      min_value: 28
+      max_value: 62       # keep as-is
+

@@ -11,6 +11,7 @@ import os
 import struct
 import sys
 from typing import Any, Dict, List, Optional, Tuple
+from src.bass_onset_synth import BassOnsetSynth
 
 import hydra
 import numpy as np
@@ -27,7 +28,7 @@ from src.utils.synth_utils import (
     DEFAULT_NOTE_VELOCITY,
     MIN_SPECTROGRAM_VALUE,
     QUANTIZATION_LEVELS,
-    SimpleSawSynth,
+    SimpleSawSynth,              # <-- add this line
     SpectrogramProcessor,
     pre_emphasis_filter,
     prepare_channels,
@@ -361,7 +362,7 @@ class ParameterGenerator:
 
 
 def generate_sample_batch(
-    synth: SimpleSawSynth,
+    synth: Any,
     param_generator: ParameterGenerator,
     spectrogram_processor: SpectrogramProcessor,
     batch_size: int,
@@ -737,7 +738,7 @@ Notes:
     print(help_text)
 
 
-@hydra.main(version_base="1.3", config_path="configs", config_name="generate_simple")
+@hydra.main(version_base="1.3", config_path="configs", config_name="generate_bass_onset")
 def main(cfg: DictConfig) -> None:
     """Main function for generating SimpleSawSynth dataset in VIMH format."""
     # Parse command line arguments for --pickle flag from original argv
@@ -856,7 +857,15 @@ def main(cfg: DictConfig) -> None:
         output_dir = os.path.join(cfg.generate.output_dir, dataset_dir_name)
 
         # Create synthesizer
-        synth = SimpleSawSynth(sample_rate=sample_rate)
+        if dataset_name == "bass_onset":
+            # Use our BassOnsetSynth for bass onset dataset
+            synth = BassOnsetSynth(sample_rate=sample_rate)
+            synth_type = "bass_onset"
+        else:
+            # Default: SimpleSawSynth (existing behavior)
+            synth = SimpleSawSynth(sample_rate=sample_rate)
+            synth_type = "simple"
+
 
         # Create spectrogram processor
         spectrogram_processor = SpectrogramProcessor(
@@ -953,7 +962,7 @@ def main(cfg: DictConfig) -> None:
             stft_config,
             mel_config,
             pre_emphasis_coeff,
-            synth_type="simple",
+            synth_type=synth_type,
             pickle_format=args.pickle,
             channel_labels=final_channel_labels,
         )
