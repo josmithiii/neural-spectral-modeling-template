@@ -31,11 +31,11 @@ synthesizer:
   parameters:
     onset_delay_ms:
       min_value: 0.0
-      max_value: 0.0      # <- FIXED
+      max_value: 25.0      # <- FIXED
     note_duration_s:
-      min_value: 1.0
+      min_value: 0.7
       max_value: 1.0      # <- FIXED
     midi_pitch:
       min_value: 28
-      max_value: 52       # keep as-is
+      max_value: 62       # keep as-is
 
