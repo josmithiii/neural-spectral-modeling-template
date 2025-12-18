@@ -55,8 +55,36 @@ PROJECT_ROOT = rootutils.setup_root(__file__, indicator=".project-root", pythonp
 from src.data.vimh_dataset import VIMHDataset
 from src.utils.synth_utils import SimpleSawSynth
 
-# Default checkpoint (absolute path from project root) - same as predict_params.py
-DEFAULT_CKPT = str(PROJECT_ROOT / "checkpoints/reference/2025-12-18_03-41-00.ckpt")
+# Default checkpoint name (will be resolved to latest timestamped version)
+DEFAULT_CKPT = "wah_del_cnn_medium.ckpt"
+
+
+def resolve_checkpoint(name: str) -> Optional[str]:
+    """Resolve a checkpoint name to its full path.
+
+    Searches checkpoints/reference for timestamped versions like:
+    2025-01-01_12-00-00_wah_del_cnn_medium.ckpt
+
+    Returns the latest matching checkpoint path, or None if not found.
+    """
+    # If it's already an absolute path that exists, use it
+    if Path(name).is_absolute() and Path(name).exists():
+        return name
+
+    # If it exists relative to cwd, use it
+    if Path(name).exists():
+        return str(Path(name).resolve())
+
+    # Search in checkpoints/reference for timestamped versions
+    ref_dir = PROJECT_ROOT / "checkpoints/reference"
+    if ref_dir.exists():
+        # Match files ending with the provided name (handles timestamp prefix)
+        matches = sorted(ref_dir.glob(f"*{name}"))
+        if matches:
+            return str(matches[-1])  # Latest by sort order
+
+    return None
+
 
 @dataclass
 class SynthesizedNote:
@@ -437,18 +465,11 @@ If no checkpoint is specified, uses the reference saw+wah+delay model.
                 print(f"Error: Unknown source type: {args.source}")
                 sys.exit(1)
         elif source_path.suffix == ".ckpt":
-            # Try to resolve from reference checkpoints (handle timestamped names)
-            ref_dir = PROJECT_ROOT / "checkpoints/reference"
-            if ref_dir.exists():
-                # Look for files ending with the provided name (handling the timestamp prefix)
-                # e.g., "experiment.ckpt" matches "2025-01-01_12-00-00_experiment.ckpt"
-                matches = sorted(ref_dir.glob(f"*{source_path.name}"))
-                if matches:
-                    ckpt_path = str(matches[-1])
-                    print(f"Resolved '{args.source}' to latest reference: {ckpt_path}")
-                else:
-                    print(f"Error: Checkpoint not found locally or in references: {args.source}")
-                    sys.exit(1)
+            # Try to resolve checkpoint name (handles timestamped versions)
+            resolved = resolve_checkpoint(args.source)
+            if resolved:
+                ckpt_path = resolved
+                print(f"Resolved '{args.source}' to: {ckpt_path}")
             else:
                 print(f"Error: Checkpoint not found: {args.source}")
                 sys.exit(1)
@@ -457,10 +478,10 @@ If no checkpoint is specified, uses the reference saw+wah+delay model.
             sys.exit(1)
 
     if not ckpt_path and not data_dir:
-        # Use default checkpoint (same as predict_params.py)
-        default_ckpt = Path(DEFAULT_CKPT)
-        if default_ckpt.exists():
-            ckpt_path = str(default_ckpt)
+        # Use default checkpoint
+        resolved = resolve_checkpoint(DEFAULT_CKPT)
+        if resolved:
+            ckpt_path = resolved
             print(f"Using default checkpoint: {ckpt_path}")
         else:
             print(f"Error: Default checkpoint not found: {DEFAULT_CKPT}")

@@ -37,8 +37,35 @@ class DetectedNote:
     duration: float  # Note duration in seconds
     params: Dict[str, float]  # Predicted synthesis parameters
 
-# Default checkpoint (relative to nsm-synth-match root)
-DEFAULT_CKPT = str(PROJECT_ROOT / "checkpoints/reference/2025-12-18_03-41-00.ckpt")
+# Default checkpoint name (will be resolved to latest timestamped version)
+DEFAULT_CKPT = "wah_del_cnn_medium.ckpt"
+
+
+def resolve_checkpoint(name: str) -> Optional[str]:
+    """Resolve a checkpoint name to its full path.
+
+    Searches checkpoints/reference for timestamped versions like:
+    2025-01-01_12-00-00_wah_del_cnn_medium.ckpt
+
+    Returns the latest matching checkpoint path, or None if not found.
+    """
+    # If it's already an absolute path that exists, use it
+    if Path(name).is_absolute() and Path(name).exists():
+        return name
+
+    # If it exists relative to cwd, use it
+    if Path(name).exists():
+        return str(Path(name).resolve())
+
+    # Search in checkpoints/reference for timestamped versions
+    ref_dir = PROJECT_ROOT / "checkpoints/reference"
+    if ref_dir.exists():
+        # Match files ending with the provided name (handles timestamp prefix)
+        matches = sorted(ref_dir.glob(f"*{name}"))
+        if matches:
+            return str(matches[-1])  # Latest by sort order
+
+    return None
 
 
 def load_wav(wav_path: str, target_sr: int = 8000) -> np.ndarray:
@@ -744,15 +771,12 @@ def main():
         sys.exit(1)
 
     wav_path = args[0]
-    ckpt_path = args[1] if len(args) > 1 else None
+    ckpt_name = args[1] if len(args) > 1 else DEFAULT_CKPT
 
-    # Find checkpoint
-    if ckpt_path is None:
-        ckpt_path = DEFAULT_CKPT
-        if not Path(ckpt_path).exists():
-            sys.exit(f"Default checkpoint not found: {ckpt_path}\nPlease specify a checkpoint path.")
-
-    ckpt_path = str(ckpt_path)
+    # Resolve checkpoint (handles timestamped versions in checkpoints/reference)
+    ckpt_path = resolve_checkpoint(ckpt_name)
+    if not ckpt_path:
+        sys.exit(f"Checkpoint not found: {ckpt_name}\nPlease specify a valid checkpoint path.")
 
     # Handle multi-note mode
     if multi_mode:
