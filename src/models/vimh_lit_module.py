@@ -58,6 +58,12 @@ class VIMHLitModule(LightningModule):
         https://lightning.ai/docs/pytorch/latest/common/lightning_module.html
     """
 
+    # Class-level configuration
+    overlays = False  # Set to False for separate TensorBoard cards - True for overlays (not working yet)
+    train_prefix = "" if overlays else "train/"
+    val_prefix = "" if overlays else "val/"
+    test_prefix = "" if overlays else "test/"
+
     def __init__(
         self,
         net: torch.nn.Module,
@@ -359,6 +365,21 @@ class VIMHLitModule(LightningModule):
 
         # Update network heads configuration
         if hasattr(self.net, "heads_config"):
+            # Check if parameter_names was pre-configured (e.g., filtered for auxiliary features)
+            if hasattr(self.net, "parameter_names") and self.net.parameter_names:
+                # Filter heads_config to only include pre-configured parameters
+                filtered_heads = {
+                    name: heads_config[name]
+                    for name in self.net.parameter_names
+                    if name in heads_config
+                }
+                if filtered_heads:
+                    print(
+                        f"Using pre-configured parameter subset: {list(filtered_heads.keys())} "
+                        f"(filtered from dataset: {list(heads_config.keys())})"
+                    )
+                    heads_config = filtered_heads
+
             self.net.heads_config = heads_config
 
             # Update parameter_names if the network has this attribute (needed for regression mode)
@@ -384,11 +405,16 @@ class VIMHLitModule(LightningModule):
             )
 
         # Auto-configure JND-based loss weights if available
+        # Only apply JND weights if user hasn't explicitly set weights (all weights == 1.0)
+        user_set_weights = not all(w == 1.0 for w in self.loss_weights.values())
+
         if hasattr(dataset, 'metadata_format') and dataset.metadata_format:
             jnd_weights = self._compute_jnd_weights(dataset.metadata_format)
-            if jnd_weights:
+            if jnd_weights and not user_set_weights:
                 print(f"Auto-configuring JND-based loss weights: {jnd_weights}")
                 self.loss_weights.update(jnd_weights)
+            elif jnd_weights and user_set_weights:
+                print(f"Skipping JND weight auto-configuration (user provided explicit weights: {self.loss_weights})")
 
         # Update criteria if using auto-configuration
         if self.auto_configure_from_dataset:
@@ -601,6 +627,59 @@ class VIMHLitModule(LightningModule):
         else:
             return self.net(x)
 
+    def to_torchscript(self, file_path=None, method='script', example_inputs=None):
+        """Override to prevent TorchScript conversion issues with multihead dict outputs."""
+        raise NotImplementedError(
+            "TorchScript conversion not supported for multihead models with dict outputs. "
+            "Use torch.onnx.export() instead if needed."
+        )
+
+    def on_fit_start(self) -> None:
+        """Lightning hook that is called when fitting begins (before training).
+
+        Load AVIX grid data for SpectralGridLoss if needed.
+        """
+        # Disable graph logging for VIMH models
+        # TensorBoard's torch.jit.trace doesn't support dict outputs used by VIMH internally
+        if hasattr(self, "logger") and self.logger is not None:
+            num_heads = len(self.criteria) if self.criteria else 0
+
+            for logger in (self.logger if isinstance(self.logger, list) else [self.logger]):
+                if hasattr(logger, "log_graph") and logger._log_graph:
+                    logger._log_graph = False
+                    print(
+                        f"ℹ️  Disabled graph logging for VIMH model (uses dict outputs internally, {num_heads} head(s))"
+                    )
+
+        # Check if any criterion is SpectralGridLoss and needs grid data
+        for head_name, criterion in self.criteria.items():
+            if isinstance(criterion, SpectralGridLoss) and criterion.grid_data is None:
+                # Get grid from datamodule
+                if hasattr(self.trainer, 'datamodule'):
+                    datamodule = self.trainer.datamodule
+                    if hasattr(datamodule, 'get_avix_grid'):
+                        grid = datamodule.get_avix_grid()
+                        if grid is not None:
+                            # Move grid to same device as model
+                            grid = grid.to(self.device)
+                            # Get parameter names from datamodule (stored during AVIX grid loading)
+                            param_names = getattr(datamodule, 'avix_param_names', None)
+                            # Get auxiliary features from datamodule
+                            auxiliary_features = getattr(datamodule.hparams, 'auxiliary_features', []) if hasattr(datamodule, 'hparams') else []
+                            criterion.auxiliary_param_names = auxiliary_features
+                            criterion.set_grid(grid, param_names=param_names)
+                            print(f"✓ SpectralGridLoss for {head_name} loaded grid: {grid.shape}")
+                            if param_names:
+                                print(f"  Grid parameter order: {param_names}")
+                            if auxiliary_features:
+                                print(f"  Auxiliary parameters: {auxiliary_features}")
+                        else:
+                            print(f"⚠ AVIX grid not available in datamodule for {head_name}")
+                    else:
+                        print(f"⚠ Datamodule does not support get_avix_grid() for {head_name}")
+                else:
+                    print(f"⚠ No datamodule attached to trainer for {head_name}")
+
     def on_train_start(self) -> None:
         """Lightning hook that is called when training begins."""
         # by default lightning executes validation step sanity checks before training starts,
@@ -737,11 +816,12 @@ class VIMHLitModule(LightningModule):
                         )
 
         # Log metrics
-        self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(self.train_prefix + "loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
             if self.output_mode == "regression":
                 if f"{head_name}_mae" in self.train_metrics:
-                    metric_name = f"train/{head_name}_mae" if self.is_multihead else "train/mae"
+                    # Always include parameter name for consistent TensorBoard grouping
+                    metric_name = self.train_prefix + f"{head_name}_mae"
                     self.log(
                         metric_name,
                         self.train_metrics[f"{head_name}_mae"],
@@ -751,7 +831,8 @@ class VIMHLitModule(LightningModule):
                     )
             else:
                 if f"{head_name}_acc" in self.train_metrics:
-                    metric_name = f"train/{head_name}_acc" if self.is_multihead else "train/acc"
+                    # Always include parameter name for consistent TensorBoard grouping
+                    metric_name = self.train_prefix + f"{head_name}_acc"
                     self.log(
                         metric_name,
                         self.train_metrics[f"{head_name}_acc"],
@@ -809,11 +890,12 @@ class VIMHLitModule(LightningModule):
                         )
 
         # Log metrics
-        self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(self.val_prefix + "loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
             if self.output_mode == "regression":
                 if f"{head_name}_mae" in self.val_metrics:
-                    metric_name = f"val/{head_name}_mae" if self.is_multihead else "val/mae"
+                    # Always include parameter name for consistent TensorBoard grouping
+                    metric_name = self.val_prefix + f"{head_name}_mae"
                     self.log(
                         metric_name,
                         self.val_metrics[f"{head_name}_mae"],
@@ -823,7 +905,8 @@ class VIMHLitModule(LightningModule):
                     )
             else:
                 if f"{head_name}_acc" in self.val_metrics:
-                    metric_name = f"val/{head_name}_acc" if self.is_multihead else "val/acc"
+                    # Always include parameter name for consistent TensorBoard grouping
+                    metric_name = self.val_prefix + f"{head_name}_acc"
                     self.log(
                         metric_name,
                         self.val_metrics[f"{head_name}_acc"],
@@ -843,7 +926,7 @@ class VIMHLitModule(LightningModule):
                 self.val_acc_best(
                     -mae
                 )  # Store negative MAE so MaxMetric tracks the best (lowest) MAE
-            self.log("val/mae_best", -self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
+            self.log(self.val_prefix + "mae_best", -self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
         else:
             # For classification mode, track best accuracy
             if self.is_multihead:
@@ -858,7 +941,7 @@ class VIMHLitModule(LightningModule):
                 if f"{head_name}_acc" in self.val_metrics:
                     acc = self.val_metrics[f"{head_name}_acc"].compute()
                     self.val_acc_best(acc)
-            self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
+            self.log(self.val_prefix + "acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
 
     def test_step(self, batch, batch_idx: int) -> None:
         """Perform a single test step on a batch of data from the test set.
@@ -903,11 +986,12 @@ class VIMHLitModule(LightningModule):
                         )
 
         # Log metrics
-        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(self.test_prefix + "loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
         for head_name in preds_dict.keys():
             if self.output_mode == "regression":
                 if f"{head_name}_mae" in self.test_metrics:
-                    metric_name = f"test/{head_name}_mae" if self.is_multihead else "test/mae"
+                    # Always include parameter name for consistent TensorBoard grouping
+                    metric_name = self.test_prefix + f"{head_name}_mae"
                     self.log(
                         metric_name,
                         self.test_metrics[f"{head_name}_mae"],
@@ -920,7 +1004,8 @@ class VIMHLitModule(LightningModule):
                 for tolerance in [1, 3, 5]:
                     metric_name_base = f"{head_name}_acc_jnd{tolerance}"
                     if metric_name_base in self.test_metrics:
-                        metric_name = f"test/{metric_name_base}" if self.is_multihead else f"test/acc_jnd{tolerance}"
+                        # Always include parameter name for consistent TensorBoard grouping
+                        metric_name = self.test_prefix + metric_name_base
                         self.log(
                             metric_name,
                             self.test_metrics[metric_name_base],
@@ -930,7 +1015,8 @@ class VIMHLitModule(LightningModule):
                         )
             else:
                 if f"{head_name}_acc" in self.test_metrics:
-                    metric_name = f"test/{head_name}_acc" if self.is_multihead else "test/acc"
+                    # Always include parameter name for consistent TensorBoard grouping
+                    metric_name = self.test_prefix + f"{head_name}_acc"
                     self.log(
                         metric_name,
                         self.test_metrics[f"{head_name}_acc"],
@@ -943,7 +1029,8 @@ class VIMHLitModule(LightningModule):
                 for tolerance in [1, 3, 5]:
                     metric_name_base = f"{head_name}_acc_jnd{tolerance}"
                     if metric_name_base in self.test_metrics:
-                        metric_name = f"test/{metric_name_base}" if self.is_multihead else f"test/acc_jnd{tolerance}"
+                        # Always include parameter name for consistent TensorBoard grouping
+                        metric_name = self.test_prefix + metric_name_base
                         self.log(
                             metric_name,
                             self.test_metrics[metric_name_base],
