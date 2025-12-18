@@ -70,14 +70,146 @@ from src.utils import (
     log_hyperparameters,
     task_wrapper,
 )
+from src.utils.vimh_utils import load_vimh_metadata
 from src.utils.architecture_utils import (
     ArchitectureMetadataExtractor,
     create_spectrogram_transforms,
 )
-from src.utils.vimh_configurator import configure_vimh_model
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
+
+def _configure_vimh_model_config(cfg: DictConfig) -> None:
+    """Configure model config for VIMH datasets before instantiation."""
+    try:
+        from src.utils.vimh_utils import (
+            get_heads_config_from_metadata,
+            get_parameter_names_from_metadata,
+            get_parameter_ranges_from_metadata,
+            load_vimh_metadata,
+        )
+    except ImportError as exc:
+        log.warning(f"VIMH utilities unavailable; skipping auto-configuration: {exc}")
+        return
+
+    if not getattr(cfg, "data", None) or not getattr(cfg.data, "data_dir", None):
+        return
+    if not getattr(cfg, "model", None) or not hasattr(cfg.model, "net"):
+        return
+
+    parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
+    if not parameter_names:
+        log.debug("No VIMH parameter names discovered; skipping auto-configuration.")
+        return
+
+    # Remove auxiliary features from parameter_names (they are inputs, not predictions)
+    auxiliary_features = getattr(cfg.data, "auxiliary_features", None) or []
+    if auxiliary_features:
+        original_params = parameter_names.copy()
+        parameter_names = [p for p in parameter_names if p not in auxiliary_features]
+        removed = [p for p in original_params if p not in parameter_names]
+        if removed:
+            log.info(
+                f"Removed auxiliary features from prediction targets: {removed}"
+            )
+            log.info(
+                f"Auxiliary features (measured inputs): {auxiliary_features}"
+            )
+
+    if not parameter_names:
+        log.warning("No parameters left to predict after removing auxiliary features!")
+        return
+
+    log.info(f"Configuring model to predict parameters: {parameter_names}")
+    output_mode = getattr(cfg.model, "output_mode", None)
+
+    if output_mode == "regression":
+        with open_dict(cfg.model):
+            cfg.model.net.parameter_names = parameter_names
+            cfg.model.net.output_mode = "regression"
+            cfg.model.net.heads_config = None
+    else:
+        heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
+        with open_dict(cfg.model):
+            cfg.model.net.heads_config = heads_config
+
+    if output_mode == "regression":
+        param_ranges = get_parameter_ranges_from_metadata(cfg.data.data_dir)
+
+        # Determine loss type from config (default to normalized_regression)
+        loss_type = getattr(cfg.model, "loss_type", "normalized_regression")
+
+        # Map loss_type to loss class
+        if loss_type == "normalized_regression":
+            loss_class = "src.models.losses.NormalizedRegressionLoss"
+            log.info("Using NormalizedRegressionLoss (parameter MSE)")
+        else:
+            # Fall back to normalized regression for other loss types
+            loss_class = "src.models.losses.NormalizedRegressionLoss"
+            log.info(f"Using NormalizedRegressionLoss for loss_type={loss_type}")
+
+        base_criteria_cfg: Dict[str, Any] = {}
+
+        # Per-parameter losses (NormalizedRegressionLoss, etc.)
+        for param_name in parameter_names:
+            if param_name not in param_ranges:
+                raise KeyError(f"Missing parameter range for '{param_name}' in metadata")
+            param_range = param_ranges[param_name]
+            base_criteria_cfg[param_name] = {
+                "_target_": loss_class,
+                "param_range": tuple(param_range),
+            }
+
+        merged_criteria_cfg: Dict[str, Any] = {}
+        user_criteria = getattr(cfg.model, "criteria", None)
+        for head, base_cfg in base_criteria_cfg.items():
+            merged = dict(base_cfg)
+            if user_criteria and head in user_criteria:
+                for key, value in user_criteria[head].items():
+                    if key not in ("_target_", "param_range"):
+                        merged[key] = value
+            merged_criteria_cfg[head] = merged
+
+        with open_dict(cfg.model):
+            cfg.model.criteria = OmegaConf.create(merged_criteria_cfg)
+
+        log.info(
+            f"Auto-configured regression loss functions for: {list(merged_criteria_cfg.keys())}"
+        )
+
+    configure_loss_weights = not getattr(cfg.model, "loss_weights", None)
+    if configure_loss_weights:
+        # Per-parameter JND-based weights
+        metadata = load_vimh_metadata(cfg.data.data_dir)
+        param_mappings = metadata.get("parameter_mappings", {})
+        loss_weights = {}
+        for param_name in parameter_names:
+            if param_name not in param_mappings:
+                raise KeyError(f"Parameter '{param_name}' missing from parameter_mappings")
+            mapping = param_mappings[param_name]
+            step = float(mapping["step"])
+            if step <= 0:
+                raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
+            param_range = float(mapping["max"]) - float(mapping["min"])
+            loss_weights[param_name] = float(param_range / step)
+
+        if loss_weights:
+            max_weight = max(loss_weights.values()) or 1.0
+            loss_weights = {name: weight / max_weight for name, weight in loss_weights.items()}
+
+        with open_dict(cfg.model):
+            cfg.model.loss_weights = loss_weights
+        log.info(f"Auto-configured loss_weights: {cfg.model.loss_weights}")
+
+    # Configure auxiliary_input_size if auxiliary features are present
+    if auxiliary_features:
+        # Check if model.net config exists and update auxiliary_input_size
+        if hasattr(cfg.model, "net") and "auxiliary_input_size" in cfg.model.net:
+            with open_dict(cfg.model.net):
+                cfg.model.net.auxiliary_input_size = len(auxiliary_features)
+            log.info(
+                f"Configured model auxiliary_input_size={len(auxiliary_features)} for features: {auxiliary_features}"
+            )
 
 
 def _setup_datamodule_with_transforms(cfg: DictConfig) -> LightningDataModule:
@@ -197,10 +329,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         and hasattr(cfg.model, "auto_configure_from_dataset")
         and cfg.model.auto_configure_from_dataset
     ):
-        configure_vimh_model(cfg)
+        _configure_vimh_model_config(cfg)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
+
+    # Log model parameter count
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    log.info(f"MODEL PARAMS: {total_params:,} total, {trainable_params:,} trainable")
 
     # Log important model configuration details
     if hasattr(model, "output_mode"):
@@ -210,10 +347,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             name: type(criterion).__name__ for name, criterion in model.criteria.items()
         }
         log.info(f"Model loss functions: {criteria_info}")
-
-    # Log the configured loss type for experiment tracking
-    loss_type = getattr(cfg.model, 'loss_type', 'unknown')
-    log.info(f"EXPERIMENT CONFIG: loss_type={loss_type}")
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
@@ -242,6 +375,18 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         metadata_extractor = ArchitectureMetadataExtractor()
         metadata_extractor.extract_and_store_metadata(model, datamodule)
 
+    # Store experiment name in model hparams for later reference
+    # This enables the evaluator to display the experiment configuration
+    try:
+        from hydra.core.hydra_config import HydraConfig
+        hydra_cfg = HydraConfig.get()
+        experiment_name = hydra_cfg.runtime.choices.get("experiment", None)
+        if experiment_name:
+            model.hparams["experiment_name"] = experiment_name
+            log.info(f"Stored experiment name in checkpoint: {experiment_name}")
+    except Exception:
+        pass  # Not critical if experiment name can't be stored
+
     if cfg.get("train"):
         # Preflight: ensure label diversity across a few batches before fitting
         enabled = True
@@ -265,10 +410,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
-
-        # Log actual number of epochs completed for experiment tracking
-        actual_epochs = trainer.current_epoch + 1 if trainer.current_epoch >= 0 else 0
-        log.info(f"TRAINING COMPLETED: actual_epochs={actual_epochs}")
 
     train_metrics = trainer.callback_metrics
 
@@ -310,11 +451,13 @@ def main(cfg: DictConfig) -> Optional[float]:
         model_config = hydra_cfg.runtime.choices.get("model", "unknown")
         data_config = hydra_cfg.runtime.choices.get("data", "unknown")
         trainer_config = hydra_cfg.runtime.choices.get("trainer", "unknown")
+        experiment_config = hydra_cfg.runtime.choices.get("experiment", None)
     except:
         # Fallback if hydra context not available
         model_config = "unknown"
         data_config = "unknown"
         trainer_config = "unknown"
+        experiment_config = None
 
     log.info(f"MODEL CONFIG:     {model_config} ({cfg.model._target_})")
     data_dir = getattr(cfg.data, "data_dir", "unknown")
@@ -327,13 +470,27 @@ def main(cfg: DictConfig) -> Optional[float]:
         except:
             pass  # Keep original if relpath fails
     batch_size = getattr(cfg.data, "batch_size", "unknown")
-    log.info(f"DATA CONFIG:      {data_config} (data_dir={data_dir}, batch_size={batch_size})")
+
+    # Try to read synth_type from dataset metadata for display
+    synth_type_display = "unknown"
+    if data_dir != "unknown" and os.path.exists(data_dir):
+        metadata_path = os.path.join(data_dir, "vimh_dataset_info.json")
+        if os.path.exists(metadata_path):
+            try:
+                import json
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                    synth_type_display = metadata.get("synth_type", "unknown")
+            except:
+                pass
+
+    log.info(f"DATA CONFIG:      {data_config} (data_dir={data_dir}, batch_size={batch_size}, synth_type={synth_type_display})")
     max_epochs = getattr(cfg.trainer, "max_epochs", "unknown")
     log.info(
         f"TRAINER CONFIG:   {trainer_config} ({cfg.trainer._target_}, max_epochs={max_epochs})"
     )
-    if cfg.get("experiment"):
-        log.info(f"EXPERIMENT:       {cfg.experiment}")
+    if experiment_config:
+        log.info(f"EXPERIMENT:       {experiment_config}")
     else:
         log.info(f"EXPERIMENT:       none")
     log.info(f"TAGS:             {cfg.get('tags', 'none')}")
@@ -345,9 +502,13 @@ def main(cfg: DictConfig) -> Optional[float]:
     metric_dict, _ = train(cfg)
 
     # safely retrieve metric value for hydra-based hyperparameter optimization
-    metric_value = get_metric_value(
-        metric_dict=metric_dict, metric_name=cfg.get("optimized_metric")
-    )
+    # (skip when running test-only mode since val metrics won't exist)
+    if cfg.get("train", True):
+        metric_value = get_metric_value(
+            metric_dict=metric_dict, metric_name=cfg.get("optimized_metric")
+        )
+    else:
+        metric_value = None
 
     # return optimized metric
     return metric_value
