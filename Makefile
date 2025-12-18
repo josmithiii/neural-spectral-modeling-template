@@ -388,6 +388,12 @@ trl train-vimh-large: check-env gdl ## Train the large example VIMH dataset usin
 
 # UTILITY TARGETS
 
+sr save-reference: check-env ## Save a checkpoint as reference (no args = most recent run, or add NAME=... and/or RUN_DIR=...)
+	python scripts/save_reference.py $(NAME) $(if $(RUN_DIR),--run-dir $(RUN_DIR),)
+
+lsr list-runs: check-env ## List recent training runs with checkpoint status
+	python scripts/save_reference.py --list dummy
+
 f format: ## Run pre-commit hooks
 	pre-commit run -a
 
