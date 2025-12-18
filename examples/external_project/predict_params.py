@@ -38,7 +38,7 @@ class DetectedNote:
     params: Dict[str, float]  # Predicted synthesis parameters
 
 # Default checkpoint (relative to nsm-synth-match root)
-DEFAULT_CKPT = "checkpoints/reference/2025-12-18_03-41-00.ckpt"
+DEFAULT_CKPT = str(PROJECT_ROOT / "checkpoints/reference/2025-12-18_03-41-00.ckpt")
 
 
 def load_wav(wav_path: str, target_sr: int = 8000) -> np.ndarray:
@@ -748,10 +748,8 @@ def main():
 
     # Find checkpoint
     if ckpt_path is None:
-        import src
-        pkg_root = Path(src.__file__).parent.parent
-        ckpt_path = pkg_root / DEFAULT_CKPT
-        if not ckpt_path.exists():
+        ckpt_path = DEFAULT_CKPT
+        if not Path(ckpt_path).exists():
             sys.exit(f"Default checkpoint not found: {ckpt_path}\nPlease specify a checkpoint path.")
 
     ckpt_path = str(ckpt_path)
