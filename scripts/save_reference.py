@@ -19,7 +19,10 @@ from typing import List, Optional
 
 RUNS_DIR = Path("logs/train/runs")
 REFERENCE_DIR = Path("checkpoints/reference")
-TIMESTAMP_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})")
+# Matches: timestamp_experiment (e.g., 2025-12-18_03-41-00_wah_cnn_tiny_regression)
+TIMESTAMP_EXPERIMENT_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})(?:_(.+))?$")
+# Legacy pattern for old directories with just timestamp
+TIMESTAMP_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})$")
 
 
 def get_experiment_name(run_dir: Path) -> Optional[str]:
@@ -64,6 +67,18 @@ def list_recent_runs(n: int = 5) -> List[Path]:
     return runs[:n]
 
 
+def parse_run_dir_name(dir_name: str) -> tuple[str, Optional[str]]:
+    """Parse run directory name into (timestamp, experiment_name).
+
+    Handles both new format (2025-12-18_03-41-00_wah_cnn_tiny) and
+    legacy format (2025-12-18_03-41-00).
+    """
+    match = TIMESTAMP_EXPERIMENT_PATTERN.match(dir_name)
+    if match:
+        return match.group(1), match.group(2)
+    return dir_name, None
+
+
 def save_reference(name: Optional[str] = None, run_dir: Optional[Path] = None) -> int:
     """Save a checkpoint as a reference model."""
     # If no name provided, use most recent run
@@ -74,9 +89,11 @@ def save_reference(name: Optional[str] = None, run_dir: Optional[Path] = None) -
             return 1
         run_dir = recent[0]
 
-        # Construct name from timestamp and experiment
-        timestamp = run_dir.name
-        experiment = get_experiment_name(run_dir)
+        # Parse directory name - new format already includes experiment name
+        timestamp, experiment_from_dir = parse_run_dir_name(run_dir.name)
+
+        # Use experiment from directory name, or fall back to hydra config (for legacy dirs)
+        experiment = experiment_from_dir or get_experiment_name(run_dir)
 
         if experiment:
             name = f"{timestamp}_{experiment}"
@@ -88,15 +105,20 @@ def save_reference(name: Optional[str] = None, run_dir: Optional[Path] = None) -
 
     # Determine run directory
     if run_dir is None:
-        match = TIMESTAMP_PATTERN.match(name)
+        # Try to match as new format first (timestamp_experiment)
+        match = TIMESTAMP_EXPERIMENT_PATTERN.match(name)
         if not match:
             print(f"Error: NAME must start with YYYY-MM-DD_HH-MM-SS or specify --run-dir")
             print(f"\nRecent runs:")
             for run in list_recent_runs():
                 print(f"  {run.name}")
             return 1
-        timestamp = match.group(1)
-        run_dir = RUNS_DIR / timestamp
+
+        # Try new format directory first, fall back to timestamp-only (legacy)
+        run_dir = RUNS_DIR / name
+        if not run_dir.exists():
+            timestamp = match.group(1)
+            run_dir = RUNS_DIR / timestamp
 
     if not run_dir.exists():
         print(f"Error: Run directory not found: {run_dir}")
