@@ -683,6 +683,15 @@ class SimpleSawSynth:
                         f"Unknown filter type: {filter_type}. Must be 'moog' or 'wah'."
                     )
 
+            # Apply onset delay if specified (prepend silence, truncate to maintain duration)
+            onset_delay_ms = params.get("onset_delay_ms", 0.0)
+            if onset_delay_ms > 0.0:
+                delay_samples = int(onset_delay_ms * self.sample_rate / 1000.0)
+                if delay_samples > 0:
+                    # Prepend silence and truncate to original length
+                    silence = np.zeros(delay_samples, dtype=audio.dtype)
+                    audio = np.concatenate([silence, audio])[:num_samples]
+
             return audio.astype(np.float32)
 
         except Exception as e:

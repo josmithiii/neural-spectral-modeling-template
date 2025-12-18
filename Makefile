@@ -50,6 +50,14 @@ gdwe generate-dataset-wah-envelope: check-env ## Synthesize VIMH dataset with Sa
 	fi
 	ls ./data/
 
+gdwdel generate-dataset-wah-delay: check-env ## Synthesize VIMH dataset with Saw + Wah + onset delay (3 params: decay, wah, onset_delay_ms) - 16k samples
+	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_del_3p/vimh_dataset_info.json ]; then \
+		echo "Dataset already exists: ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_del_3p"; \
+	else \
+		python generate_vimh.py --config-name=synth/generate_saw_wah_del dataset.size=16384; \
+	fi
+	ls ./data/
+
 gdas generate-dataset-all-small: gdws gdwe ## Generate all small wah datasets
 
 # DUMP VIMH DATASET METADATA "vd"
@@ -163,6 +171,12 @@ ewvm exp-wah-vit-medium: check-env gdwl ## Train "medium" (~1M+) ViT on dataset 
 
 ewvmr exp-wah-vit-medium-regression: check-env gdwl ## Train "medium" (~1M+) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_medium_regression
+
+# SAW+WAH+DELAY (WDEL) VIMH EXPERIMENTS
+# 3 params: log10_decay_time, wah_position, onset_delay_ms
+
+ewdel exp-wah-delay-cnn-medium: check-env gdwdel ## Train VIMH medium CNN on saw+wah+delay (3 params, 16k samples)
+	time python src/train.py experiment=wah_del_cnn_medium
 
 # EVALS "ev" - Evaluate saved checkpoints
 

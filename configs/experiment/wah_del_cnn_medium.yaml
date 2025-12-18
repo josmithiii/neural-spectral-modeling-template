@@ -1,0 +1,60 @@
+# @package _global_
+
+# VIMH experiment with saw+wah+delay using medium CNN
+# Plain VIMH (random sampling) for saw+wah+onset_delay
+# 3 params: log10_decay_time, wah_position, onset_delay_ms
+
+defaults:
+  - override /data: vimh_saw_wah_del
+  - override /model: cnn_medium
+  - override /trainer: mps
+  - override /logger: tensorboard
+  - override /callbacks: default
+
+# Experiment metadata
+tags: ["vimh", "saw_wah_del", "3param", "medium", "transcription"]
+
+# Training configuration
+seed: 12345
+
+trainer:
+  min_epochs: 20
+  max_epochs: 200
+  gradient_clip_val: 1.0
+  log_every_n_steps: 1
+  val_check_interval: 1.0
+  check_val_every_n_epoch: 1
+
+# Model overrides
+model:
+  optimizer:
+    lr: 0.01
+    weight_decay: 0.01
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    _partial_: true
+    mode: min
+    factor: 0.5
+    patience: 3
+
+data:
+  batch_size: 64
+
+# Logger configuration
+logger:
+  tensorboard:
+    name: "wah_del_cnn_medium"
+
+# Callbacks
+callbacks:
+  model_checkpoint:
+    monitor: "val/loss"
+    mode: "min"
+    save_top_k: 3
+    save_last: true
+
+  early_stopping:
+    monitor: "val/loss"
+    mode: "min"
+    patience: 50
+    min_delta: 0.0001
