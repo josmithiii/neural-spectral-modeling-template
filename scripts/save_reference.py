@@ -13,12 +13,28 @@ import argparse
 import re
 import shutil
 import sys
+import yaml
 from pathlib import Path
 from typing import List, Optional
 
 RUNS_DIR = Path("logs/train/runs")
 REFERENCE_DIR = Path("checkpoints/reference")
 TIMESTAMP_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})")
+
+
+def get_experiment_name(run_dir: Path) -> Optional[str]:
+    """Extract experiment name from hydra config."""
+    config_path = run_dir / ".hydra" / "config.yaml"
+    if not config_path.exists():
+        return None
+
+    try:
+        with open(config_path) as f:
+            cfg = yaml.safe_load(f)
+            return cfg.get("experiment")
+    except Exception:
+        pass
+    return None
 
 
 def find_best_checkpoint(run_dir: Path) -> Optional[Path]:
@@ -57,8 +73,18 @@ def save_reference(name: Optional[str] = None, run_dir: Optional[Path] = None) -
             print("Error: No runs found in logs/train/runs/")
             return 1
         run_dir = recent[0]
-        name = run_dir.name
-        print(f"Using most recent run: {name}")
+
+        # Construct name from timestamp and experiment
+        timestamp = run_dir.name
+        experiment = get_experiment_name(run_dir)
+
+        if experiment:
+            name = f"{timestamp}_{experiment}"
+        else:
+            name = timestamp
+
+        print(f"Using most recent run: {run_dir.name}")
+        print(f"Target name: {name}")
 
     # Determine run directory
     if run_dir is None:
