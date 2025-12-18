@@ -698,6 +698,189 @@ class SimpleSawSynth:
             raise RuntimeError(f"Error generating audio: {e}")
 
 
+class PercussionSynth:
+    """FTM (Functional Transformation Method) rectangular drum synthesizer.
+
+    Based on Rabenstein's linear drum model with normalized side length ratio.
+    This is a physics-based percussion synthesizer using 4th-order PDE solver.
+
+    Parameters:
+        omega (ω): Fundamental frequency [log-scale: log10(Hz)]
+        tau (τ): Decay time constant [seconds]
+        p: Stiffness coefficient [log-scale: log10(value)]
+        D: Damping coefficient [log-scale: log10(value)]
+        alpha: Drum aspect ratio (side length ratio)
+
+    Reference: Perceptual-to-Neural Perceptual (PNP) matching for percussion synthesis
+    Code Reference: /l/pnp/src/pnp_synth/physical/ftm.py
+    """
+
+    # FTM constants (from pnp_synth/physical/ftm.py)
+    DEFAULT_CONSTANTS = {
+        "x1": 0.4,      # Strike position x-coordinate (normalized)
+        "x2": 0.4,      # Strike position y-coordinate (normalized)
+        "h": 0.03,      # Strike impulse height
+        "l0": np.pi,    # Reference side length
+        "m1": 10,       # Number of modes in x-direction
+        "m2": 10,       # Number of modes in y-direction
+        "sr": 8000,     # Sample rate (will be overridden by __init__)
+        "dur": 8000,    # Duration in samples (will be overridden by __init__)
+    }
+
+    def __init__(self, sample_rate: int = 8000):
+        if sample_rate <= 0:
+            raise ValueError(f"Sample rate must be positive, got {sample_rate}")
+        self.sample_rate = sample_rate
+
+        # Update constants with actual sample rate
+        self.constants = self.DEFAULT_CONSTANTS.copy()
+        self.constants["sr"] = sample_rate
+
+    def _rectangular_drum_numpy(
+        self,
+        omega: float,
+        tau: float,
+        p: float,
+        D: float,
+        alpha_side: float,
+        duration_samples: int,
+        logscale: bool = True,
+    ) -> np.ndarray:
+        """Generate rectangular drum audio using NumPy (portable, no torch dependency).
+
+        This is a simplified version of ftm.rectangular_drum() optimized for single-sample
+        generation without torch dependencies.
+        """
+        # Apply log scaling if needed
+        w11 = 10 ** omega if logscale else omega
+        p_val = 10 ** p if logscale else p
+        D_val = 10 ** D if logscale else D
+
+        # Constants
+        l0 = self.constants['l0']
+        x1 = self.constants['x1']
+        x2 = self.constants['x2']
+        h = self.constants['h']
+        m1 = self.constants['m1']
+        m2 = self.constants['m2']
+        sr = self.constants['sr']
+
+        # Derived parameters
+        l2 = l0 * alpha_side
+        beta_side = alpha_side + 1 / alpha_side
+        S = l0 / np.pi * ((D_val * w11 * alpha_side)**2 + (p_val * alpha_side / tau)**2)**0.25
+        c_sq = (
+            alpha_side * (1 / beta_side - p_val**2 * beta_side) / tau**2
+            + alpha_side * w11**2 * (1 / beta_side - D_val**2 * beta_side)
+        ) * (l0 / np.pi)**2
+        T = c_sq
+        d1 = 2 * (1 - p_val * beta_side) / tau
+        d3 = -2 * p_val * alpha_side / tau * (l0 / np.pi) **2
+        EI = S ** 4
+
+        # Mode indices
+        mu = np.arange(1, m1 + 1, dtype=np.float64)
+        mu2 = np.arange(1, m2 + 1, dtype=np.float64)
+
+        # Modal properties
+        n = (mu[:, None] * np.pi / l0) ** 2 + (mu2[None, :] * np.pi / l2)**2  # (m1, m2)
+        n2 = n ** 2
+        K = np.sin(mu[:, None] * np.pi * x1) * np.sin(mu2[None, :] * np.pi * x2)  # (m1, m2)
+
+        beta = EI * n2 + T * n  # (m1, m2)
+        alpha_modal = (d1 - d3 * n) / 2  # (m1, m2)
+        omega_modal = np.sqrt(np.abs(beta - alpha_modal**2))
+
+        # Adaptive mode rejection (Nyquist frequency)
+        mode_rejected = (omega_modal / 2 / np.pi) > sr / 2
+        mode1_corr = m1 - max(np.sum(mode_rejected, axis=0)) if m1 - max(np.sum(mode_rejected, axis=0)) != 0 else m1
+        mode2_corr = m2 - max(np.sum(mode_rejected, axis=1)) if m2 - max(np.sum(mode_rejected, axis=1)) != 0 else m2
+
+        # Normalization constant
+        N = l0 * l2 / 4
+
+        # Initial conditions
+        yi = (
+            h
+            * np.sin(mu[:, None] * np.pi * x1)
+            * np.sin(mu2[None, :] * np.pi * x2)
+            / omega_modal  # (m1, m2)
+        )
+
+        # Time evolution - MODE FREQUENCIES FIXED FOR THE DURATION (linear modal model)
+        time_steps = np.arange(duration_samples, dtype=np.float64) / sr  # (T,)
+        y = np.exp(-alpha_modal[:, :, None] * time_steps[None, None, :]) * np.sin(
+            omega_modal[:, :, None] * time_steps[None, None, :]
+        )  # (m1, m2, T)
+
+        # Apply initial conditions and modal weights
+        y = yi[:, :, None] * y  # (m1, m2, T)
+        y_full = y * K[:, :, None] / N
+
+        # Apply mode correction
+        y_full = y_full[:mode1_corr, :mode2_corr, :]
+
+        # Sum over modes
+        y_final = np.sum(y_full, axis=(0, 1))  # (T,)
+
+        # Normalize
+        y_max = np.max(np.abs(y_final))
+        if y_max > 0:
+            y_final = y_final / y_max
+
+        return y_final.astype(np.float32)
+
+    def generate_audio(self, params: Dict[str, float]) -> np.ndarray:
+        """Generate percussion audio with given parameters.
+
+        Expected parameters:
+            omega: Fundamental frequency [log10(Hz)]
+            tau: Decay time constant [seconds]
+            p: Stiffness coefficient [log10(value)]
+            D: Damping coefficient [log10(value)]
+            alpha: Drum aspect ratio (side length)
+            duration: Audio duration [seconds]
+        """
+        check_params(params, "omega", "tau", "p", "D", "alpha", "duration")
+
+        try:
+            omega = params.get("omega", 2.0)  # log10(100 Hz) default
+            tau = params.get("tau", 0.5)  # 0.5 second decay default
+            p = params.get("p", -1.0)  # log10(0.1) default
+            D = params.get("D", -1.0)  # log10(0.1) default
+            alpha = params.get("alpha", 1.0)  # square drum default
+            duration = params.get("duration", 1.0)
+
+            # Validate parameters
+            if duration <= 0:
+                raise ValueError(f"Duration must be positive, got {duration}")
+            if tau <= 0:
+                raise ValueError(f"Tau must be positive, got {tau}")
+            if alpha <= 0:
+                raise ValueError(f"Alpha must be positive, got {alpha}")
+
+            # Calculate duration in samples
+            duration_samples = int(duration * self.sample_rate)
+            if duration_samples <= 0:
+                raise ValueError(f"Duration too short for sample rate, got {duration_samples} samples")
+
+            # Generate drum audio
+            audio = self._rectangular_drum_numpy(
+                omega=omega,
+                tau=tau,
+                p=p,
+                D=D,
+                alpha_side=alpha,
+                duration_samples=duration_samples,
+                logscale=True,  # Parameters are in log scale
+            )
+
+            return audio
+
+        except Exception as e:
+            raise RuntimeError(f"Error generating percussion audio: {e}")
+
+
 def pre_emphasis_filter(audio: np.ndarray, coefficient: float = 0.97) -> np.ndarray:
     """Apply pre-emphasis filter to audio signal."""
     if coefficient <= 0:
