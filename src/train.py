@@ -10,6 +10,10 @@ from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig, OmegaConf, open_dict
 
+# Register custom resolver to flatten path separators in experiment names
+# Enables experiment=wah/del/cnn/medium -> run dir ..._wah_del_cnn_medium
+OmegaConf.register_new_resolver("flatten", lambda x: x.replace("/", "_") if x else x)
+
 _original_torch_load = torch.load
 
 

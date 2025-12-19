@@ -7,10 +7,11 @@ defaults:
 
 # output directory, generated dynamically on each run
 # Format: timestamp_experiment (e.g., 2025-12-18_03-41-00_wah_cnn_tiny_regression)
+# The flatten resolver converts path separators to underscores (wah/del/cnn -> wah_del_cnn)
 run:
-  dir: ${paths.log_dir}/${task_name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}_${oc.select:hydra.runtime.choices.experiment,quick}
+  dir: ${paths.log_dir}/${task_name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}_${flatten:${oc.select:hydra.runtime.choices.experiment,quick}}
 sweep:
-  dir: ${paths.log_dir}/${task_name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}_${oc.select:hydra.runtime.choices.experiment,sweep}
+  dir: ${paths.log_dir}/${task_name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}_${flatten:${oc.select:hydra.runtime.choices.experiment,sweep}}
   subdir: ${hydra.job.num}
 
 job_logging:
