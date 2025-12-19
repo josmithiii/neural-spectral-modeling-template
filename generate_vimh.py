@@ -18,7 +18,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
+
+# Register custom resolver to flatten path separators in experiment names
+# Must match the resolver in train.py for hydra config compatibility
+OmegaConf.register_new_resolver("flatten", lambda x: x.replace("/", "_") if x else x)
 
 # Import shared synthesis utilities
 from src.utils.synth_utils import (

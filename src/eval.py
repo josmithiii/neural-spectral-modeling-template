@@ -26,7 +26,11 @@ import rootutils
 import torch
 from lightning import LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
+
+# Register custom resolver to flatten path separators in experiment names
+# Must match the resolver in train.py for hydra config compatibility
+OmegaConf.register_new_resolver("flatten", lambda x: x.replace("/", "_") if x else x)
 
 _original_torch_load = torch.load
 

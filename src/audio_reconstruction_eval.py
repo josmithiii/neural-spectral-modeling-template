@@ -121,7 +121,11 @@ import torch.nn.functional as F
 from lightning import LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from matplotlib.widgets import Button, CheckButtons, TextBox
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
+
+# Register custom resolver to flatten path separators in experiment names
+# Must match the resolver in train.py for hydra config compatibility
+OmegaConf.register_new_resolver("flatten", lambda x: x.replace("/", "_") if x else x)
 
 try:
     import IPython.display as ipd
