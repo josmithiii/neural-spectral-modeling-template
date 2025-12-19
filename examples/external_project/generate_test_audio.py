@@ -53,7 +53,7 @@ import rootutils
 PROJECT_ROOT = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from src.data.vimh_dataset import VIMHDataset
-from src.utils.synth_utils import SimpleSawSynth
+from src.utils.synth_utils import SimpleSawSynth, PercussionSynth
 
 # Default checkpoint name (will be resolved to latest timestamped version)
 DEFAULT_CKPT = "wah_del_cnn_medium.ckpt"
