@@ -1454,9 +1454,14 @@ class AudioReconstructionEvaluator:
 
         # 5. True audio spectrogram (re-synthesized)
         plt.subplot(3, 3, 5)
-        # Use the same parameters that were used for original dataset generation
+        # Add fixed parameters for correct spectrogram computation (needed for STFT config)
+        spec_params = results["true_params"].copy()
+        if hasattr(self, 'dataset_info') and 'fixed_parameters' in self.dataset_info:
+            for param_name, param_info in self.dataset_info['fixed_parameters'].items():
+                if param_name not in spec_params:
+                    spec_params[param_name] = param_info['value']
         true_spec, _, _ = self.spec_processor.audio_to_spectrogram(
-            results["true_params"], true_audio
+            spec_params, true_audio
         )
 
         # The spectrograms should now match since we're using the same parameters and processing
@@ -1468,7 +1473,7 @@ class AudioReconstructionEvaluator:
 
         # 6. Predicted audio spectrogram
         plt.subplot(3, 3, 6)
-        pred_spec, _, _ = self.spec_processor.audio_to_spectrogram({}, pred_audio)
+        pred_spec, _, _ = self.spec_processor.audio_to_spectrogram(spec_params, pred_audio)
         plt.imshow(pred_spec, aspect="auto", origin="lower", cmap="viridis")
         plt.title("Predicted Synthesis Spectrogram")
         plt.xlabel("Time")
@@ -2273,14 +2278,20 @@ class InteractiveAudioEvaluator:
         self.axes[0, 1].grid(True, alpha=0.3)
 
         true_params = self.current_results["true_params"]
+        # Add fixed parameters for correct spectrogram computation (needed for STFT config)
+        spec_params = true_params.copy()
+        if hasattr(self.evaluator, 'dataset_info') and 'fixed_parameters' in self.evaluator.dataset_info:
+            for param_name, param_info in self.evaluator.dataset_info['fixed_parameters'].items():
+                if param_name not in spec_params:
+                    spec_params[param_name] = param_info['value']
         true_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram(
-            true_params, true_audio
+            spec_params, true_audio
         )
         self.axes[0, 2].imshow(true_spec, aspect="auto", origin="lower", cmap="viridis")
         self.axes[0, 2].set_title("True Audio Spectrogram")
 
         # Row 1: Predicted spectrogram, Parameters, Metrics
-        pred_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram({}, pred_audio)
+        pred_spec, _, _ = self.evaluator.spec_processor.audio_to_spectrogram(spec_params, pred_audio)
         self.axes[1, 0].imshow(pred_spec, aspect="auto", origin="lower", cmap="viridis")
         self.axes[1, 0].set_title("Predicted Audio Spectrogram")
 
