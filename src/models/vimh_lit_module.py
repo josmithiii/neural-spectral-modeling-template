@@ -635,10 +635,7 @@ class VIMHLitModule(LightningModule):
         )
 
     def on_fit_start(self) -> None:
-        """Lightning hook that is called when fitting begins (before training).
-
-        Load AVIX grid data for SpectralGridLoss if needed.
-        """
+        """Lightning hook that is called when fitting begins (before training)."""
         # Disable graph logging for VIMH models
         # TensorBoard's torch.jit.trace doesn't support dict outputs used by VIMH internally
         if hasattr(self, "logger") and self.logger is not None:
@@ -650,35 +647,6 @@ class VIMHLitModule(LightningModule):
                     print(
                         f"ℹ️  Disabled graph logging for VIMH model (uses dict outputs internally, {num_heads} head(s))"
                     )
-
-        # Check if any criterion is SpectralGridLoss and needs grid data
-        for head_name, criterion in self.criteria.items():
-            if isinstance(criterion, SpectralGridLoss) and criterion.grid_data is None:
-                # Get grid from datamodule
-                if hasattr(self.trainer, 'datamodule'):
-                    datamodule = self.trainer.datamodule
-                    if hasattr(datamodule, 'get_avix_grid'):
-                        grid = datamodule.get_avix_grid()
-                        if grid is not None:
-                            # Move grid to same device as model
-                            grid = grid.to(self.device)
-                            # Get parameter names from datamodule (stored during AVIX grid loading)
-                            param_names = getattr(datamodule, 'avix_param_names', None)
-                            # Get auxiliary features from datamodule
-                            auxiliary_features = getattr(datamodule.hparams, 'auxiliary_features', []) if hasattr(datamodule, 'hparams') else []
-                            criterion.auxiliary_param_names = auxiliary_features
-                            criterion.set_grid(grid, param_names=param_names)
-                            print(f"✓ SpectralGridLoss for {head_name} loaded grid: {grid.shape}")
-                            if param_names:
-                                print(f"  Grid parameter order: {param_names}")
-                            if auxiliary_features:
-                                print(f"  Auxiliary parameters: {auxiliary_features}")
-                        else:
-                            print(f"⚠ AVIX grid not available in datamodule for {head_name}")
-                    else:
-                        print(f"⚠ Datamodule does not support get_avix_grid() for {head_name}")
-                else:
-                    print(f"⚠ No datamodule attached to trainer for {head_name}")
 
     def on_train_start(self) -> None:
         """Lightning hook that is called when training begins."""

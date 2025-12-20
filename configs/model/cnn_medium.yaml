@@ -23,7 +23,9 @@ net:
   conv2_channels: 128
   fc_hidden: 512
   heads_config:
-    synth_param1: 10 # Default placeholder - will be auto-configured from dataset metadata
+    # Placeholder heads for 2-param wah dataset - auto-configured from dataset metadata
+    log10_decay_time: 14
+    wah_position: 19
   dropout: 0.5
   input_size: 32 # VIMH image size (32x32 for spectrograms)
 

@@ -22,7 +22,7 @@ USAGE:
     python src/audio_reconstruction_eval.py ckpt_path=checkpoints/reference/cnn_medium_dsaw_3p_baseline_v1.ckpt interactive=false num_samples=10
 
     # Evaluate without saving audio files
-    python src/audio_reconstruction_eval.py ckpt_path=checkpoints/reference/convnext_medium_wah_avix_v1.ckpt save_audio=false
+    python src/audio_reconstruction_eval.py ckpt_path=checkpoints/reference/cnn_medium_wah_v1.ckpt save_audio=false
 
 CONFIGURATION OPTIONS (set via command line: key=value):
 
@@ -95,8 +95,8 @@ EXAMPLE WORKFLOWS:
     3. Batch evaluation of 100 samples (non-interactive):
        python src/audio_reconstruction_eval.py ckpt_path=checkpoints/reference/cnn_medium_dsaw_3p_baseline_v1.ckpt interactive=false num_samples=100
 
-    4. Evaluate wah model with auxiliary features:
-       python src/audio_reconstruction_eval.py ckpt_path=checkpoints/reference/convnext_medium_wah_avix_aux_v1.ckpt
+    4. Evaluate wah model:
+       python src/audio_reconstruction_eval.py ckpt_path=checkpoints/reference/cnn_medium_wah_v1.ckpt
 
 NOTES:
     - The script automatically uses the exact dataset that was used during training
@@ -1768,9 +1768,6 @@ class InteractiveAudioEvaluator:
         # Add keyboard navigation
         self.fig.canvas.mpl_connect("key_press_event", self.on_key_press)
 
-        # Add parameter plot click navigation (for AVIX datasets)
-        self.fig.canvas.mpl_connect("button_press_event", self.on_param_plot_click)
-
         # Initial update
         self.update_display()
 
@@ -1792,8 +1789,6 @@ class InteractiveAudioEvaluator:
         print("   • Click 'Load Ckpt' button: Choose a checkpoint from reference folder")
         print("   • Click 'Play True'/'Play Pred': Play audio for current sample")
         print("   • Click 'Copy Info': Copy header info to clipboard (or print)")
-        if self.evaluator.dataset_info.get('is_avix_dataset'):
-            print("   • [AVIX] Click on parameter bars to navigate to that parameter value")
 
     def load_checkpoint(self, event):
         """List available checkpoints and provide command to restart with selected one."""
@@ -1927,196 +1922,6 @@ class InteractiveAudioEvaluator:
             import traceback
             traceback.print_exc()
             print("="*70)
-
-    def on_param_plot_click(self, event):
-        """Handle clicks on parameter plot for AVIX navigation."""
-        # Debug: print all clicks
-        print(f"\n🖱️  Click detected: button={event.button}, inaxes={event.inaxes is not None}")
-
-        # Only works for AVIX datasets on train set
-        is_avix = self.evaluator.dataset_info.get('is_avix_dataset', False)
-        print(f"   Is AVIX dataset: {is_avix}")
-
-        if not is_avix:
-            print("   → Ignoring: Not an AVIX dataset")
-            return
-
-        if not self.use_test_set:  # Train set
-            dataset_to_use = self.evaluator.train_dataset
-            use_nearest_neighbor = False
-            print(f"   Using train set ({len(dataset_to_use)} samples) - grid navigation")
-        else:  # Test set
-            dataset_to_use = self.evaluator.test_dataset
-            use_nearest_neighbor = True
-            print(f"   Using test set ({len(dataset_to_use)} samples) - nearest neighbor search")
-
-        # Check if click was on the parameter plot (axes[1, 1])
-        if event.inaxes is None:
-            print("   → Ignoring: Click outside axes")
-            return
-
-        if event.inaxes != self.axes[1, 1]:
-            # Show which subplot was clicked
-            for r in range(2):
-                for c in range(3):
-                    if event.inaxes == self.axes[r, c]:
-                        print(f"   → Ignoring: Click on axes[{r},{c}], not parameter plot [1,1]")
-                        return
-            print(f"   → Ignoring: Click on unknown axes")
-            return
-
-        print(f"   ✓ Click on parameter plot!")
-
-        # Get click coordinates
-        x_click = event.xdata
-        y_click = event.ydata
-
-        if x_click is None or y_click is None:
-            return
-
-        # Check if we have parameter info stored
-        if not hasattr(self, '_param_names_for_click') or not hasattr(self, '_param_x_positions'):
-            return
-
-        param_names = self._param_names_for_click
-        x_positions = self._param_x_positions
-
-        # Find nearest parameter (x position)
-        # Each bar is centered at an integer x position
-        param_idx = int(round(x_click))
-        if param_idx < 0 or param_idx >= len(param_names):
-            return
-
-        param_name = param_names[param_idx]
-
-        # Get parameter mapping
-        mapping = self.evaluator.param_mappings.get(param_name)
-        if not mapping:
-            print(f"⚠️  No mapping found for parameter '{param_name}'")
-            return
-
-        pmin = mapping.get('min', 0.0)
-        pmax = mapping.get('max', 1.0)
-        step = mapping.get('step')
-
-        if step is None or step <= 0:
-            print(f"⚠️  Invalid step for parameter '{param_name}'")
-            return
-
-        # Map y-coordinate (0-1 normalized) to actual parameter value
-        # y_click is already in normalized 0-1 space
-        y_clamped = max(0.0, min(1.0, y_click))
-        actual_value = pmin + y_clamped * (pmax - pmin)
-
-        # Round to nearest step
-        num_steps_from_min = round((actual_value - pmin) / step)
-        rounded_value = pmin + num_steps_from_min * step
-        rounded_value = max(pmin, min(pmax, rounded_value))
-
-        print(f"\n🖱️  Clicked on '{param_name}' at y={y_click:.3f}")
-        print(f"   Mapped to: {actual_value:.4f} → Rounded to: {rounded_value:.4f}")
-
-        # Build target parameter values for all parameters
-        target_params = {}
-        for pname in param_names:
-            pmapping = self.evaluator.param_mappings.get(pname)
-            if not pmapping:
-                continue
-
-            p_min = pmapping['min']
-            p_max = pmapping['max']
-
-            if pname == param_name:
-                # Use our clicked/rounded value
-                target_params[pname] = rounded_value
-            else:
-                # Use current true value from displayed sample
-                target_params[pname] = self.current_results['true_params'].get(pname, p_min)
-
-        if use_nearest_neighbor:
-            # Test set: Find nearest neighbor by parameter distance
-            print(f"   Searching for nearest test sample...")
-
-            best_sample_idx = None
-            best_distance = float('inf')
-
-            for sample_idx in range(len(dataset_to_use)):
-                # Get true parameters for this test sample
-                sample_params = self.evaluator.get_true_parameters(sample_idx, dataset_to_use)
-
-                # Calculate normalized Euclidean distance
-                distance = 0.0
-                for pname in param_names:
-                    pmapping = self.evaluator.param_mappings.get(pname)
-                    if not pmapping:
-                        continue
-
-                    p_min = pmapping['min']
-                    p_max = pmapping['max']
-                    p_range = max(1e-12, p_max - p_min)
-
-                    # Normalize both values to [0, 1] for fair distance calculation
-                    target_norm = (target_params[pname] - p_min) / p_range
-                    sample_norm = (sample_params[pname] - p_min) / p_range
-
-                    distance += (target_norm - sample_norm) ** 2
-
-                distance = np.sqrt(distance)
-
-                if distance < best_distance:
-                    best_distance = distance
-                    best_sample_idx = sample_idx
-
-            if best_sample_idx is not None:
-                sample_idx = best_sample_idx
-                print(f"   Found nearest sample: index={sample_idx}, distance={best_distance:.4f}")
-            else:
-                print(f"⚠️  No nearest sample found")
-                return
-        else:
-            # Train set: Calculate AVIX grid index
-            # For AVIX, parameters are ordered and the rightmost varies fastest
-            param_indices = {}
-
-            for pname in param_names:
-                pmapping = self.evaluator.param_mappings.get(pname)
-                if not pmapping:
-                    continue
-
-                p_min = pmapping['min']
-                p_max = pmapping['max']
-                p_step = pmapping['step']
-
-                # Calculate step index for this parameter
-                p_value = target_params[pname]
-                idx = round((p_value - p_min) / p_step)
-                num_steps = round((p_max - p_min) / p_step)
-                idx = max(0, min(num_steps, idx))
-                param_indices[pname] = (idx, num_steps + 1)
-
-            # Calculate flat sample index using AVIX ordering
-            # Rightmost parameter varies fastest
-            sample_idx = 0
-            stride = 1
-
-            for pname in reversed(param_names):  # Rightmost first
-                if pname not in param_indices:
-                    print(f"⚠️  Missing parameter '{pname}' in indices")
-                    return
-                idx, num_classes = param_indices[pname]
-                sample_idx += idx * stride
-                stride *= num_classes
-
-            print(f"   AVIX sample index: {sample_idx}")
-            print(f"   Parameter combination: {', '.join(f'{p}[{param_indices[p][0]}/{param_indices[p][1]-1}]' for p in param_names)}")
-
-        # Navigate to this sample
-        if 0 <= sample_idx < len(dataset_to_use):
-            self.current_sample = sample_idx
-            self.sample_textbox.set_val(str(self.current_sample))
-            self.update_display()
-        else:
-            print(f"⚠️  Calculated sample index {sample_idx} out of range [0, {len(dataset_to_use)-1}]")
 
     def on_key_press(self, event):
         """Handle keyboard navigation events."""
@@ -2300,23 +2105,13 @@ class InteractiveAudioEvaluator:
             true_vals = [self.current_results["param_errors"][p]["true"] for p in param_names]
             pred_vals = [self.current_results["param_errors"][p]["predicted"] for p in param_names]
 
-            title_suffix = (
-                "[AVIX: Click to navigate]"
-                if self.evaluator.dataset_info.get("is_avix_dataset")
-                else ""
-            )
-
             plot_parameter_comparison(
                 self.axes[1, 1],
                 param_names,
                 true_vals,
                 pred_vals,
                 self.evaluator.param_mappings,
-                title_suffix=title_suffix,
             )
-
-            self._param_names_for_click = param_names
-            self._param_x_positions = np.arange(len(param_names))
 
         metrics = self.current_results["audio_metrics"]
         plot_audio_metrics(self.axes[1, 2], metrics, self.evaluator.sample_rate)
@@ -3321,13 +3116,9 @@ REFERENCE CHECKPOINTS (in checkpoints/reference/):
     python src/audio_reconstruction_eval.py \\
         ckpt_path=checkpoints/reference/cnn_medium_dsaw_3p_baseline_v1.ckpt
 
-    # Wah model with auxiliary features
+    # Wah model
     python src/audio_reconstruction_eval.py \\
-        ckpt_path=checkpoints/reference/convnext_medium_wah_avix_aux_v1.ckpt
-
-    # Wah model (AVIX only)
-    python src/audio_reconstruction_eval.py \\
-        ckpt_path=checkpoints/reference/convnext_medium_wah_avix_v1.ckpt
+        ckpt_path=checkpoints/reference/cnn_medium_wah_v1.ckpt
 
 COMMON OPTIONS:
     ckpt_path=PATH              Path to checkpoint file (default: auto-discover latest)

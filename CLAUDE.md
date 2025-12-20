@@ -169,7 +169,7 @@ This is the **Neural Spectral Modeling Template (NSMT)** with specialized audio 
 - **Spectral processing**: EfficientLeaf spectrograms, temporal/spectral envelopes, pre-emphasis filtering
 - **Multiple CNN architectures**: Optimized for spectral data with configurable parameter counts
 - **Configurable losses**: Hydra-managed loss functions including ordinal regression and soft targets
-- **Dataset generation**: SimpleSawSynth with systematic (AVIX) or random parameter generation
+- **Dataset generation**: SimpleSawSynth with random parameter generation
 - **Make targets**: Convenient shortcuts for training, testing, and visualization
 
 ### Configuration System (Hydra)

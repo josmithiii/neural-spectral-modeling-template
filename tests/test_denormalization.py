@@ -35,6 +35,7 @@ class _FakeDataset:
                 "duration": 1.0,
                 "spectrogram_config": {"type": "stft", "n_fft": 80, "n_window": 80, "hop_length": 40},
                 "mel_config": {"freq_min": 40.0, "freq_max_ratio": 0.9},
+                "synth_type": "SimpleSawSynth",
             }
         }
 
@@ -53,7 +54,9 @@ class _FakeDataModule:
             "duration": 1.0,
             "spectrogram_config": {"type": "stft", "n_fft": 80, "n_window": 80, "hop_length": 40},
             "mel_config": {"freq_min": 40.0, "freq_max_ratio": 0.9},
+            "synth_type": "SimpleSawSynth",
         }
+        self.data_train = _FakeDataset(param_mappings, param_names)
         self.data_test = _FakeDataset(param_mappings, param_names)
 
     def setup(self, stage=None):

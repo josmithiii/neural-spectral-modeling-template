@@ -74,7 +74,6 @@ def plot_parameter_comparison(
     true_vals: List[float],
     pred_vals: List[float],
     param_mappings: Dict[str, Dict[str, Any]],
-    title_suffix: str = "",
 ) -> None:
     """Plot parameter comparison bars with normalized values.
 
@@ -84,7 +83,6 @@ def plot_parameter_comparison(
         true_vals: List of true parameter values (natural scale)
         pred_vals: List of predicted parameter values (natural scale)
         param_mappings: Dictionary of parameter ranges for normalization
-        title_suffix: Optional suffix for title (e.g., "[AVIX: Click to navigate]")
     """
     # Normalize values to [0, 1] using parameter mappings
     norm_true = []
@@ -174,10 +172,7 @@ def plot_parameter_comparison(
     ax.set_ylabel("Normalized Value [0,1]")
     ax.set_xticks(x)
     ax.set_xticklabels(param_names, rotation=45)
-    title = "Parameters (Normalized)"
-    if title_suffix:
-        title += f" {title_suffix}"
-    ax.set_title(title)
+    ax.set_title("Parameters (Normalized)")
     ax.legend()
 
 
