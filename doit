@@ -1,0 +1,7 @@
+make ewdel
+make sr
+cd examples/external_project/
+make all
+cd ../../
+make ddr
+make ae
