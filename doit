@@ -1,1 +1,1 @@
-make ewdel && make sr && cd examples/external_project/ && make all && cd ../../ && make ddr && make ae
+bash setup.bash && make ewdel && make sr && cd examples/external_project/ && bash setup.bash && make all && cd ../../ && make ddr && make ae
