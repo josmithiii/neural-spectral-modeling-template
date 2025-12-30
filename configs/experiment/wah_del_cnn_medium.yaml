@@ -7,7 +7,7 @@
 defaults:
   - override /data: vimh_saw_wah_del
   - override /model: cnn_medium
-  - override /trainer: mps
+  - override /trainer: auto
   - override /logger: tensorboard
   - override /callbacks: default
 
