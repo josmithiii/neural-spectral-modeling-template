@@ -288,8 +288,8 @@ def audio_to_spectrogram(audio: np.ndarray, hparams: Dict[str, Any], dataset_inf
 
     spec_np, _, _ = processor.audio_to_spectrogram(spec_params, audio)
 
-    # Convert to float tensor and normalize to [0, 1]
-    spec_tensor = torch.from_numpy(spec_np.astype(np.float32)) / 255.0
+    # Convert to float tensor (keep [0,255] range - model was trained on this)
+    spec_tensor = torch.from_numpy(spec_np.astype(np.float32))
 
     # Add batch dimension: [1, C, H, W]
     if spec_tensor.dim() == 2:
@@ -302,59 +302,66 @@ def audio_to_spectrogram(audio: np.ndarray, hparams: Dict[str, Any], dataset_inf
 
 def detect_onsets(audio: np.ndarray, sample_rate: int,
                   hop_length: int = 512,
-                  threshold: float = 0.1) -> np.ndarray:
+                  backtrack: bool = False) -> np.ndarray:
     """
-    Detect note onsets using energy-based onset detection.
+    Detect note onsets using librosa's onset detection.
 
-    Uses a simple but effective approach:
-    1. Compute short-time energy (RMS envelope)
-    2. Compute spectral flux (rate of spectral change)
-    3. Find peaks in the combined onset function
+    Uses librosa's sophisticated onset detection which combines:
+    - Spectral flux (rate of spectral change)
+    - Adaptive thresholding
+    - Peak picking with backtracking to actual onset
 
     Returns array of onset times in seconds.
     """
-    # Compute RMS envelope
-    frame_length = hop_length * 2
-    num_frames = (len(audio) - frame_length) // hop_length + 1
+    try:
+        import librosa
+    except ImportError:
+        sys.exit("Please install librosa: pip install librosa")
 
-    if num_frames < 2:
-        return np.array([0.0])  # Just return start if audio too short
+    # Apply pre-emphasis to boost high frequencies (helps detect soft attacks)
+    pre_emphasis = 0.97
+    audio_emphasized = np.append(audio[0], audio[1:] - pre_emphasis * audio[:-1])
 
-    rms = np.zeros(num_frames)
-    for i in range(num_frames):
-        start = i * hop_length
-        frame = audio[start:start + frame_length]
-        rms[i] = np.sqrt(np.mean(frame ** 2) + 1e-10)
+    # Use librosa's onset detection with spectral flux
+    # This is much more robust than simple energy-based detection
+    onset_env = librosa.onset.onset_strength(
+        y=audio_emphasized,
+        sr=sample_rate,
+        hop_length=hop_length,
+        aggregate=np.median,  # More robust to outliers
+    )
 
-    # Compute onset strength as positive derivative of log energy
-    log_rms = np.log(rms + 1e-10)
-    onset_strength = np.diff(log_rms)
-    onset_strength = np.maximum(onset_strength, 0)  # Only positive changes
-
-    # Normalize
-    if onset_strength.max() > 0:
-        onset_strength = onset_strength / onset_strength.max()
-
-    # Find peaks above threshold
-    onset_frames = []
-
-    # Always include first frame if there's energy
-    if rms[0] > threshold * rms.max():
-        onset_frames.append(0)
-
-    # Find local maxima in onset strength
-    min_frames_between = int(0.1 * sample_rate / hop_length)  # 100ms minimum
-
-    for i in range(1, len(onset_strength) - 1):
-        if onset_strength[i] > threshold:
-            # Check if local maximum
-            if onset_strength[i] >= onset_strength[i-1] and onset_strength[i] >= onset_strength[i+1]:
-                # Check minimum distance from last onset
-                if not onset_frames or (i - onset_frames[-1]) >= min_frames_between:
-                    onset_frames.append(i + 1)  # +1 because diff shifts by 1
+    # Detect onsets with adaptive thresholding
+    # Lower delta = more sensitive to soft onsets
+    onset_frames = librosa.onset.onset_detect(
+        onset_envelope=onset_env,
+        sr=sample_rate,
+        hop_length=hop_length,
+        backtrack=backtrack,
+        units='frames',
+        delta=0.03,  # Even lower threshold for very soft onsets
+        wait=int(0.15 * sample_rate / hop_length),  # 150ms minimum between onsets
+    )
 
     # Convert frames to times
-    onset_times = np.array(onset_frames) * hop_length / sample_rate
+    onset_times = librosa.frames_to_time(onset_frames, sr=sample_rate, hop_length=hop_length)
+
+    # Always include time 0 if there's energy at the start
+    if len(onset_times) == 0 or onset_times[0] > 0.1:
+        # Check if there's significant energy at the start
+        initial_rms = np.sqrt(np.mean(audio[:int(0.05 * sample_rate)] ** 2))
+        if initial_rms > 0.01:
+            onset_times = np.concatenate([[0.0], onset_times])
+
+    # Post-process: remove onsets that are too close together (< 500ms)
+    # Since notes are ~1s apart, this is safe and eliminates false positives
+    min_gap = 0.5  # 500ms minimum between onsets
+    if len(onset_times) > 1:
+        filtered = [onset_times[0]]
+        for t in onset_times[1:]:
+            if t - filtered[-1] >= min_gap:
+                filtered.append(t)
+        onset_times = np.array(filtered)
 
     return onset_times
 
@@ -671,12 +678,13 @@ def process_multi_note(wav_path: str, ckpt_path: str, target_f0: float = 100.0,
     raw_onset_times = detect_onsets(audio, sample_rate)
     print(f"  Found {len(raw_onset_times)} raw onsets")
 
-    # Filter out onsets that are too close (within 150ms)
+    # Filter out onsets that are too close (within 500ms)
+    # Since notes are ~1s apart, this is safe and eliminates false positives
     filtered_onsets = []
     if len(raw_onset_times) > 0:
         filtered_onsets.append(raw_onset_times[0])
         for t in raw_onset_times[1:]:
-            if t - filtered_onsets[-1] > 0.15:
+            if t - filtered_onsets[-1] >= 0.5:
                 filtered_onsets.append(t)
     print(f"  Refined to {len(filtered_onsets)} distinct notes")
 

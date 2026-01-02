@@ -265,6 +265,29 @@ class MidiComparisonViewer:
         print(f"  Segments: {len(segment_times)}")
         print(f"  Window size: {window_size}s")
 
+        # Print detailed onset comparison
+        print(f"\n{'='*70}")
+        print(f"ONSET COMPARISON (times in seconds)")
+        print(f"{'='*70}")
+        print(f"{'#':>3}  {'NSMT':>10}  {'Truth':>10}  {'Basic Pitch':>12}  {'Error (ms)':>10}")
+        print(f"{'-'*70}")
+
+        max_notes = max(len(nsmt_onsets), len(truth_onsets), len(bp_onsets))
+        for i in range(max_notes):
+            nsmt_t = f"{nsmt_onsets[i].time:.3f}" if i < len(nsmt_onsets) else "---"
+            truth_t = f"{truth_onsets[i].time:.3f}" if i < len(truth_onsets) else "---"
+            bp_t = f"{bp_onsets[i].time:.3f}" if i < len(bp_onsets) else "---"
+
+            # Calculate error if both NSMT and Truth exist
+            if i < len(nsmt_onsets) and i < len(truth_onsets):
+                error_ms = (nsmt_onsets[i].time - truth_onsets[i].time) * 1000
+                error_str = f"{error_ms:+.1f}"
+            else:
+                error_str = "---"
+
+            print(f"{i+1:>3}  {nsmt_t:>10}  {truth_t:>10}  {bp_t:>12}  {error_str:>10}")
+        print(f"{'='*70}")
+
         # Setup figure
         self._setup_figure()
         self._setup_widgets()

@@ -23,8 +23,8 @@ if [ -z "$VIRTUAL_ENV" ]; then
     exit 1
 fi
 
-echo "Installing additional dependencies (soundfile, mido, resampy) into the active virtual environment..."
-uv pip install soundfile mido resampy
+echo "Installing additional dependencies (soundfile, mido, resampy, librosa) into the active virtual environment..."
+uv pip install soundfile mido resampy librosa
 
 echo "External project example setup complete!"
 echo "You can now run 'make all' in 'examples/external_project/'."
