@@ -136,13 +136,18 @@ def load_model_and_config(ckpt_path: str) -> tuple:
 
     # Extract heads config from checkpoint weights
     heads_config = []
+    # Identify heads by looking for either net.heads.NAME.weight or net.heads.NAME.0.weight
     head_keys = sorted(set(
         k.split(".")[2] for k in state_dict.keys()
-        if k.startswith("net.heads.") and ".0.weight" in k
+        if k.startswith("net.heads.") and (".weight" in k or ".0.weight" in k)
     ))
 
     for head_name in head_keys:
-        weight_key = f"net.heads.{head_name}.0.weight"
+        # Check both direct Linear and Sequential(Linear, ...) formats
+        weight_key = f"net.heads.{head_name}.weight"
+        if weight_key not in state_dict:
+            weight_key = f"net.heads.{head_name}.0.weight"
+
         if weight_key in state_dict:
             num_classes = state_dict[weight_key].shape[0]
             # Get param bounds from hparams if available
@@ -368,14 +373,19 @@ def extract_note_segments(audio: np.ndarray, onset_times: np.ndarray,
         start_sample = int(onset_time * sample_rate)
         end_sample = start_sample + segment_samples
 
-        # Pad with zeros if segment extends beyond audio
-        if end_sample <= len(audio):
-            segment = audio[start_sample:end_sample]
-        else:
-            segment = np.zeros(segment_samples, dtype=audio.dtype)
-            available = len(audio) - start_sample
-            if available > 0:
-                segment[:available] = audio[start_sample:]
+        # Create segment and handle boundary conditions (padding)
+        segment = np.zeros(segment_samples, dtype=audio.dtype)
+
+        # Calculate valid range in audio
+        audio_start = max(0, start_sample)
+        audio_end = min(len(audio), end_sample)
+
+        # Calculate destination range in segment
+        seg_start = max(0, -start_sample)
+        seg_end = seg_start + (audio_end - audio_start)
+
+        if audio_start < audio_end:
+            segment[seg_start:seg_end] = audio[audio_start:audio_end]
 
         segments.append((onset_time, segment))
 
@@ -577,14 +587,16 @@ def write_midi_file(notes: List[DetectedNote], output_path: str, tempo: int = 12
     current_time = 0
     for event_time, is_note_on, note_num, velocity in events:
         delta_seconds = event_time - current_time
-        delta_ticks = int(delta_seconds * ticks_per_second)
+        # Use max(0, ...) to avoid negative ticks from precision errors
+        delta_ticks = max(0, int(delta_seconds * ticks_per_second))
 
         if is_note_on:
             track.append(mido.Message('note_on', note=note_num, velocity=velocity, time=delta_ticks))
         else:
             track.append(mido.Message('note_off', note=note_num, velocity=0, time=delta_ticks))
 
-        current_time = event_time
+        # Update current_time based on actual ticks added to maintain MIDI grid
+        current_time += delta_ticks / ticks_per_second
 
     # End of track
     track.append(mido.MetaMessage('end_of_track', time=0))
@@ -635,9 +647,6 @@ def process_multi_note(wav_path: str, ckpt_path: str, target_f0: float = 100.0,
 
     Each note segment is pitch-shifted to target_f0 before inference,
     since the model was trained with F0 fixed at 100 Hz.
-
-    Returns list of DetectedNote objects. If midi_out is specified,
-    also writes a MIDI file.
     """
     print(f"Loading model from: {ckpt_path}")
     model, hparams, heads_config, dataset_info = load_model_and_config(ckpt_path)
@@ -646,8 +655,9 @@ def process_multi_note(wav_path: str, ckpt_path: str, target_f0: float = 100.0,
     spec_config = hparams.get("spectrogram_config", hparams.get("spectrogram", {}))
     sample_rate = spec_config.get("sample_rate", 8000)
 
-    # Segment duration should match training data (default 1 second)
-    segment_duration = dataset_info.get("duration", 1.0)
+    # Segment duration should match training data (usually 1 second)
+    target_segment_duration = dataset_info.get("duration", 1.0)
+    target_pre_roll = 0.1  # We want the onset to be at 100ms in the resampled segment
 
     # Load audio
     print(f"Loading audio: {wav_path}")
@@ -658,15 +668,21 @@ def process_multi_note(wav_path: str, ckpt_path: str, target_f0: float = 100.0,
 
     # Detect onsets
     print("\nDetecting note onsets...")
-    onset_times = detect_onsets(audio, sample_rate)
-    print(f"  Found {len(onset_times)} onsets")
+    raw_onset_times = detect_onsets(audio, sample_rate)
+    print(f"  Found {len(raw_onset_times)} raw onsets")
 
-    # Extract segments
-    segments = extract_note_segments(audio, onset_times, sample_rate, segment_duration)
+    # Filter out onsets that are too close (within 150ms)
+    filtered_onsets = []
+    if len(raw_onset_times) > 0:
+        filtered_onsets.append(raw_onset_times[0])
+        for t in raw_onset_times[1:]:
+            if t - filtered_onsets[-1] > 0.15:
+                filtered_onsets.append(t)
+    print(f"  Refined to {len(filtered_onsets)} distinct notes")
 
-    # Process each segment
-    print(f"\nProcessing {len(segments)} notes with pitch normalization...")
-    print("=" * 90)
+    # Process each onset
+    print(f"\nProcessing {len(filtered_onsets)} notes with pitch-aware normalization...")
+    print("=" * 110)
 
     # Print header
     param_names = [h["name"] for h in heads_config]
@@ -674,46 +690,88 @@ def process_multi_note(wav_path: str, ckpt_path: str, target_f0: float = 100.0,
     for name in param_names:
         header += f" {name:>16}"
     print(header)
-    print("-" * 90)
+    print("-" * 110)
 
     detected_notes: List[DetectedNote] = []
 
-    for i, (onset_time, segment) in enumerate(segments):
-        # Estimate pitch of this segment
-        detected_f0 = estimate_f0(segment, sample_rate)
+    for i, raw_onset in enumerate(filtered_onsets):
+        # 1. First, estimate F0 of a small chunk at the onset to determine resample factor
+        onset_sample = int(raw_onset * sample_rate)
+        f0_check_chunk = audio[onset_sample : onset_sample + int(0.2 * sample_rate)]
+        detected_f0 = estimate_f0(f0_check_chunk, sample_rate)
 
-        # Resample to normalize pitch to target F0
-        if detected_f0 > 0:
-            normalized_segment = resample_to_target_f0(segment, detected_f0, target_f0, sample_rate)
-        else:
-            normalized_segment = segment
-            detected_f0 = 0.0  # Mark as unknown
+        if detected_f0 <= 0:
+            # Fallback if pitch detection fails
+            detected_f0 = target_f0
 
-        # Convert to spectrogram
+        resample_factor = detected_f0 / target_f0
+
+        # 2. Extract a pitch-aware segment
+        # We need the chunk to be exactly target_segment_duration after resampling
+        # original_duration = target_segment_duration * resample_factor
+        # original_pre_roll = target_pre_roll * resample_factor
+        orig_dur = target_segment_duration * resample_factor
+        orig_pre = target_pre_roll * resample_factor
+
+        start_time = raw_onset - orig_pre
+
+        # Extract the chunk from original audio
+        chunk_samples = int(orig_dur * sample_rate)
+        start_sample = int(start_time * sample_rate)
+
+        # Safe extraction with padding
+        chunk = np.zeros(chunk_samples, dtype=audio.dtype)
+        audio_start = max(0, start_sample)
+        audio_end = min(len(audio), start_sample + chunk_samples)
+        if audio_start < audio_end:
+            seg_start = max(0, -start_sample)
+            seg_end = seg_start + (audio_end - audio_start)
+            chunk[seg_start:seg_end] = audio[audio_start:audio_end]
+
+        # 3. Resample the chunk to the model's expected 1.0s @ sample_rate
+        # This fixes the temporal smear and onset displacement
+        import resampy
+        normalized_segment = resampy.resample(chunk, sample_rate, int(sample_rate / resample_factor))
+        # Ensure it's exactly the right length
+        target_len = int(target_segment_duration * sample_rate)
+        if len(normalized_segment) > target_len:
+            normalized_segment = normalized_segment[:target_len]
+        elif len(normalized_segment) < target_len:
+            pad = np.zeros(target_len - len(normalized_segment), dtype=normalized_segment.dtype)
+            normalized_segment = np.concatenate([normalized_segment, pad])
+
+        # 4. Predict parameters
         spectrogram = audio_to_spectrogram(normalized_segment, hparams, dataset_info)
-
-        # Predict parameters
         params = predict_single(model, spectrogram, heads_config)
 
-        # Convert F0 to MIDI note
-        midi_note = f0_to_midi_note(detected_f0) if detected_f0 > 0 else 0
-
-        # Estimate velocity from original (non-normalized) segment
-        velocity = estimate_note_velocity(segment, sample_rate)
-
-        # Estimate duration (time until next note or default 0.5s)
-        if i < len(segments) - 1:
-            next_onset = segments[i + 1][0]
-            duration = min(next_onset - onset_time, 2.0)  # Cap at 2 seconds
-        else:
-            duration = 0.5  # Default for last note
-
-        # Adjust onset time if onset_delay_ms is predicted
-        adjusted_onset = onset_time
+        # 5. Map predictions back to original timebase
         if "onset_delay_ms" in params:
-            adjusted_onset = onset_time + params["onset_delay_ms"] / 1000.0
+            # Model thinks onset is at params["onset_delay_ms"]
+            # Pre-roll was target_pre_roll (100ms)
+            # Refinement = (delay_ms / 1000) - target_pre_roll
+            # Original shift = Refinement * resample_factor
+            refinement_s = (params["onset_delay_ms"] / 1000.0) - target_pre_roll
+            adjusted_onset = raw_onset + (refinement_s * resample_factor)
+        else:
+            adjusted_onset = raw_onset
 
-        # Create DetectedNote
+        # Ensure onset is not negative (MIDI doesn't support it)
+        adjusted_onset = max(0.0, adjusted_onset)
+
+        # 6. Estimate velocity from the original sound (skipping pre-roll)
+        # Look 50ms into the note starting at raw_onset
+        vel_chunk = audio[onset_sample : onset_sample + int(0.05 * sample_rate)]
+        velocity = estimate_note_velocity(vel_chunk, sample_rate)
+
+        # 7. Finalize note metadata
+        midi_note = f0_to_midi_note(detected_f0)
+
+        # Duration until next note or 0.5s
+        if i < len(filtered_onsets) - 1:
+            duration = min(filtered_onsets[i+1] - raw_onset, 2.0)
+        else:
+            duration = 0.5
+
         note = DetectedNote(
             onset_time=adjusted_onset,
             detected_f0=detected_f0,
@@ -725,16 +783,16 @@ def process_multi_note(wav_path: str, ckpt_path: str, target_f0: float = 100.0,
         detected_notes.append(note)
 
         # Print row
-        f0_str = f"{detected_f0:>6.1f}" if detected_f0 > 0 else "   N/A"
-        midi_str = f"{midi_note:>4}" if midi_note > 0 else "   -"
-        row = f"{i+1:>4} {onset_time:>7.3f}s {f0_str} {midi_str} {velocity:>4}"
+        f0_str = f"{detected_f0:>6.1f}"
+        midi_str = f"{midi_note:>4}"
+        row = f"{i+1:>4} {adjusted_onset:>7.3f}s {f0_str} {midi_str} {velocity:>4}"
         for name in param_names:
             value = params.get(name, 0.0)
             row += f" {value:>16.4f}"
         print(row)
 
-    print("-" * 90)
-    print(f"\nProcessed {len(segments)} notes from {total_duration:.2f}s audio")
+    print("-" * 110)
+    print(f"\nProcessed {len(detected_notes)} notes from {total_duration:.2f}s audio")
 
     # Write MIDI if requested
     if midi_out:

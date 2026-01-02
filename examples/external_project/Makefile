@@ -71,7 +71,8 @@ pred-bass:
 # Compare NSMT predictions vs ground truth on test audio
 compare: $(TEST_WAV) $(TEST_NSMT_MID)
 	@if [ -f test_$(N_SAMPLES)_truth.mid ]; then \
-		$(PYTHON) compare_midi.py $(TEST_WAV) $(TEST_NSMT_MID) test_$(N_SAMPLES)_truth.mid; \
+		TRUTH_ARG=$$(if [ -f test_$(N_SAMPLES)_truth.txt ]; then echo "--truth test_$(N_SAMPLES)_truth.txt"; fi); \
+		$(PYTHON) compare_midi.py $(TEST_WAV) $(TEST_NSMT_MID) test_$(N_SAMPLES)_truth.mid $$TRUTH_ARG; \
 	else \
 		echo "Ground truth MIDI not available (no pitch info in dataset)"; \
 		echo "View predictions only:"; \

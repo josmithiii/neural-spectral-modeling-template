@@ -52,6 +52,7 @@ class ViewerState:
     sample_rate: int      # Audio sample rate
     nsmt_onsets: List[OnsetEvent]
     bp_onsets: List[OnsetEvent]
+    truth_onsets: List[OnsetEvent]  # NEW: Ground truth from metadata
     current_idx: int      # Current segment index
     window_size: float    # Time window in seconds
     segment_times: List[float]  # Start time of each segment
@@ -132,11 +133,75 @@ def format_note_info(onsets: List[OnsetEvent], t_start: float,
     return lines
 
 
+def load_truth_onsets(truth_path: str) -> List[OnsetEvent]:
+    """Parse ground truth text file, return OnsetEvent list.
+
+    Expected format:
+    # onset_time(s)  [midi_note]  [velocity]  [log10_decay_time]  [wah_position]  [onset_delay_ms]
+    0.0000  69  64  -0.5  0.5  25.0
+    """
+    onsets = []
+    try:
+        with open(truth_path, 'r') as f:
+            lines = f.readlines()
+
+        # Find column indices from header
+        header = None
+        for line in lines:
+            if line.startswith('# onset_time(s)'):
+                header = line.strip('#').strip().split()
+                break
+
+        if not header:
+            print(f"Warning: No header found in {truth_path}, using default columns")
+            # Default columns: time, [midi, vel], [params...]
+            # We'll just assume first column is time
+
+        for line in lines:
+            if line.startswith('#') or not line.strip():
+                continue
+
+            parts = line.split()
+            if not parts:
+                continue
+
+            base_time = float(parts[0])
+            midi_note = 69
+            velocity = 64
+            delay_ms = 0.0
+
+            # Use header if available to find specific columns
+            if header:
+                try:
+                    if 'midi_note' in header:
+                        midi_note = int(float(parts[header.index('midi_note')]))
+                    if 'velocity' in header:
+                        velocity = int(float(parts[header.index('velocity')]))
+                except (ValueError, IndexError):
+                    pass
+
+            # The "True" onset in the audio is already in base_time (column 0)
+            # from generate_test_audio.py
+            true_time = base_time
+
+            onsets.append(OnsetEvent(
+                time=true_time,
+                midi_note=midi_note,
+                velocity=velocity,
+                source="truth"
+            ))
+    except Exception as e:
+        print(f"Error loading truth file {truth_path}: {e}")
+
+    return onsets
+
+
 class MidiComparisonViewer:
     """Main viewer class with matplotlib figure and widgets."""
 
     def __init__(self, wav_path: str, nsmt_midi: str, bp_midi: str,
-                 window_size: float = 3.0, start_time: float = 0.0):
+                 window_size: float = 3.0, start_time: float = 0.0,
+                 truth_path: Optional[str] = None):
         # Load data
         print(f"Loading audio: {wav_path}")
         audio, sr = load_audio(wav_path)
@@ -146,6 +211,24 @@ class MidiComparisonViewer:
 
         print(f"Loading Basic Pitch MIDI: {bp_midi}")
         bp_onsets = load_midi_onsets(bp_midi, "basic_pitch")
+
+        # Load truth metadata if available
+        truth_onsets = []
+        if truth_path and Path(truth_path).exists():
+            print(f"Loading Truth metadata: {truth_path}")
+            truth_onsets = load_truth_onsets(truth_path)
+        else:
+            # Try to find a matching .txt file
+            auto_truth = Path(wav_path).with_suffix('.txt')
+            if auto_truth.exists():
+                print(f"Auto-detecting Truth metadata: {auto_truth}")
+                truth_onsets = load_truth_onsets(str(auto_truth))
+            else:
+                # Try suffixing _truth.txt
+                auto_truth = Path(wav_path).with_stem(Path(wav_path).stem + "_truth").with_suffix('.txt')
+                if auto_truth.exists():
+                    print(f"Auto-detecting Truth metadata: {auto_truth}")
+                    truth_onsets = load_truth_onsets(str(auto_truth))
 
         # Compute segments
         audio_duration = len(audio) / sr
@@ -165,6 +248,7 @@ class MidiComparisonViewer:
             sample_rate=sr,
             nsmt_onsets=nsmt_onsets,
             bp_onsets=bp_onsets,
+            truth_onsets=truth_onsets,
             current_idx=start_idx,
             window_size=window_size,
             segment_times=segment_times
@@ -177,6 +261,7 @@ class MidiComparisonViewer:
         print(f"  Audio duration: {audio_duration:.1f}s")
         print(f"  NSMT onsets: {len(nsmt_onsets)}")
         print(f"  Basic Pitch onsets: {len(bp_onsets)}")
+        print(f"  Truth onsets: {len(truth_onsets)}")
         print(f"  Segments: {len(segment_times)}")
         print(f"  Window size: {window_size}s")
 
@@ -325,6 +410,12 @@ class MidiComparisonViewer:
             self.ax_wave.axvline(x=onset.time, color='orange', linestyle='--',
                                  linewidth=1.5, alpha=0.8, label='Basic Pitch' if onset == bp_in_window[0] else '')
 
+        # Draw Truth onsets (green, dotted)
+        truth_in_window = [o for o in state.truth_onsets if t_start <= o.time < t_end]
+        for onset in truth_in_window:
+            self.ax_wave.axvline(x=onset.time, color='green', linestyle=':',
+                                 linewidth=2.0, alpha=0.8, label='Truth (txt)' if onset == truth_in_window[0] else '')
+
         # Title and labels
         segment_str = f"Segment {state.current_idx + 1} of {len(state.segment_times)}"
         self.ax_wave.set_title(f'MIDI Comparison: {self.wav_path}  |  {segment_str}', fontsize=12)
@@ -333,7 +424,7 @@ class MidiComparisonViewer:
         self.ax_wave.set_xlim(t_start, t_end)
 
         # Legend (only if onsets present)
-        if nsmt_in_window or bp_in_window:
+        if nsmt_in_window or bp_in_window or truth_in_window:
             self.ax_wave.legend(loc='upper right')
 
         # Update info panel
@@ -342,8 +433,9 @@ class MidiComparisonViewer:
 
         nsmt_lines = format_note_info(state.nsmt_onsets, t_start, t_end, "NSMT", "blue")
         bp_lines = format_note_info(state.bp_onsets, t_start, t_end, "Basic Pitch", "orange")
+        truth_lines = format_note_info(state.truth_onsets, t_start, t_end, "Truth", "green")
 
-        info_text = '\n'.join(nsmt_lines + [''] + bp_lines)
+        info_text = '\n'.join(nsmt_lines + [''] + bp_lines + [''] + truth_lines)
         self.ax_info.text(0.0, 1.0, info_text, transform=self.ax_info.transAxes,
                          fontsize=10, verticalalignment='top', fontfamily='monospace')
 
@@ -369,6 +461,7 @@ def main():
                         help='Time window size in seconds (default: 3.0)')
     parser.add_argument('--start', type=float, default=0.0,
                         help='Start time in seconds (default: 0.0)')
+    parser.add_argument('--truth', help='Path to ground truth metadata text file')
 
     args = parser.parse_args()
 
@@ -382,7 +475,8 @@ def main():
 
     viewer = MidiComparisonViewer(
         args.wav_path, args.nsmt_midi, args.bp_midi,
-        window_size=args.window, start_time=args.start
+        window_size=args.window, start_time=args.start,
+        truth_path=args.truth
     )
     viewer.run()
 

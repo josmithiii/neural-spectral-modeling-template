@@ -155,12 +155,23 @@ def get_synth_for_dataset(dataset_info: Dict[str, Any], sample_rate: int) -> Any
 def extract_params_from_sample(
     dataset: VIMHDataset,
     idx: int,
-    param_names: List[str]
+    param_names: List[str],
+    fixed_params: Optional[Dict[str, Any]] = None
 ) -> Dict[str, float]:
-    """Extract true parameter values from a dataset sample."""
+    """Extract all parameter values (varying and fixed) from a dataset sample."""
     metadata = dataset._get_sample_metadata(idx)
 
     params = {}
+
+    # 1. Start with fixed parameters from dataset configuration
+    if fixed_params:
+        for name, info in fixed_params.items():
+            if isinstance(info, dict) and "value" in info:
+                params[name] = float(info["value"])
+            else:
+                params[name] = float(info)
+
+    # 2. Add varying parameters from sample metadata
     for param_name in param_names:
         info_key = f"{param_name}_info"
         if info_key in metadata:
@@ -292,13 +303,15 @@ def generate_test_audio(
     sample_rate = dataset_info.get("sample_rate", 8000)
     duration = dataset_info.get("duration", 1.0)
     param_names = dataset_info.get("parameter_names", [])
+    fixed_params = dataset_info.get("fixed_parameters", {})
     synth_type = dataset_info.get("synth_type", "saw")
 
     print(f"\nDataset info:")
     print(f"  Sample rate: {sample_rate} Hz")
     print(f"  Duration: {duration} s")
     print(f"  Synth type: {synth_type}")
-    print(f"  Parameters: {param_names}")
+    print(f"  Varying Parameters: {param_names}")
+    print(f"  Fixed Parameters: {list(fixed_params.keys())}")
     print(f"  Test samples: {len(dataset)}")
 
     # Create synthesizer
@@ -319,7 +332,7 @@ def generate_test_audio(
 
     for i in range(num_samples):
         # Extract parameters
-        params = extract_params_from_sample(dataset, i, param_names)
+        params = extract_params_from_sample(dataset, i, param_names, fixed_params)
         params["duration"] = duration
 
         # Synthesize audio
@@ -330,8 +343,9 @@ def generate_test_audio(
             continue
 
         # Record note info
+        delay_s = params.get("onset_delay_ms", 0.0) / 1000.0
         note = SynthesizedNote(
-            onset_time=current_time,
+            onset_time=current_time + delay_s,
             duration=duration,
             params=params.copy(),
             midi_note=estimate_midi_note(params),
