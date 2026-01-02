@@ -17,9 +17,9 @@ TEST_WAV = test_$(N_SAMPLES).wav
 TEST_TRUTH = test_$(N_SAMPLES)_truth.txt
 TEST_NSMT_MID = test_$(N_SAMPLES)_nsmt.mid
 
-.PHONY: help gen pred pred-multi compare compare-bass clean all
+.PHONY: h help g gen p pred pm pred-multi cmp compare cmpb compare-bass l list c clean all
 
-help:
+h help:
 	@echo "NSMT External Project Examples"
 	@echo "=============================="
 	@echo ""
@@ -49,11 +49,11 @@ help:
 	@echo "  $(PYTHON) compare_midi.py --help"
 
 # Generate test audio from dataset ground truth
-gen:
+g gen:
 	$(PYTHON) generate_test_audio.py -n $(N_SAMPLES) -o $(TEST_WAV)
 
 # Single-note prediction (on test.wav if it exists)
-pred:
+p pred:
 	@if [ -f test.wav ]; then \
 		$(PYTHON) predict_params.py test.wav; \
 	else \
@@ -61,15 +61,15 @@ pred:
 	fi
 
 # Multi-note prediction on generated test audio
-pred-multi: $(TEST_WAV)
+pm pred-multi: $(TEST_WAV)
 	$(PYTHON) predict_params.py --multi --midi-out $(TEST_NSMT_MID) $(TEST_WAV)
 
 # Multi-note prediction on bass recording
-pred-bass:
+pb pred-bass:
 	$(PYTHON) predict_params.py --multi --midi-out bass-nsmt.mid bass-mono.wav
 
 # Compare NSMT predictions vs ground truth on test audio
-compare: $(TEST_WAV) $(TEST_NSMT_MID)
+cmp compare: $(TEST_WAV) $(TEST_NSMT_MID)
 	@if [ -f test_$(N_SAMPLES)_truth.mid ]; then \
 		TRUTH_ARG=$$(if [ -f test_$(N_SAMPLES)_truth.txt ]; then echo "--truth test_$(N_SAMPLES)_truth.txt"; fi); \
 		$(PYTHON) compare_midi.py $(TEST_WAV) $(TEST_NSMT_MID) test_$(N_SAMPLES)_truth.mid $$TRUTH_ARG; \
@@ -80,7 +80,7 @@ compare: $(TEST_WAV) $(TEST_NSMT_MID)
 	fi
 
 # Compare NSMT vs Basic Pitch on bass recording
-compare-bass: bass-mono.wav bass-nsmt.mid bass.mid
+cmpb compare-bass: bass-mono.wav bass-nsmt.mid bass.mid
 	$(PYTHON) compare_midi.py bass-mono.wav bass-nsmt.mid bass.mid
 
 # Full workflow: generate, predict, compare
@@ -95,7 +95,7 @@ $(TEST_NSMT_MID): $(TEST_WAV)
 	$(MAKE) pred-multi
 
 # List available files
-list:
+l list:
 	@echo "Audio files:"
 	@ls -la *.wav 2>/dev/null || echo "  (none)"
 	@echo ""
@@ -106,7 +106,7 @@ list:
 	@ls -la *_truth.txt 2>/dev/null || echo "  (none)"
 
 # Clean generated files (preserves bass-mono.wav and bass.mid)
-clean:
+c clean:
 	rm -f test_*.wav test_*.txt test_*.mid
 	rm -f test.wav test-truth.txt test-truth.jpg
 	@echo "Cleaned generated files (kept bass-mono.wav, bass.mid)"
