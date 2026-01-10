@@ -8,13 +8,14 @@ defaults:
 model_checkpoint:
   dirpath: ${paths.output_dir}/checkpoints
   filename: "epoch_{epoch:03d}"
-  monitor: "val/acc_best"
+  monitor: "val/midi_pitch_acc"
   mode: "max"
-  save_last: True
-  auto_insert_metric_name: False
+  save_top_k: 1
+  save_last: true
+  auto_insert_metric_name: false
 
 early_stopping:
-  monitor: "val/acc_best"
+  monitor: "val/midi_pitch_acc"
   patience: 100
   mode: "max"
 

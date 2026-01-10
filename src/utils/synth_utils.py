@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from src.utils.bass_notes import BassNotesSynth
 
 # Constants from generate_vimh.py
 DEFAULT_NOTE_NUMBER = 69.0
@@ -332,6 +333,21 @@ def check_params(params: Dict[str, float], *required_params: str) -> None:
     for param_name in required_params:
         if param_name not in params:
             logger.warning(f"Parameter '{param_name}' not found in params")
+            
+class BassNotesWrapper:
+    """
+    Adapter so generate_vimh.py can call .generate_audio(params)
+    like it does for SimpleSawSynth / PercussionSynth.
+    """
+
+    def __init__(self, sample_rate: int = 8000, cfg: Optional[Dict[str, Any]] = None):
+        self.sample_rate = sample_rate
+        self.synth = BassNotesSynth(cfg or {})
+
+    def generate_audio(self, params: Dict[str, float]) -> np.ndarray:
+        # BassNotesSynth.render(params, sr, duration_s)
+        duration = float(params.get("duration", DEFAULT_DURATION))
+        return self.synth.render(params=params, sr=self.sample_rate, duration_s=duration)
 
 
 class WahPedal:

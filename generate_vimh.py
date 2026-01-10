@@ -330,40 +330,64 @@ class ParameterGenerator:
 
     def __init__(self, params_config: Dict[str, Dict[str, Any]]):
         self.params_config = params_config
-        self.varying_params = []
-        self.fixed_params = {}  # For synthesizer-level fixed parameters
+        self.varying_params: List[str] = []
+        self.fixed_params: Dict[str, float] = {}  # synthesizer-level fixed parameters
 
         for param_name, param_info in params_config.items():
-            if param_info["min_value"] != param_info["max_value"]:
+            if float(param_info["min_value"]) != float(param_info["max_value"]):
                 self.varying_params.append(param_name)
 
     def generate_random_parameters(self, duration: float) -> Tuple[Dict[str, float], List[float]]:
-        """Generate random parameters and normalized label vector."""
-        params = {"duration": duration}
-        label_vector = []
+        params: Dict[str, float] = {"duration": float(duration)}
+        label_vector: List[float] = []
 
-        # Add fixed parameters from synthesizer config
-        params.update(self.fixed_params)
+        # add fixed synth-level params (e.g., filter_type)
+        for k, v in self.fixed_params.items():
+            params[str(k)] = float(v)
 
         for param_name, param_info in self.params_config.items():
-            min_val = param_info["min_value"]
-            max_val = param_info["max_value"]
-            step_val = param_info.get("step", None)  # Optional step parameter
+            min_val = float(param_info["min_value"])
+            max_val = float(param_info["max_value"])
+            step_val = param_info.get("step", None)
 
             if min_val == max_val:
                 value = min_val
             else:
-                value = np.random.uniform(min_val, max_val)
+                raw = float(np.random.uniform(min_val, max_val))
+                value = self._snap_to_step(raw, min_val, max_val, step_val)
 
-            params[param_name] = value
+            # IMPORTANT FIX: keep *_ms parameters as integer milliseconds
+            if str(param_name).endswith("_ms"):
+                value = float(int(round(value)))
 
-            # Only add varying parameters to labels
+            params[str(param_name)] = float(value)
+
+            # only varying params go in the label vector
             if min_val != max_val:
-                normalized = (value - min_val) / (max_val - min_val)
-                label_vector.append(normalized)
+                denom = (max_val - min_val) if (max_val - min_val) != 0.0 else 1.0
+                normalized = (float(value) - min_val) / denom
+                label_vector.append(float(np.clip(normalized, 0.0, 1.0)))
 
         return params, label_vector
 
+    @staticmethod
+    def _snap_to_step(
+        value: float,
+        min_val: float,
+        max_val: float,
+        step: Optional[float],
+    ) -> float:
+        """Snap value to the grid min_val + k*step, then clip to [min_val, max_val]."""
+        if step is None or float(step) == 0.0:
+            return float(np.clip(value, min_val, max_val))
+
+        step_f = float(step)
+        k = round((value - min_val) / step_f)
+        snapped = min_val + k * step_f
+        return float(np.clip(snapped, min_val, max_val))
+
+        
+    
 
 def generate_sample_batch(
     synth: Any,
@@ -501,8 +525,11 @@ def save_vimh_dataset(
         for param_idx, param_value in enumerate(label_vector):
             # Quantize normalized value [0,1] to [0,QUANTIZATION_LEVELS]
             # Use round() instead of int() to avoid bias toward lower values
-            quantized_value = round(param_value * QUANTIZATION_LEVELS)
-            quantized_value = max(0, min(QUANTIZATION_LEVELS, quantized_value))
+            levels = 256  # uint8
+            max_q = levels - 1  # 255
+
+            quantized_value = int(round(float(param_value) * max_q))
+            quantized_value = max(0, min(max_q, quantized_value))
             label_data += struct.pack("BB", param_idx, quantized_value)
 
         # Image data: flatten spectrogram in planar format
@@ -691,9 +718,10 @@ def save_vimh_dataset(
                 "spec_min": "float32 - minimum dB value before normalization",
                 "spec_max": "float32 - maximum dB value before normalization",
             },
-            "N_range": [0, QUANTIZATION_LEVELS],
-            "param_id_range": [0, QUANTIZATION_LEVELS],
-            "param_val_range": [0, QUANTIZATION_LEVELS],
+            "N_range": [0, 255],
+            "param_id_range": [0, 255],
+            "param_val_range": [0, 255],
+
         },
     }
 
@@ -793,6 +821,7 @@ def main(cfg: DictConfig) -> None:
                 "❌ Normalization requires at least one envelope type (--temporal-envelope or --spectral-envelope)"
             )
             sys.exit(1)
+    
 
     try:
         # Validate configuration
@@ -807,6 +836,14 @@ def main(cfg: DictConfig) -> None:
         dataset_name = cfg.dataset.get(
             "name", "simple"
         )  # Custom dataset name or default to "simple"
+        
+             # Create synthesizer (ONLY HERE)
+        if dataset_name == "bass_onset":
+            synth = BassOnsetSynth(sample_rate=sample_rate)
+            synth_type = "bass_onset"
+        else:
+            synth = SimpleSawSynth(sample_rate=sample_rate)
+            synth_type = "simple"
 
         # Extract output dimensions
         height = cfg.generate.height
