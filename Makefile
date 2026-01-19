@@ -26,6 +26,9 @@ gds generate-dataset-small: check-env ## Synthesize a small example VIMH dataset
 gdl generate-dataset-large: check-env ## Synthesize a larger example VIMH dataset with SawSynth + Wah (16k samples)
 	(make gdwl)          # Default is currently the Saw + Wah dataset below
 
+gdb generate-dataset-bass: check-env
+	python generate_vimh.py --config-path configs --config-name synth/generate_bass_notes # configs/synth/generate_bass_notes.yaml
+
 gdws generate-dataset-wah-small: check-env ## Synthesize VIMH dataset with Saw + Wah - decay-time and pedal-angle varied (256 samples)
 	@if [ -f ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/vimh_dataset_info.json ]; then \
 		echo "Dataset already exists: ./data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p"; \
@@ -93,7 +96,17 @@ dds display-dataset-small: check-env generate-dataset-small ## Display the small
 ddl display-dataset-large: check-env gdl ## Display the larger example VIMH dataset (16k samples)
 	python display_vimh.py ./data/vimh-32x32x1_8000Hz_1p0s_16384dss_saw_wah_2p
 
+ddb display-dataset-bass: check-env gdb
+	python display_vimh.py ./data/vimh-32x32x1_16000Hz_1p0s_20000dss_bass_notes_4p
+
 # EXPERIMENTS "e" - Complete Configuration Examples
+
+eb exp-bass: check-env generate-dataset-bass
+	python src/train.py \
+	  trainer.max_epochs=150 \
+	  data.data_dir="data/vimh-32x32x1_16000Hz_1p0s_20000dss_bass_notes_4p" \
+	  callbacks.model_checkpoint.monitor="val/acc_best" \
+	  callbacks.early_stopping.monitor="val/acc_best"
 
 ex exp-example: check-env generate-dataset-small ## Train CNN on default dataset
 	time python src/train.py experiment=example  # ./configs/experiment/example.yaml

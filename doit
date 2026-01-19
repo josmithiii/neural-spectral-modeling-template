@@ -1,1 +1,13 @@
-bash setup.bash && make ewdel && make sr && cd examples/external_project/ && bash setup.bash && make all && cd ../../ && make ddr && make ae
+#!/bin/bash -fx
+
+echo 'bass test'
+
+python generate_vimh.py --config-path configs --config-name synth/generate_bass_notes
+
+python src/train.py \
+  trainer.max_epochs=150 \
+  data.data_dir="data/vimh-32x32x1_16000Hz_1p0s_20000dss_bass_notes_4p" \
+  callbacks.model_checkpoint.monitor="val/acc_best" \
+  callbacks.early_stopping.monitor="val/acc_best"
+
+# Prev: echo 'onset delay demo' && bash setup.bash && make ewdel && make sr && cd examples/external_project/ && bash setup.bash && make all && cd ../../ && make ddr && make ae

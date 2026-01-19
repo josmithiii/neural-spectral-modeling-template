@@ -50,6 +50,21 @@
             "cwd": "${workspaceFolder}",
             "env": {},
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "pred-multi (external_project)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/external_project/predict_params.py",
+            "args": [
+                "--multi",
+                "--midi-out", "test_100_nsmt.mid",
+                "test_100.wav"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/examples/external_project",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }
