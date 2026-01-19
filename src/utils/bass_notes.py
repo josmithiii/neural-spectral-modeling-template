@@ -42,13 +42,13 @@ class BassNotesSynth:
     """
     Renders a synthetic monophonic bass note clip.
 
-    Expected params keys:
+        Expected params keys:
       - duration          (seconds)
-      - note_on           (0 or 1)
       - note_number       (MIDI pitch, float ok)
       - note_velocity     (0..127)
       - log10_decay_time  (log10 seconds)
       - onset_delay_ms    (ms)
+
     """
 
     def __init__(self, sample_rate: int = 16000, cfg: dict | None = None):
@@ -72,9 +72,6 @@ class BassNotesSynth:
         if n <= 0:
             return np.zeros((0,), dtype=np.float32)
 
-        note_on = float(params.get("note_on", 1.0))
-        if note_on < 0.5:
-            return np.zeros((n,), dtype=np.float32)
 
         note_number = float(params.get("note_number", 40.0))
         note_velocity = float(params.get("note_velocity", 90.0))

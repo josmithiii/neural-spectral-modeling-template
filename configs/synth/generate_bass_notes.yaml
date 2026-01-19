@@ -1,5 +1,5 @@
 # @package _global_
-# BassNotesSynth dataset generation configuration
+# BassNotesSynth dataset generation configuration (4 targets only)
 
 dataset:
   name: "bass_notes"
@@ -21,17 +21,14 @@ generate:
 synthesizer:
   type: bass_notes
 
+  # keep whatever your BassNotesSynth expects
   osc: "saw_lp"
   add_attack_click: true
 
-  parameters:
-    note_on:
-      min_value: 0.0
-      max_value: 1.0
-      default: 1.0
-      step: 1.0
-      description: "0 = no note (silence), 1 = note present"
 
+
+  # Only the 4 parameters you want to learn
+  parameters:
     note_number:
       min_value: 28.0
       max_value: 52.0
