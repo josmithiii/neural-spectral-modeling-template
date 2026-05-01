@@ -160,3 +160,10 @@ configs/local/default.yaml
 archive/
 outputs
 audio_eval_results
+
+# macOS Finder metadata
+.DS_Store
+**/.DS_Store
+._*
+.AppleDouble
+.LSOverride
