@@ -4,12 +4,12 @@ https://github.com/PyTorchLightning/pytorch-lightning/blob/master/tests/helpers/
 """
 
 import sys
+from importlib.metadata import version
 from typing import Any, Dict, Optional
 
 import pytest
 import torch
 from packaging.version import Version
-from pkg_resources import get_distribution
 from pytest import MarkDecorator
 
 from tests.helpers.package_available import (
@@ -82,12 +82,12 @@ class RunIf:
             reasons.append(f"GPUs>={min_gpus}")
 
         if min_torch:
-            torch_version = get_distribution("torch").version
+            torch_version = version("torch")
             conditions.append(Version(torch_version) < Version(min_torch))
             reasons.append(f"torch>={min_torch}")
 
         if max_torch:
-            torch_version = get_distribution("torch").version
+            torch_version = version("torch")
             conditions.append(Version(torch_version) >= Version(max_torch))
             reasons.append(f"torch<{max_torch}")
 

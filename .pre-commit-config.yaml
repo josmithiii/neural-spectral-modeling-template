@@ -72,11 +72,15 @@ repos:
         # Modernizes Python syntax; behavior-only changes are rare
 
   # python docstring formatting
-  - repo: https://github.com/myint/docformatter
-    rev: v1.7.7
+  - repo: https://github.com/PyCQA/docformatter
+    rev: v1.7.8
     hooks:
       - id: docformatter
         stages: [manual]
+        # myint/docformatter is archived and its old hook used the removed
+        # `python_venv` language; PyCQA is the maintained fork. tomli provides the
+        # TOML backend so it can read pyproject.toml on Python < 3.11.
+        additional_dependencies: [tomli]
         args:
           [
             --check,
