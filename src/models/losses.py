@@ -153,6 +153,10 @@ class OrdinalRegressionLoss(nn.Module):
         self.alpha = alpha
         self.huber_delta = huber_delta
 
+        if num_classes < 2:
+            raise ValueError(
+                f"OrdinalRegressionLoss requires num_classes >= 2, got {num_classes}."
+            )
         # Calculate perceptual step size
         self.quantization_step = param_range / (num_classes - 1)
 
@@ -240,6 +244,10 @@ class QuantizedRegressionLoss(nn.Module):
         self.loss_type = loss_type
         self.huber_delta = huber_delta
 
+        if num_classes < 2:
+            raise ValueError(
+                f"QuantizedRegressionLoss requires num_classes >= 2, got {num_classes}."
+            )
         # Calculate perceptual step size
         self.quantization_step = param_range / (num_classes - 1)
 

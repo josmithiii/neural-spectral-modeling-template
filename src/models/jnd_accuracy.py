@@ -28,6 +28,8 @@ class JNDToleranceAccuracy(Metric):
         **kwargs
     ):
         super().__init__(**kwargs)
+        if tolerance_jnds <= 0:
+            raise ValueError(f"tolerance_jnds must be positive, got {tolerance_jnds}.")
         self.tolerance_jnds = tolerance_jnds
         self.num_classes = num_classes
 
@@ -68,6 +70,9 @@ class JNDToleranceAccuracy(Metric):
 
     def compute(self) -> torch.Tensor:
         """Compute the final JND tolerance accuracy."""
+        if self.total == 0:
+            # No samples seen yet; avoid 0/0 NaN.
+            return self.correct  # tensor(0.0)
         return self.correct / self.total
 
 

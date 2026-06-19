@@ -249,3 +249,31 @@ class TestLossFunctionIntegration:
         assert isinstance(output, torch.Tensor)
         assert output.numel() == 1  # Scalar loss
         assert output >= 0  # Loss should be non-negative
+
+
+class TestNumericalGuards:
+    """Guards against div-by-zero / NaN in regression losses and the JND metric."""
+
+    def test_ordinal_regression_requires_multiple_classes(self):
+        """num_classes < 2 would divide by zero computing quantization_step."""
+        with pytest.raises(ValueError):
+            OrdinalRegressionLoss(num_classes=1, param_range=1.0)
+
+    def test_quantized_regression_requires_multiple_classes(self):
+        with pytest.raises(ValueError):
+            QuantizedRegressionLoss(num_classes=1, param_range=1.0)
+
+    def test_jnd_tolerance_must_be_positive(self):
+        """tolerance_jnds == 0 would divide by zero in the tolerance score."""
+        from src.models.jnd_accuracy import JNDToleranceAccuracy
+
+        with pytest.raises(ValueError):
+            JNDToleranceAccuracy(tolerance_jnds=0)
+
+    def test_jnd_compute_without_updates_is_zero_not_nan(self):
+        """compute() before any update must return 0.0, not 0/0 NaN."""
+        from src.models.jnd_accuracy import JNDToleranceAccuracy
+
+        result = JNDToleranceAccuracy(tolerance_jnds=5).compute()
+        assert not torch.isnan(result)
+        assert float(result) == 0.0
