@@ -142,22 +142,16 @@ class ConvNeXtV2(nn.Module):
 
         self.downsample_layers = nn.ModuleList()
 
-        # Stem layer - adapted for different input sizes
-        if input_size == 28:  # MNIST
-            stem = nn.Sequential(
-                nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
-                LayerNorm(dims[0], eps=1e-6, data_format="channels_first"),
-            )
-        elif input_size == 32:  # CIFAR-10/100 - use smaller stride for better feature preservation
-            stem = nn.Sequential(
-                nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
-                LayerNorm(dims[0], eps=1e-6, data_format="channels_first"),
-            )
-        else:  # ImageNet and other larger inputs
-            stem = nn.Sequential(
-                nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4),
-                LayerNorm(dims[0], eps=1e-6, data_format="channels_first"),
-            )
+        # Stem layer - adapted to input size. Small inputs (spectrograms, MNIST 28,
+        # CIFAR 32, and anything in between) use a gentle 2x2/stride-2 stem to
+        # preserve resolution; larger ImageNet-scale inputs use the standard
+        # 4x4/stride-4 patchify stem. Keyed on a threshold rather than exact ==28/==32
+        # so non-standard spectrogram sizes are not silently over-downsampled.
+        stem_kernel = stem_stride = 2 if input_size <= 32 else 4
+        stem = nn.Sequential(
+            nn.Conv2d(in_chans, dims[0], kernel_size=stem_kernel, stride=stem_stride),
+            LayerNorm(dims[0], eps=1e-6, data_format="channels_first"),
+        )
         self.downsample_layers.append(stem)
 
         # Intermediate downsampling layers

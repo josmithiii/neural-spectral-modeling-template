@@ -60,6 +60,28 @@ def test_simple_efficientnet_forward_pass(batch_size: int) -> None:
     assert output_multi["thickness"].shape == (batch_size, 5)
 
 
+def test_simple_efficientnet_stochastic_depth_schedule() -> None:
+    """MBConv blocks must use a global, monotonic DropPath schedule.
+
+    Regression test: blocks previously used nn.Dropout2d with a rate that reset to 0
+    at the start of every stage and divided by the stage count. Stochastic depth
+    should instead be a per-sample DropPath whose rate increases linearly from 0 to
+    drop_path_rate across all blocks.
+    """
+    from src.models.components.simple_efficientnet import DropPath
+
+    model = SimpleEfficientNet(num_classes=10, drop_path_rate=0.5)
+    rates = [block.drop_path.drop_prob for block in model.blocks]
+
+    for block in model.blocks:
+        assert isinstance(block.drop_path, DropPath)
+
+    assert rates[0] == 0.0
+    assert rates[-1] == pytest.approx(0.5)
+    assert all(a <= b + 1e-9 for a, b in zip(rates, rates[1:]))  # monotonic non-decreasing
+    assert len(rates) > 7  # spans multiple stages; a per-stage reset would not be monotonic
+
+
 def test_simple_dense_net_parameter_counts() -> None:
     """Test parameter counts for SimpleDenseNet models."""
     # Single head model

@@ -12,6 +12,28 @@ class SwishActivation(nn.Module):
         return x * torch.sigmoid(x)
 
 
+class DropPath(nn.Module):
+    """Stochastic depth: drop the residual branch per sample during training.
+
+    Unlike ``nn.Dropout2d`` (which zeros whole channels of a feature map), this
+    drops the entire branch for a subset of samples, which is the regularization
+    EfficientNet's MBConv stochastic-depth schedule is meant to apply.
+    """
+
+    def __init__(self, drop_prob: float = 0.0) -> None:
+        super().__init__()
+        self.drop_prob = drop_prob
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.drop_prob == 0.0 or not self.training:
+            return x
+        keep_prob = 1 - self.drop_prob
+        shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+        random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
+        random_tensor.floor_()
+        return x.div(keep_prob) * random_tensor
+
+
 class SqueezeExcitation(nn.Module):
     """Squeeze-and-Excitation block used in EfficientNet."""
 
@@ -102,26 +124,19 @@ class MBConvBlock(nn.Module):
             nn.BatchNorm2d(out_channels),
         )
 
-        # Stochastic depth
-        if drop_rate > 0:
-            self.dropout = nn.Dropout2d(drop_rate)
-        else:
-            self.dropout = nn.Identity()
+        # Stochastic depth (applied to the residual branch only, see forward).
+        self.drop_path = DropPath(drop_rate)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.expand is not None:
-            out = self.expand(x)
-        else:
-            out = x
-
+        out = self.expand(x)
         out = self.depthwise(out)
         out = self.se(out)
         out = self.project(out)
 
         if self.use_residual:
-            if self.drop_rate > 0:
-                out = self.dropout(out)
-            out = out + x
+            # Drop the whole residual branch per sample (no-op when drop_rate == 0
+            # or in eval), then add the identity shortcut.
+            out = self.drop_path(out) + x
 
         return out
 
@@ -137,6 +152,7 @@ class SimpleEfficientNet(nn.Module):
         width_mult: float = 1.0,
         depth_mult: float = 1.0,
         dropout_rate: float = 0.2,
+        drop_path_rate: float = 0.2,
     ) -> None:
         """Initialize SimpleEfficientNet.
 
@@ -146,6 +162,8 @@ class SimpleEfficientNet(nn.Module):
         :param width_mult: Width multiplier for scaling channels.
         :param depth_mult: Depth multiplier for scaling layers.
         :param dropout_rate: Dropout rate for classifier.
+        :param drop_path_rate: Maximum stochastic-depth (DropPath) rate; applied as a
+            schedule increasing linearly from 0 across all MBConv blocks.
         """
         super().__init__()
 
@@ -179,13 +197,27 @@ class SimpleEfficientNet(nn.Module):
             (6, 320, 1, 1, 3),  # Stage 7
         ]
 
-        # Build MBConv blocks
+        # Build MBConv blocks. Scale per-stage depths first so a single global
+        # stochastic-depth schedule can increase linearly from 0 to drop_path_rate
+        # across *all* blocks (the previous schedule reset per stage and divided by
+        # the stage count, so the first block of every stage had rate 0).
         self.blocks = nn.ModuleList()
         in_channels = stem_channels
 
-        for expand_ratio, channels, num_blocks, stride, kernel_size in block_configs:
+        scaled_configs = [
+            (expand_ratio, channels, self._scale_depth(num_blocks, depth_mult), stride, kernel_size)
+            for expand_ratio, channels, num_blocks, stride, kernel_size in block_configs
+        ]
+        total_blocks = sum(num_blocks for _, _, num_blocks, _, _ in scaled_configs)
+        dp_rates = (
+            [r.item() for r in torch.linspace(0.0, drop_path_rate, total_blocks)]
+            if total_blocks > 0
+            else []
+        )
+
+        block_idx = 0
+        for expand_ratio, channels, num_blocks, stride, kernel_size in scaled_configs:
             out_channels = self._scale_width(channels, width_mult)
-            num_blocks = self._scale_depth(num_blocks, depth_mult)
 
             for i in range(num_blocks):
                 block_stride = stride if i == 0 else 1
@@ -197,10 +229,11 @@ class SimpleEfficientNet(nn.Module):
                         stride=block_stride,
                         expand_ratio=expand_ratio,
                         se_ratio=0.25,
-                        drop_rate=0.2 * i / len(block_configs),
+                        drop_rate=dp_rates[block_idx],
                     )
                 )
                 in_channels = out_channels
+                block_idx += 1
 
         # Feature extraction head
         head_channels = self._scale_width(1280, width_mult)

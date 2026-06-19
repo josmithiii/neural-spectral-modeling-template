@@ -228,6 +228,25 @@ def test_convnext_stem_adaptation(input_size: int) -> None:
     assert features.shape[1] == 24  # First dim size
 
 
+def test_convnext_stem_gentle_stride_for_small_nonstandard_input() -> None:
+    """A small input that is not exactly 28 or 32 must still use the stride-2 stem.
+
+    Regression test: the stem was keyed on input_size == 28 / == 32, so other small
+    sizes (e.g. a 30-bin spectrogram) silently fell into the stride-4 ImageNet branch
+    and were over-downsampled (30 -> 7 instead of 30 -> 15).
+    """
+    model = ConvNeXtV2(
+        input_size=30,
+        in_chans=1,
+        output_size=10,
+        depths=(2, 2, 4, 2),
+        dims=(24, 48, 96, 192),
+    )
+    features = model.downsample_layers[0](torch.randn(2, 1, 30, 30))
+    assert features.shape[2] == 15  # stride-2 stem, not stride-4 (which would give 7)
+    assert features.shape[3] == 15
+
+
 def test_convnext_deterministic_output() -> None:
     """Test that model produces deterministic outputs with same input."""
     torch.manual_seed(42)

@@ -175,6 +175,24 @@ def test_self_attention(embed_dim: int, n_attention_heads: int) -> None:
     assert output.dtype == torch.float32
 
 
+def test_self_attention_non_divisible_embed_dim() -> None:
+    """SelfAttention must work when embed_dim is not divisible by n_attention_heads.
+
+    Regression test: the output was reshaped to embed_dim instead of
+    n_heads*head_embed_dim, which raised for non-divisible configs (here 30 % 4 != 0,
+    head_embed_dim=7 -> internal width 28). out_projection maps the concatenated
+    heads back to embed_dim, so the output must still have embed_dim features.
+    """
+    embed_dim, n_attention_heads = 30, 4
+    assert embed_dim % n_attention_heads != 0
+
+    attention = SelfAttention(embed_dim, n_attention_heads)
+    x = torch.randn(2, 10, embed_dim)
+    output = attention(x)
+
+    assert output.shape == x.shape  # (B, S, embed_dim) preserved
+
+
 def test_encoder() -> None:
     """Test Encoder component."""
     embed_dim = 64

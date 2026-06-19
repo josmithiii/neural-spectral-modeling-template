@@ -88,7 +88,7 @@ class SelfAttention(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        b, s, e = x.shape
+        b, s, _ = x.shape
 
         xq = self.queries(x).reshape(b, s, self.n_attention_heads, self.head_embed_dim)
         xq = xq.permute(0, 2, 1, 3)
@@ -107,9 +107,12 @@ class SelfAttention(nn.Module):
 
         x = torch.matmul(x_attention, xv)
 
-        # Format the output
+        # Format the output. Concatenate heads back to n_heads*head_embed_dim, which
+        # is what out_projection expects -- this equals embed_dim only when embed_dim
+        # is divisible by n_attention_heads, so reshaping to embed_dim would break for
+        # non-divisible configs.
         x = x.permute(0, 2, 1, 3)
-        x = x.reshape(b, s, e)
+        x = x.reshape(b, s, self.n_attention_heads * self.head_embed_dim)
 
         x = self.out_projection(x)
         return x
