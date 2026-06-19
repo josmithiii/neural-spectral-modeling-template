@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from omegaconf import OmegaConf
 
-from src.utils.vimh_configurator import configure_vimh_model
+from src.train import _configure_vimh_model_config
 
 
 @pytest.fixture()
@@ -44,7 +44,7 @@ def test_regression_auto_configuration_populates_losses_and_weights(sample_vimh_
         }
     )
 
-    configure_vimh_model(cfg)
+    _configure_vimh_model_config(cfg)
 
     assert cfg.model.net.parameter_names == ["log10_decay_time", "wah_position"]
     assert cfg.model.net.output_mode == "regression"
