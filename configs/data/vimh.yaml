@@ -10,3 +10,8 @@ pin_memory: False # MPS cannot pin memory as of this writing
 persistent_workers: False # Set to False when num_workers=0 (no workers to persist)
 prefetch_factor: 4 # Number of batches to prefetch per worker (helps reduce I/O wait)
 cache_dataset: true # Cache entire dataset in RAM (16MB easily fits in 128GB)
+
+# Validation split: fraction of the training file held out for validation, carved
+# off with a seeded permutation so it never overlaps training (test stays held-out).
+val_split: 0.2
+split_seed: 42

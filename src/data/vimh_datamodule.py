@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from lightning import LightningDataModule
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision.transforms import transforms
 
 from .vimh_dataset import VIMHDataset, create_vimh_datasets
@@ -75,6 +75,8 @@ class VIMHDataModule(LightningDataModule):
         target_width: float = 0.0,
         auxiliary_features: Optional[List[str]] = None,
         label_mode: str = "classification",
+        val_split: float = 0.2,
+        split_seed: int = 42,
         **kwargs,  # Accept any additional kwargs to prevent Hydra errors
     ) -> None:
         """Initialize a `VIMHDataModule`.
@@ -91,6 +93,11 @@ class VIMHDataModule(LightningDataModule):
         :param test_transform: Optional transforms for test data.
         :param target_width: Standard deviation for soft targets (0.0 = hard targets).
         :param auxiliary_features: List of auxiliary feature types to extract (e.g., ["decay_time"]).
+        :param val_split: Fraction of the training set held out for validation. Must be
+            in (0, 1). The validation split is carved from the training file with a
+            seeded permutation so it never overlaps the training samples (the test file
+            stays a true held-out set).
+        :param split_seed: Seed for the deterministic train/val split.
         """
         super().__init__()
 
@@ -135,6 +142,10 @@ class VIMHDataModule(LightningDataModule):
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
         self.data_test: Optional[Dataset] = None
+
+        # Deterministic train/val split indices (set in setup()).
+        self._train_indices: Optional[List[int]] = None
+        self._val_indices: Optional[List[int]] = None
 
         self.batch_size_per_device = batch_size
 
@@ -662,11 +673,24 @@ class VIMHDataModule(LightningDataModule):
                 if getattr(self.hparams, "label_mode", "classification").lower() == "regression":
                     target_transform = self._build_regression_target_transform()
 
-                # Now load datasets with correctly adjusted transforms
+                # Now load datasets with correctly adjusted transforms.
+                # data_train and data_val both wrap the training file (data_val with
+                # no-augmentation transforms); a seeded index split below keeps the
+                # two disjoint so validation is never used for training. The test
+                # file stays a true held-out set.
                 self.data_train = VIMHDataset(
                     self.hparams.data_dir,
                     train=True,
                     transform=self.train_transform,
+                    target_transform=target_transform,
+                    target_width=self.hparams.target_width,
+                    auxiliary_features=self.hparams.auxiliary_features,
+                )
+
+                self.data_val = VIMHDataset(
+                    self.hparams.data_dir,
+                    train=True,
+                    transform=self.val_transform,
                     target_transform=target_transform,
                     target_width=self.hparams.target_width,
                     auxiliary_features=self.hparams.auxiliary_features,
@@ -681,16 +705,19 @@ class VIMHDataModule(LightningDataModule):
                     auxiliary_features=self.hparams.auxiliary_features,
                 )
 
-                # For validation, we'll use the test dataset with val transforms
-                # In a real scenario, you might want to split the training data
-                self.data_val = VIMHDataset(
-                    self.hparams.data_dir,
-                    train=False,
-                    transform=self.val_transform,
-                    target_transform=target_transform,
-                    target_width=self.hparams.target_width,
-                    auxiliary_features=self.hparams.auxiliary_features,
-                )
+                # Deterministic, seeded train/val split over the training samples.
+                n_total = len(self.data_train)
+                n_val = int(round(n_total * self.hparams.val_split))
+                if not 0 < n_val < n_total:
+                    raise ValueError(
+                        f"val_split={self.hparams.val_split} yields n_val={n_val} for "
+                        f"{n_total} training samples; choose val_split so that "
+                        f"0 < round(n_total * val_split) < n_total."
+                    )
+                generator = torch.Generator().manual_seed(self.hparams.split_seed)
+                perm = torch.randperm(n_total, generator=generator).tolist()
+                self._val_indices = perm[:n_val]
+                self._train_indices = perm[n_val:]
 
             except Exception as e:
                 raise RuntimeError(
@@ -703,7 +730,7 @@ class VIMHDataModule(LightningDataModule):
         :return: The train dataloader.
         """
         dataloader_kwargs = {
-            "dataset": self.data_train,
+            "dataset": Subset(self.data_train, self._train_indices),
             "batch_size": self.batch_size_per_device,
             "num_workers": self.hparams.num_workers,
             "pin_memory": self.hparams.pin_memory,
@@ -721,7 +748,7 @@ class VIMHDataModule(LightningDataModule):
         :return: The validation dataloader.
         """
         dataloader_kwargs = {
-            "dataset": self.data_val,
+            "dataset": Subset(self.data_val, self._val_indices),
             "batch_size": self.batch_size_per_device,
             "num_workers": self.hparams.num_workers,
             "pin_memory": self.hparams.pin_memory,
