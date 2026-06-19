@@ -34,3 +34,26 @@ def test_vimh_datamodule(batch_size: int) -> None:
 
     except Exception:
         pytest.skip("VIMH dataset not available - skipping datamodule test")
+
+
+def test_default_train_transform_has_no_geometric_augmentation():
+    """Spectrogram default transforms must be normalization-only.
+
+    Regression test: the defaults previously applied RandomHorizontalFlip
+    (reverses the time axis) and RandomRotation (mixes frequency/time), which
+    corrupt the synth parameters being predicted.
+    """
+    dm = VIMHDataModule()
+    dm._adjust_transforms_for_image_size(32, 32, 1)
+
+    names = [type(t).__name__ for t in dm.train_transform.transforms]
+    assert names == ["Normalize"]
+    for forbidden in ("RandomHorizontalFlip", "RandomRotation", "RandomCrop", "ColorJitter"):
+        assert forbidden not in names
+
+    # Train and eval must see identical, deterministic preprocessing.
+    img = torch.linspace(0.0, 1.0, 32 * 32).reshape(1, 32, 32)
+    out1 = dm.train_transform(img)
+    out2 = dm.train_transform(img)
+    assert torch.allclose(out1, out2)
+    assert torch.allclose(out1, dm.val_transform(img))

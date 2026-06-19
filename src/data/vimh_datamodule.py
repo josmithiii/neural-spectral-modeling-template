@@ -115,17 +115,11 @@ class VIMHDataModule(LightningDataModule):
             [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]  # Generic normalization
         )
 
-        # Enhanced training transforms with data augmentation
-        # Will be adjusted based on actual image size
+        # Training transforms. Spectrograms get no geometric augmentation by default
+        # (see _adjust_transforms_for_image_size); this placeholder is replaced once
+        # the actual image dimensions are known in setup().
         self.default_train_transforms = transforms.Compose(
-            [
-                transforms.ToPILImage(),  # Convert tensor back to PIL for augmentation
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomRotation(15),
-                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            ]
+            [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
         )
 
         # Set transforms (use provided or defaults)
@@ -179,63 +173,31 @@ class VIMHDataModule(LightningDataModule):
         return to_actual
 
     def _adjust_transforms_for_image_size(self, height: int, width: int, channels: int) -> None:
-        """Adjust transforms based on actual image dimensions."""
-        # Update the default train transforms with proper padding/cropping
+        """Adjust normalization transforms based on actual image dimensions.
 
+        Images are spectrograms (height=frequency, width=time), so geometric
+        augmentation is *not* applied by default: a horizontal flip reverses the
+        time axis and a rotation mixes the frequency and time axes, both of which
+        change the very synth parameters being predicted (e.g. decay time). The
+        default train, val and test transforms therefore apply normalization only,
+        so train and eval see identical preprocessing. To add spectrogram-
+        appropriate augmentation (e.g. SpecAugment time/frequency masking), pass an
+        explicit ``train_transform`` to the datamodule.
+        """
         if channels == 1:
-            # Use grayscale transforms for single-channel images
-            self.default_train_transforms = transforms.Compose(
-                [
-                    transforms.ToPILImage(),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.RandomRotation(15),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5,), (0.5,)),  # Single channel normalization
-                ]
-            )
-
-            self.default_transforms = transforms.Compose(
-                [transforms.Normalize((0.5,), (0.5,))]  # Single channel normalization
-            )
+            # Single channel normalization
+            normalize = transforms.Normalize((0.5,), (0.5,))
+        elif height == 32 and width == 32:
+            # CIFAR-10 style normalization for 32x32 RGB
+            normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
         else:
-            # Use RGB transforms for multi-channel images
-            if height == 32 and width == 32:
-                # CIFAR-10 style normalization for 32x32 RGB
-                self.default_train_transforms = transforms.Compose(
-                    [
-                        transforms.ToPILImage(),
-                        transforms.RandomCrop(32, padding=4),
-                        transforms.RandomHorizontalFlip(),
-                        transforms.RandomRotation(15),
-                        transforms.ToTensor(),
-                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-                    ]
-                )
+            # Generic RGB normalization
+            normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
-                self.default_transforms = transforms.Compose(
-                    [transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
-                )
-            else:
-                # Generic RGB transforms for other sizes
-                self.default_train_transforms = transforms.Compose(
-                    [
-                        transforms.ToPILImage(),
-                        transforms.RandomHorizontalFlip(),
-                        transforms.RandomRotation(15),
-                        transforms.ToTensor(),
-                        transforms.Normalize(
-                            (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
-                        ),  # Generic RGB normalization
-                    ]
-                )
-
-                self.default_transforms = transforms.Compose(
-                    [
-                        transforms.Normalize(
-                            (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
-                        )  # Generic RGB normalization
-                    ]
-                )
+        # Normalize operates directly on the [0, 1] tensor produced by the dataset,
+        # so no ToPILImage/ToTensor round-trip is needed.
+        self.default_transforms = transforms.Compose([normalize])
+        self.default_train_transforms = transforms.Compose([normalize])
 
         # Update transforms if they were using defaults
         if self.using_default_train_transform:
