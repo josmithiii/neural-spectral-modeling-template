@@ -1,6 +1,7 @@
 import json
 import pickle
 import shutil
+import struct
 import tempfile
 from pathlib import Path
 
@@ -728,6 +729,65 @@ class TestVIMHIntegration:
         for label_name, label_tensor in batch_labels.items():
             assert isinstance(label_tensor, torch.Tensor)
             assert label_tensor.shape[0] == 3  # Batch size
+
+
+def _write_binary_vimh_dataset(temp_dir: Path, pixels: np.ndarray) -> None:
+    """Write a minimal single-channel binary VIMH dataset (train + test + metadata).
+
+    :param temp_dir: Directory to populate.
+    :param pixels: uint8 array of shape (height, width) used for every sample.
+    """
+    height, width = pixels.shape
+    channels = 1
+
+    def _record() -> bytes:
+        rec = struct.pack("<HHH", height, width, channels)  # dims
+        rec += struct.pack("<ff", 0.0, 1.0)  # spec_min, spec_max
+        rec += struct.pack("B", 1)  # num_params
+        rec += struct.pack("BB", 0, 128)  # (param_id=0, quantized value)
+        rec += pixels.astype(np.uint8).tobytes()  # image data (HWC, C=1)
+        return rec
+
+    (temp_dir / "train").write_bytes(_record() * 2)
+    (temp_dir / "test").write_bytes(_record())
+
+    metadata = {
+        "format": "VIMH",
+        "height": height,
+        "width": width,
+        "channels": channels,
+        "train_samples": 2,
+        "test_samples": 1,
+        "parameter_names": ["p0"],
+        "parameter_mappings": {
+            "p0": {"min": 0.0, "max": 1.0, "step": 0.1, "scale": "linear"},
+        },
+    }
+    with open(temp_dir / "vimh_dataset_info.json", "w") as f:
+        json.dump(metadata, f)
+
+
+def test_binary_path_normalizes_pixels_to_unit_range(temp_dir):
+    """Binary VIMH images must be normalized to [0, 1], matching the pickle path.
+
+    Regression test: the binary parser previously left pixels in [0, 255], which
+    corrupted ToPILImage augmentation (uint8 overflow) and the Normalize scaling.
+    """
+    pixels = np.array(
+        [[0, 255, 128, 64], [32, 200, 16, 240], [1, 254, 100, 150], [99, 199, 50, 250]],
+        dtype=np.uint8,
+    )
+    _write_binary_vimh_dataset(temp_dir, pixels)
+
+    dataset = VIMHDataset(temp_dir, train=True, transform=None)
+    image = dataset[0][0]
+
+    assert image.dtype == torch.float32
+    assert 0.0 <= float(image.min())
+    assert float(image.max()) <= 1.0
+    # Pixel values must equal raw/255 (e.g. 255 -> 1.0, 0 -> 0.0).
+    expected = torch.from_numpy(pixels.astype(np.float32) / 255.0).unsqueeze(0)
+    assert torch.allclose(image, expected, atol=1e-6)
 
 
 if __name__ == "__main__":

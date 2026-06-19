@@ -343,11 +343,16 @@ class MultiheadDatasetBase(Dataset, ABC):
             if channels == 1:
                 # Single channel: reshape to (1, height, width) for proper channel format
                 image_array = image_array.reshape(1, height, width)
-                image_tensor = torch.from_numpy(image_array).float()
+                # Normalize to [0, 1] to match _reconstruct_image() and the
+                # downstream transforms (ToPILImage/ToTensor/Normalize), which all
+                # assume [0, 1] float input. Without this the binary path leaves
+                # pixels in [0, 255], corrupting both train-time ToPILImage (uint8
+                # overflow) and the val/test Normalize scaling.
+                image_tensor = torch.from_numpy(image_array).float() / 255.0
             else:
                 # Multi-channel: already in planar format (C,H,W) - this is what PyTorch expects
                 image_array = image_array.reshape(channels, height, width)
-                image_tensor = torch.from_numpy(image_array).float()
+                image_tensor = torch.from_numpy(image_array).float() / 255.0
 
             # Store sample with scale factors in metadata
             metadata_dict = {
