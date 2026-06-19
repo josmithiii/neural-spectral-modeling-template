@@ -448,6 +448,11 @@ class VIMHLitModule(LightningModule):
                         num_classes=num_classes,
                         param_range=param_range
                     )
+                # NormalizedRegressionLoss is created with placeholder bounds (0, 1)
+                # by _create_loss_function (param_range is ignored there because it
+                # needs (min, max) bounds, not a range size). Apply the real per-head
+                # bounds from the dataset so perceptual-unit scaling is correct.
+                self._update_criteria_with_parameter_ranges(dataset)
 
             # Update loss weights - reset them if we replaced criteria due to hardcoded placeholder
             if not self.loss_weights or has_hardcoded_placeholder:

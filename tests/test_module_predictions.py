@@ -101,3 +101,48 @@ def test_regression_jnd_metric_is_meaningful_after_conversion():
     buggy.update(far, targets)
     assert float(buggy.compute()) > 0.5
 
+
+def test_auto_configured_normalized_regression_gets_dataset_bounds():
+    """Auto-generated normalized_regression criteria must receive real param bounds.
+
+    Regression test: the auto-config (no explicit `criteria:`) path built each
+    NormalizedRegressionLoss via _create_loss_function, which hardcodes
+    param_range=(0, 1), and never applied the dataset's actual bounds. Targets
+    outside [0, 1] (e.g. log10_decay_time in [-1, 0.3]) were then mis-normalized.
+    """
+    from src.models.losses import NormalizedRegressionLoss
+
+    module = VIMHLitModule(
+        net=DummyNet(),
+        optimizer=lambda **kw: None,
+        scheduler=None,
+        criteria=None,  # force the auto-generated criteria path
+        compile=False,
+        auto_configure_from_dataset=True,
+        loss_type="normalized_regression",
+    )
+    assert module.criteria == {}  # nothing configured until auto-config runs
+
+    bounds = {"wah_position": (0.0, 0.9), "log10_decay_time": (-1.0, 0.3)}
+    fake_dm = types.SimpleNamespace(
+        param_bounds=bounds,
+        param_ranges={k: (lo, hi) for k, (lo, hi) in bounds.items()},
+    )
+    module.trainer = types.SimpleNamespace(datamodule=fake_dm)
+
+    fake_dataset = types.SimpleNamespace(
+        get_heads_config=lambda: {"wah_position": 19, "log10_decay_time": 14},
+        metadata_format={},  # falsy -> skip JND weight auto-config
+    )
+
+    module._auto_configure_from_dataset(fake_dataset)
+
+    for head, (pmin, pmax) in bounds.items():
+        crit = module.criteria[head]
+        assert isinstance(crit, NormalizedRegressionLoss)
+        assert crit.param_min == pmin
+        assert crit.param_max == pmax
+        assert crit.param_range == pmax - pmin
+    # The negative-min head must not retain the placeholder (0, 1) bounds.
+    assert module.criteria["log10_decay_time"].param_min == -1.0
+
