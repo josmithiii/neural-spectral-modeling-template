@@ -615,6 +615,42 @@ class VIMHLitModule(LightningModule):
 
         return preds
 
+    def _to_jnd_index_space(self, values: torch.Tensor, head_name: str) -> torch.Tensor:
+        """Map regression values from physical parameter units to class-index units.
+
+        JND tolerance is measured in quantization steps (one JND == one step), so
+        :class:`JNDToleranceAccuracy` must receive class indices, not physical
+        parameter values. In regression mode both predictions (see
+        ``_compute_predictions``) and targets (datamodule target transform) are in
+        physical units, which made ``*_acc_jnd*`` meaningless (e.g. a head spanning
+        [0, 0.9] collapsed to indices 0/1). Convert with the same datamodule bounds
+        and per-head class count used to denormalize predictions.
+
+        :param values: Tensor of regression values in physical parameter units.
+        :param head_name: Name of the prediction head.
+        :return: Values mapped to class-index units (unchanged if bounds unavailable,
+            in which case predictions are already in normalized [0, 1] space).
+        """
+        param_bounds = None
+        try:
+            if hasattr(self.trainer, "datamodule") and hasattr(
+                self.trainer.datamodule, "param_bounds"
+            ):
+                param_bounds = self.trainer.datamodule.param_bounds
+        except RuntimeError:
+            param_bounds = None
+
+        heads_config = getattr(self.net, "heads_config", {})
+        if not param_bounds or head_name not in param_bounds or head_name not in heads_config:
+            return values
+
+        param_min, param_max = param_bounds[head_name]
+        num_classes = heads_config[head_name]
+        step = (param_max - param_min) / max(1, (num_classes - 1))
+        if step == 0:
+            return values
+        return (values - param_min) / step
+
     def forward(self, x: torch.Tensor, auxiliary: Optional[torch.Tensor] = None):
         """Perform a forward pass through the model `self.net`.
 
@@ -762,13 +798,15 @@ class VIMHLitModule(LightningModule):
                         preds_dict[head_name], targets_dict[head_name]
                     )
 
-                # Update JND tolerance accuracies for regression
+                # Update JND tolerance accuracies for regression. JND tolerance is
+                # measured in quantization steps, so convert physical-unit preds and
+                # targets to class-index space first.
+                jnd_preds = self._to_jnd_index_space(preds_dict[head_name], head_name)
+                jnd_targets = self._to_jnd_index_space(targets_dict[head_name], head_name)
                 for tolerance in [1, 3, 5]:
                     metric_name = f"{head_name}_acc_jnd{tolerance}"
                     if metric_name in self.train_metrics:
-                        self.train_metrics[metric_name](
-                            preds_dict[head_name], targets_dict[head_name]
-                        )
+                        self.train_metrics[metric_name](jnd_preds, jnd_targets)
             else:
                 if f"{head_name}_acc" in self.train_metrics:
                     self.train_metrics[f"{head_name}_acc"](
@@ -836,13 +874,15 @@ class VIMHLitModule(LightningModule):
                         preds_dict[head_name], targets_dict[head_name]
                     )
 
-                # Update JND tolerance accuracies for regression
+                # Update JND tolerance accuracies for regression. JND tolerance is
+                # measured in quantization steps, so convert physical-unit preds and
+                # targets to class-index space first.
+                jnd_preds = self._to_jnd_index_space(preds_dict[head_name], head_name)
+                jnd_targets = self._to_jnd_index_space(targets_dict[head_name], head_name)
                 for tolerance in [1, 3, 5]:
                     metric_name = f"{head_name}_acc_jnd{tolerance}"
                     if metric_name in self.val_metrics:
-                        self.val_metrics[metric_name](
-                            preds_dict[head_name], targets_dict[head_name]
-                        )
+                        self.val_metrics[metric_name](jnd_preds, jnd_targets)
             else:
                 if f"{head_name}_acc" in self.val_metrics:
                     self.val_metrics[f"{head_name}_acc"](
@@ -932,13 +972,15 @@ class VIMHLitModule(LightningModule):
                         preds_dict[head_name], targets_dict[head_name]
                     )
 
-                # Update JND tolerance accuracies for regression
+                # Update JND tolerance accuracies for regression. JND tolerance is
+                # measured in quantization steps, so convert physical-unit preds and
+                # targets to class-index space first.
+                jnd_preds = self._to_jnd_index_space(preds_dict[head_name], head_name)
+                jnd_targets = self._to_jnd_index_space(targets_dict[head_name], head_name)
                 for tolerance in [1, 3, 5]:
                     metric_name = f"{head_name}_acc_jnd{tolerance}"
                     if metric_name in self.test_metrics:
-                        self.test_metrics[metric_name](
-                            preds_dict[head_name], targets_dict[head_name]
-                        )
+                        self.test_metrics[metric_name](jnd_preds, jnd_targets)
             else:
                 if f"{head_name}_acc" in self.test_metrics:
                     self.test_metrics[f"{head_name}_acc"](
