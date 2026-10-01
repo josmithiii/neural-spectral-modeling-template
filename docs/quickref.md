@@ -43,7 +43,7 @@ make ae           # Audio reconstruction evaluation
 
 | Name        | Type        | Params | Best For            | Config        |
 | ----------- | ----------- | ------ | ------------------- | ------------- |
-| CNN Micro   | CNN         | ~8K    | Quick prototyping   | `cnn_micro`   |
+| CNN Micro   | CNN         | ~10K   | Quick prototyping   | `cnn_micro`   |
 | CNN Tiny    | CNN         | ~8–64K | Compact baselines   | `cnn_tiny`    |
 | CNN Medium  | CNN         | ~64K*  | Standard spectral   | `cnn_medium`  |
 | ViT Micro   | Transformer | small  | Global correlations | `vit_micro`   |

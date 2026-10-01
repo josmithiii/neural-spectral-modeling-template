@@ -1,4 +1,4 @@
-# Micro ViT with ~8K parameters for trivial datasets
+# Micro ViT with ~23K parameters (2 wah heads, 32x32) for trivial datasets
 _target_: src.models.vimh_lit_module.VIMHLitModule
 
 optimizer:

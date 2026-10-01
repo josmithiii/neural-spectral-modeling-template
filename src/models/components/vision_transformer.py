@@ -235,11 +235,13 @@ class VisionTransformer(nn.Module):
         self.parameter_ranges = parameter_ranges or {}
         self.use_torch_layers = use_torch_layers
         self.n_channels = n_channels
+        if isinstance(image_size, ListConfig):
+            image_size = tuple(image_size)
         self.image_size = image_size
         # Store input shape attributes for TensorBoard summaries
         if isinstance(image_size, (list, tuple)):
             self.input_shape = (n_channels, image_size[0], image_size[1])
-            self.input_resolution = image_size
+            self.input_resolution = tuple(image_size)
         else:
             self.input_shape = (n_channels, image_size, image_size)
             self.input_resolution = (image_size, image_size)
@@ -250,8 +252,10 @@ class VisionTransformer(nn.Module):
             if heads_config is not None and not self.parameter_names:
                 self.parameter_names = list(heads_config.keys())
             if not self.parameter_names:
-                # Fallback single head if nothing provided
-                self.parameter_names = ["param_0"]
+                raise ValueError(
+                    "Regression VisionTransformer needs parameter_names (or heads_config); "
+                    "train.py sets them from the dataset"
+                )
             heads_config = {name: 1 for name in self.parameter_names}
         else:
             if heads_config is None:

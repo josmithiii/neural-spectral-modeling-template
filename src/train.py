@@ -90,12 +90,15 @@ def configure_vimh_run_config(cfg: DictConfig) -> None:
     - Regression: one ``NormalizedRegressionLoss`` per head with the dataset bounds,
       merged with any per-head user keys in ``model.criteria`` (e.g. ``loss_type: l1``).
     - ``model.net.auxiliary_input_size`` = number of auxiliary features.
+    - Network input geometry from the dataset: ``image_size`` = [height, width] (ViT),
+      ``n_channels`` / ``input_channels`` = channels, when the net config has those keys.
 
     Loss weights are left to ``VIMHLitModule`` (JND-based when ``model.loss_weights`` is empty).
     """
     from src.models.vimh_lit_module import output_mode_for_loss_type
     from src.utils.vimh_utils import (
         get_heads_config_from_metadata,
+        get_image_dimensions_from_metadata,
         get_parameter_names_from_metadata,
         get_parameter_ranges_from_metadata,
     )
@@ -146,6 +149,13 @@ def configure_vimh_run_config(cfg: DictConfig) -> None:
         # instantiation instead of silently ignoring the auxiliary input.
         if auxiliary_features or "auxiliary_input_size" in cfg.model.net:
             cfg.model.net.auxiliary_input_size = len(auxiliary_features)
+        # Input geometry from the dataset (spectrograms are often non-square, e.g. 32x64)
+        height, width, channels = get_image_dimensions_from_metadata(data_dir)
+        if "image_size" in cfg.model.net:  # VisionTransformer
+            cfg.model.net.image_size = [height, width]
+        for key in ("n_channels", "input_channels"):
+            if key in cfg.model.net:
+                cfg.model.net[key] = channels
 
     if output_mode == "regression":
         param_bounds = get_parameter_ranges_from_metadata(data_dir)

@@ -1,4 +1,4 @@
-# Medium ViT with ~1M+ parameters to match CNN medium scale
+# Medium ViT with ~6.5M parameters to match CNN medium scale
 _target_: src.models.vimh_lit_module.VIMHLitModule
 
 optimizer:

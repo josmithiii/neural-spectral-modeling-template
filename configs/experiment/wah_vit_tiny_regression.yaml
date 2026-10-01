@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: vit_tiny_regression # ~25K parameters (actual tiny size)
+  - override /model: vit_tiny_regression # ~115K parameters
   - override /callbacks: default
   - override /trainer: default
 

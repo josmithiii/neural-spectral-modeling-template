@@ -343,7 +343,11 @@ class VIMHDataset(MultiheadDatasetBase):
             actual = pmin + normalized * (pmax - pmin)
             idx = int(round((actual - pmin) / step))
             num_classes = int(self.heads_config[param_name])
-            idx = max(0, min(num_classes - 1, idx))
+            if not 0 <= idx < num_classes:
+                raise ValueError(
+                    f"Parameter '{param_name}': code {qv} maps to class {idx} outside "
+                    f"[0, {num_classes - 1}]; metadata min/max/step inconsistent with the data"
+                )
             class_labels[param_name] = idx
 
         # Apply soft targets if enabled; otherwise return hard class indices
@@ -410,8 +414,8 @@ class VIMHDataset(MultiheadDatasetBase):
             distribution[head_name] = {}
 
         # Count occurrences
-        for _, labels in self.samples:
-            for head_name, label_value in labels.items():
+        for sample in self.samples:  # (image, labels[, metadata]) tuples
+            for head_name, label_value in sample[1].items():
                 if label_value not in distribution[head_name]:
                     distribution[head_name][label_value] = 0
                 distribution[head_name][label_value] += 1
@@ -441,7 +445,7 @@ class VIMHDataset(MultiheadDatasetBase):
             for param_name in self.heads_config.keys():
                 param_info = self.get_parameter_info(param_name)
                 param_values = [
-                    labels[param_name] for _, labels in self.samples if param_name in labels
+                    sample[1][param_name] for sample in self.samples if param_name in sample[1]
                 ]
 
                 param_stats[param_name] = {
@@ -517,7 +521,7 @@ if __name__ == "__main__":
         print(f"✓ Loaded test dataset: {len(test_dataset)} samples")
 
         # Test sample access
-        sample_image, sample_labels = train_dataset[0]
+        sample_image, sample_labels = train_dataset[0][:2]
         print(f"✓ Sample image shape: {sample_image.shape}")
         print(f"✓ Sample labels: {sample_labels}")
 

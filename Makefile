@@ -160,16 +160,16 @@ ewma exp-wah-medium-auxiliary: check-env gdwl ## Train "medium" (~1.1M) CNN with
 ewmar exp-wah-medium-auxiliary-regression: check-env gdwl ## Train "medium" (~1.1M) CNN with auxiliary input (decay_time) on dataset gdwl - regression
 	time python src/train.py experiment=wah_cnn_medium_auxiliary_regression
 
-ewvt exp-wah-vit-tiny: check-env gdwl ## Train "tiny" (~25K) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
+ewvt exp-wah-vit-tiny: check-env gdwl ## Train "tiny" (~115K) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_tiny
 
-ewvtr exp-wah-vit-tiny-regression: check-env gdwl ## Train "tiny" (~25K) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
+ewvtr exp-wah-vit-tiny-regression: check-env gdwl ## Train "tiny" (~115K) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_tiny_regression
 
-ewvm exp-wah-vit-medium: check-env gdwl ## Train "medium" (~1M+) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
+ewvm exp-wah-vit-medium: check-env gdwl ## Train "medium" (~6.5M) ViT on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_medium
 
-ewvmr exp-wah-vit-medium-regression: check-env gdwl ## Train "medium" (~1M+) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
+ewvmr exp-wah-vit-medium-regression: check-env gdwl ## Train "medium" (~6.5M) ViT-regression on dataset gdwl (large sawtooth + wah + decay envelope)
 	time python src/train.py experiment=wah_vit_medium_regression
 
 # SAW+WAH+DELAY (WDEL) VIMH EXPERIMENTS

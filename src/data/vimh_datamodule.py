@@ -474,30 +474,8 @@ class VIMHDataModule(LightningDataModule):
             else:
                 batched_labels[head_name] = torch.tensor(label_list, dtype=torch.long)
 
-        # Assertions/Warns: sanity on label diversity per head (helps catch decoding bugs)
-        # Only check when batch has at least 2 items and labels are scalar class indices.
-        batch_size = len(images)
-        if batch_size >= 2 and not is_regression:
-            for head_name, labels in batched_labels.items():
-                try:
-                    if labels.ndim == 1 and labels.dtype in (
-                        torch.int8,
-                        torch.int16,
-                        torch.int32,
-                        torch.int64,
-                    ):
-                        if torch.all(labels == labels[0]):
-                            msg = (
-                                f"All targets in batch are identical for head '{head_name}' (value={labels[0].item()}). "
-                                f"This often indicates mis-decoding of labels (e.g., normalized floats cast to longs)."
-                            )
-                            if getattr(self, "_current_stage", None) == "fit":
-                                raise AssertionError(msg)
-                            else:
-                                warnings.warn("[VIMHDataModule] " + msg)
-                except Exception as _:
-                    # Do not break collation if a consumer passes non-scalar labels; just skip assertion.
-                    pass
+        # (Label diversity is checked across batches by train.py's preflight; a single
+        # small batch can legitimately repeat one class.)
 
         # Stack auxiliary features if any are present
         batched_auxiliary = None
@@ -769,8 +747,8 @@ class VIMHDataModule(LightningDataModule):
 
         :param state_dict: The datamodule state returned by `self.state_dict()`.
         """
-        self.heads_config = state_dict.get("heads_config", {})
-        self.image_shape = state_dict.get("image_shape", (3, 32, 32))
+        self.heads_config = state_dict["heads_config"]
+        self.image_shape = state_dict["image_shape"]
 
         # Restore dataset metadata if available
         if "dataset_metadata" in state_dict:
@@ -842,7 +820,7 @@ if __name__ == "__main__":
         )
 
         # Test a batch
-        batch_images, batch_labels = next(iter(train_loader))
+        batch_images, batch_labels = next(iter(train_loader))[:2]
         print(f"✓ Batch images shape: {batch_images.shape}")
         print(f"✓ Batch labels: {[f'{k}: {v.shape}' for k, v in batch_labels.items()]}")
 

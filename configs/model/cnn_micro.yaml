@@ -1,4 +1,4 @@
-# Micro CNN with ~2K parameters for very trivial datasets
+# Micro CNN with ~10K parameters (2 wah heads, 32x32) for very trivial datasets
 _target_: src.models.vimh_lit_module.VIMHLitModule
 
 optimizer:

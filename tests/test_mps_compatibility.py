@@ -49,7 +49,7 @@ class TestInputShapeAttributes:
         assert model.n_channels == 3
         assert model.image_size == [32, 64]
         assert model.input_shape == (3, 32, 64)
-        assert model.input_resolution == [32, 64]
+        assert model.input_resolution == (32, 64)
 
     def test_vision_transformer_input_attributes_tuple(self):
         """Test VisionTransformer handles tuple image_size correctly."""

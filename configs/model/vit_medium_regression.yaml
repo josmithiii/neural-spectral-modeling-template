@@ -1,4 +1,4 @@
-# Medium ViT with ~1M+ parameters for regression
+# Medium ViT with ~6.5M parameters for regression
 _target_: src.models.vimh_lit_module.VIMHLitModule
 
 optimizer:

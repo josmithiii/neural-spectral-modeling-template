@@ -860,3 +860,20 @@ def test_loading_does_not_rewrite_metadata(temp_dir):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_truncated_binary_record_raises(temp_dir):
+    """A partial trailing record used to be dropped silently."""
+    _write_binary_vimh_dataset(temp_dir, np.zeros((4, 4), dtype=np.uint8))
+    train_file = temp_dir / "train"
+    train_file.write_bytes(train_file.read_bytes()[:-3])
+    with pytest.raises(ValueError, match="Truncated"):
+        VIMHDataset(temp_dir, train=True)
+
+
+def test_statistics_work_on_binary_datasets(temp_dir):
+    """Binary samples are (image, labels, metadata) 3-tuples; stats unpacked 2."""
+    _write_binary_vimh_dataset(temp_dir, np.zeros((4, 4), dtype=np.uint8))
+    dataset = VIMHDataset(temp_dir, train=True)
+    assert dataset.get_class_distribution()
+    assert dataset.get_dataset_statistics()

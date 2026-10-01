@@ -127,3 +127,18 @@ def test_jnd_loss_weights_normalized_to_finest_head(sample_vimh_metadata: Path):
     # wah_position spans the most JND steps (50) -> 1.0; log10_decay_time spans 23
     assert weights["wah_position"] == pytest.approx(1.0)
     assert weights["log10_decay_time"] == pytest.approx(23 / 50)
+
+
+def test_network_geometry_comes_from_dataset(sample_vimh_metadata: Path):
+    """ViT configs hardcoded image_size 32 and crashed on non-square (e.g. 32x64) data."""
+    meta_file = sample_vimh_metadata / "vimh_dataset_info.json"
+    metadata = json.loads(meta_file.read_text())
+    metadata.update(height=32, width=64, channels=3)
+    meta_file.write_text(json.dumps(metadata))
+    cfg = _cfg(
+        sample_vimh_metadata,
+        {"loss_type": "cross_entropy", "net": {"image_size": 32, "n_channels": 1}},
+    )
+    configure_vimh_run_config(cfg)
+    assert list(cfg.model.net.image_size) == [32, 64]
+    assert cfg.model.net.n_channels == 3

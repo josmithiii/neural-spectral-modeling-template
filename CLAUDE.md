@@ -65,16 +65,16 @@ make vpl    # or: python vimhd.py -p path/to/larger-example-dataset
 make ex     # CNN on default dataset
 
 # Trivial dataset experiments (small models for testing)
-make etms   # Micro CNN (~2K params) on small dataset, ordinal classification output
-make etmsr  # Micro CNN (~2K params) on small dataset, regression output (1 float/head)
-make etts   # Tiny CNN (~8K params) on small dataset
+make etms   # Micro CNN (~10K params) on small dataset, ordinal classification output
+make etmsr  # Micro CNN (~10K params) on small dataset, regression output (1 float/head)
+make etts   # Tiny CNN (~40K params) on small dataset
 make etml   # Micro CNN on large dataset
 make ettl   # Tiny CNN on large dataset
 make etall  # Run all trivial experiments
 
 # ViT experiments on trivial datasets (quick tests)
-make evitms # Micro ViT (~8K params) on small dataset
-make evitts # Tiny ViT (~25K params) on small dataset
+make evitms # Micro ViT (~23K params) on small dataset
+make evitts # Tiny ViT (~115K params) on small dataset
 make evitall # Run all ViT trivial experiments
 
 # Wah Pedal experiments

@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: vit_medium_regression # ~1M+ parameters
+  - override /model: vit_medium_regression # ~6.5M parameters
   - override /callbacks: default
   - override /trainer: default
 

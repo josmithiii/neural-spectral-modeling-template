@@ -153,8 +153,8 @@ class MultiheadDatasetBase(Dataset, ABC):
             if self.samples[0][1]:  # If we have labels
                 # Collect all parameter names that appear in any sample
                 all_param_names = set()
-                for _, labels in self.samples:
-                    all_param_names.update(labels.keys())
+                for sample in self.samples:
+                    all_param_names.update(sample[1].keys())
 
                 # Now calculate heads config for all parameters
                 for param_name in all_param_names:
@@ -289,25 +289,25 @@ class MultiheadDatasetBase(Dataset, ABC):
         while offset < len(data):
             # Parse metadata: height, width, channels (6 bytes, 2 bytes each)
             if offset + 6 > len(data):
-                break
+                raise ValueError(f"Truncated VIMH binary data: record at byte {offset} of {len(data)} is incomplete")
             height, width, channels = struct.unpack("<HHH", data[offset : offset + 6])
             offset += 6
 
             # Parse scale factors: spec_min, spec_max (8 bytes, 4 bytes each)
             if offset + 8 > len(data):
-                break
+                raise ValueError(f"Truncated VIMH binary data: record at byte {offset} of {len(data)} is incomplete")
             spec_min, spec_max = struct.unpack("<ff", data[offset : offset + 8])
             offset += 8
 
             # Parse label data: num_params (1 byte)
             if offset + 1 > len(data):
-                break
+                raise ValueError(f"Truncated VIMH binary data: record at byte {offset} of {len(data)} is incomplete")
             num_params = struct.unpack("B", data[offset : offset + 1])[0]
             offset += 1
 
             # Parse parameter pairs: (param_id, param_value) * num_params
             if offset + 2 * num_params > len(data):
-                break
+                raise ValueError(f"Truncated VIMH binary data: record at byte {offset} of {len(data)} is incomplete")
 
             label_dict = {}
             for _ in range(num_params):
@@ -332,7 +332,7 @@ class MultiheadDatasetBase(Dataset, ABC):
             # Parse image data
             image_size = height * width * channels
             if offset + image_size > len(data):
-                break
+                raise ValueError(f"Truncated VIMH binary data: record at byte {offset} of {len(data)} is incomplete")
 
             image_data = data[offset : offset + image_size]
             offset += image_size
@@ -389,8 +389,8 @@ class MultiheadDatasetBase(Dataset, ABC):
                         num = (pmax - pmin) / step
                         steps = int(round(num))
                         if abs(num - steps) > 1e-3:
-                            print(
-                                f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}"
+                            raise ValueError(
+                                f"Parameter '{param_name}': (max-min)/step = {num} is not an integer"
                             )
                         self.heads_config[param_name] = steps + 1
                     else:

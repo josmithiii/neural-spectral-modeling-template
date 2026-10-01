@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: vimh
-  - override /model: vit_tiny # ~25K trainable parameters, cross_entropy loss
+  - override /model: vit_tiny # ~115K trainable parameters, cross_entropy loss
   - override /callbacks: default
   - override /trainer: default
 
