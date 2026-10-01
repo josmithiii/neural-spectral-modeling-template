@@ -7,6 +7,7 @@ dataset:
   size: 512 # More samples for envelope parameter space
   sampling_rate: 8000 # Sample rate in Hz
   duration: 2.0 # Longer duration to hear full envelope
+  seed: 42 # RNG seed: same config + seed -> identical dataset
 
 # Generation parameters
 generate:
@@ -39,7 +40,7 @@ synthesizer:
     # MIDI velocity
     note_velocity:
       min_value: 100.0
-      step: 10.0
+      step: 9.0 # must divide max-min = 27
       max_value: 127.0
       default: 120.0
       description: "MIDI velocity (amplitude)"

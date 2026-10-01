@@ -7,6 +7,7 @@ dataset:
   size: 256 # Number of samples to generate
   sampling_rate: 8000 # Sample rate in Hz
   duration: 1.0 # Duration per sample in seconds
+  seed: 42 # RNG seed: same config + seed -> identical dataset
 
 # Generation parameters
 generate:
@@ -38,7 +39,7 @@ synthesizer:
     # MIDI velocity (0-127, but we use floating point)
     note_velocity:
       min_value: 100.0
-      step: 5.0
+      step: 3.0 # must divide max-min = 27
       max_value: 127.0
       default: 127.0
       description: "MIDI velocity (amplitude)"

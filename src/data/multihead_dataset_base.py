@@ -269,9 +269,9 @@ class MultiheadDatasetBase(Dataset, ABC):
                 f"Sample has inconsistent image shape: expected {height}x{width}x{channels} ({expected_size} pixels), got {actual_size} pixels"
             )
 
-        # Reshape to (height, width, channels) then convert to (channels, height, width)
-        image = image_data.reshape(height, width, channels)
-        image = np.transpose(image, (2, 0, 1))  # CHW format
+        # VIMH stores images planar (C, H, W) in both the binary and pickle formats
+        # (generate_vimh.py transposes HWC -> CHW before flattening)
+        image = image_data.reshape(channels, height, width)
 
         # Convert to tensor and normalize to [0, 1]
         image_tensor = torch.from_numpy(image).float() / 255.0

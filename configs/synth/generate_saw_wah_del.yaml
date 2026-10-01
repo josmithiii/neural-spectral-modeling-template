@@ -8,6 +8,7 @@ dataset:
   size: 256 # Number of samples to generate (override for larger datasets)
   sampling_rate: 8000 # Sample rate in Hz
   duration: 1.0 # Duration per sample in seconds
+  seed: 42 # RNG seed: same config + seed -> identical dataset
 
 # Generation parameters
 generate:

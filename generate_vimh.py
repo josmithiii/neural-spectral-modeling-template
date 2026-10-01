@@ -318,6 +318,27 @@ def validate_config(cfg: DictConfig) -> None:
         raise ValueError(f"Channels must be 1 or 3, got {cfg.generate.channels}")
     if cfg.stft.type not in ["mel", "stft"]:
         raise ValueError(f"STFT type must be 'mel' or 'stft', got {cfg.stft.type}")
+    validate_parameter_grid(cfg.synthesizer.parameters)
+
+
+def validate_parameter_grid(params_config: Dict[str, Dict[str, Any]]) -> None:
+    """Every varying parameter needs a step that evenly divides its range.
+
+    The loader derives num_classes = (max - min) / step + 1 and rejects datasets
+    whose step does not divide the range, so catch that before generating.
+    """
+    for name, info in params_config.items():
+        pmin, pmax = float(info["min_value"]), float(info["max_value"])
+        if pmin == pmax:
+            continue  # fixed parameter
+        if "step" not in info or float(info["step"]) <= 0:
+            raise ValueError(f"Varying parameter '{name}' needs a positive 'step'")
+        n_steps = (pmax - pmin) / float(info["step"])
+        if abs(n_steps - round(n_steps)) > 1e-6:
+            raise ValueError(
+                f"Parameter '{name}': step {info['step']} does not evenly divide "
+                f"[{pmin}, {pmax}] ((max-min)/step = {n_steps:.4g})"
+            )
 
 
 class ParameterGenerator:
@@ -537,7 +558,14 @@ def save_vimh_dataset(
     logger.info(f"Saved {len(train_data)} training samples to {train_path}")
     logger.info(f"Saved {len(test_data)} test samples to {test_path}")
 
-    # Save pickle format only if requested
+    # Save pickle format only if requested; otherwise remove pickles from an earlier
+    # generation, which the loader would reject as stale next to the new binary files
+    if not pickle_format:
+        for stale in ("train_batch", "test_batch"):
+            stale_path = os.path.join(output_dir, stale)
+            if os.path.exists(stale_path):
+                logger.warning(f"*** Removing stale pickle file {stale_path}")
+                os.remove(stale_path)
     if pickle_format:
         import pickle
 
@@ -628,9 +656,8 @@ def save_vimh_dataset(
     for param_name, param_info in params_config.items():
         parameter_mappings[param_name] = {
             "min": param_info["min_value"],
-            "step": param_info.get(
-                "step", (param_info["max_value"] - param_info["min_value"]) / 16
-            ),
+            # Varying parameters always have a step (validate_parameter_grid); fixed ones use 0
+            "step": param_info.get("step", 0.0),
             "max": param_info["max_value"],
             "description": f"simple parameter: {param_name}",
         }
@@ -737,7 +764,7 @@ Notes:
     print(help_text)
 
 
-@hydra.main(version_base="1.3", config_path="configs", config_name="generate_simple")
+@hydra.main(version_base="1.3", config_path="configs", config_name="synth/generate_simple_saw")
 def main(cfg: DictConfig) -> None:
     """Main function for generating SimpleSawSynth dataset in VIMH format."""
     # Parse command line arguments for --pickle flag from original argv
@@ -792,6 +819,11 @@ def main(cfg: DictConfig) -> None:
     try:
         # Validate configuration
         validate_config(cfg)
+
+        # Seed all RNGs (parameter sampling, shuffling) so a config reproduces its dataset
+        np.random.seed(cfg.dataset.seed)
+        torch.manual_seed(cfg.dataset.seed)
+        logger.info(f"🎲 Seed: {cfg.dataset.seed}")
 
         # Extract configuration
         dataset_size = cfg.dataset.size

@@ -783,6 +783,72 @@ def test_stale_pickle_next_to_binary_raises(temp_dir):
         VIMHDataset(temp_dir, train=True)
 
 
+def _save_multichannel_dataset(out_dir: Path, spectrograms, pickle_format: bool) -> None:
+    from generate_vimh import save_vimh_dataset
+
+    n = len(spectrograms)
+    height, width, channels = spectrograms[0].shape
+    save_vimh_dataset(
+        all_spectrograms=spectrograms,
+        all_labels=[np.array([i / (n - 1)]) for i in range(n)],
+        all_scale_factors=[(-80.0, 0.0)] * n,
+        param_names=["p"],
+        params_config={"p": {"min_value": 0.0, "max_value": 1.0, "step": 0.1}},
+        dataset_name="roundtrip",
+        output_dir=str(out_dir),
+        dataset_size=n,
+        sample_rate=8000,
+        duration=1.0,
+        height=height,
+        width=width,
+        channels=channels,
+        stft_config={"type": "stft"},
+        mel_config={},
+        pre_emphasis_coeff=0.0,
+        pickle_format=pickle_format,
+    )
+
+
+def test_multichannel_pickle_and_binary_images_match_generator(temp_dir):
+    """Pickle images were reshaped HWC although generate_vimh.py stores planar CHW.
+
+    Regression test: with channels > 1 (e.g. --temporal-envelope), every pickle-format
+    image was scrambled; the binary format was correct.
+    """
+    rng = np.random.default_rng(0)
+    spectrograms = [rng.integers(0, 256, size=(4, 6, 3), dtype=np.uint8) for _ in range(10)]
+    _save_multichannel_dataset(temp_dir / "pkl", spectrograms, pickle_format=True)
+    _save_multichannel_dataset(temp_dir / "bin", spectrograms, pickle_format=False)
+
+    from_pickle = VIMHDataset(temp_dir / "pkl", train=True)  # pickle preferred ("both")
+    from_binary = VIMHDataset(temp_dir / "bin", train=True)
+    assert from_pickle.batch_file.name == "train_batch"
+    assert from_binary.batch_file.name == "train"
+    for i in range(len(from_binary)):
+        expected = torch.from_numpy(spectrograms[i].transpose(2, 0, 1).astype(np.float32) / 255.0)
+        assert torch.allclose(from_pickle[i][0], expected)
+        assert torch.allclose(from_binary[i][0], expected)
+
+
+def test_generator_rejects_step_that_does_not_divide_range():
+    """make gdwe wrote a dataset (note_velocity 100..127 step 10) that the loader rejects."""
+    import glob
+
+    import yaml
+    from generate_vimh import validate_parameter_grid
+
+    with pytest.raises(ValueError, match="does not evenly divide"):
+        validate_parameter_grid({"v": {"min_value": 100.0, "max_value": 127.0, "step": 10.0}})
+    with pytest.raises(ValueError, match="needs a positive 'step'"):
+        validate_parameter_grid({"v": {"min_value": 0.0, "max_value": 1.0}})
+    validate_parameter_grid({"fixed": {"min_value": 1.0, "max_value": 1.0}})
+
+    # Every shipped generator config must pass
+    for path in glob.glob("configs/synth/generate_*.yaml"):
+        with open(path) as f:
+            validate_parameter_grid(yaml.safe_load(f)["synthesizer"]["parameters"])
+
+
 def test_loading_does_not_rewrite_metadata(temp_dir):
     """Loading used to inject num_classes into (and reformat) vimh_dataset_info.json."""
     _write_binary_vimh_dataset(temp_dir, np.zeros((4, 4), dtype=np.uint8))

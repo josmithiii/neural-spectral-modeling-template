@@ -64,14 +64,18 @@ class VIMHDataset(MultiheadDatasetBase):
             ]
 
             existing = [c for c in candidate_files if c.exists()]
-            if len(existing) > 1:
-                # Regenerating without -p rewrites the binary file + metadata but leaves an
-                # old pickle behind, which would otherwise silently win.
-                raise RuntimeError(
-                    f"Both pickle and binary {'train' if train else 'test'} files exist in "
-                    f"{self.data_dir} ({[c.name for c in existing]}); one is stale. "
-                    f"Delete the stale one."
-                )
+            if len(existing) > 1 and self.metadata_file.exists():
+                # generate_vimh.py -p writes both formats (output_format "both"). Anything
+                # else means one is stale, e.g. an old pickle left behind by regenerating
+                # without -p, which would otherwise silently win.
+                with open(self.metadata_file) as f:
+                    output_format = json.load(f).get("output_format")
+                if output_format != "both":
+                    raise RuntimeError(
+                        f"Both pickle and binary {'train' if train else 'test'} files exist in "
+                        f"{self.data_dir} ({[c.name for c in existing]}) but metadata "
+                        f"output_format={output_format!r}; one is stale. Delete the stale one."
+                    )
             self.batch_file = existing[0] if existing else None
 
             if self.batch_file is None:

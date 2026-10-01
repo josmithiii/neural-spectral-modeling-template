@@ -7,6 +7,7 @@ dataset:
   size: 384 # Good coverage of resonance parameter space
   sampling_rate: 8000 # Sample rate in Hz
   duration: 1.5 # Duration to hear resonant behavior
+  seed: 42 # RNG seed: same config + seed -> identical dataset
 
 # Generation parameters
 generate:
@@ -38,7 +39,7 @@ synthesizer:
 
     # MIDI velocity - keep high to hear resonance clearly
     note_velocity:
-      min_value: 110.0
+      min_value: 112.0 # (127-112)/5 = 3 steps
       step: 5.0
       max_value: 127.0
       default: 120.0
@@ -63,7 +64,7 @@ synthesizer:
     log10_filter_cutoff_hz:
       min_value: 2.301 # log10(200) = 2.301 - Low enough for dramatic filtering
       step: 0.1
-      max_value: 3.146 # log10(1400) = 3.146 - High enough for bright tones
+      max_value: 3.101 # log10(1262) ~= 3.101 - bright tones (8 steps of 0.1)
       default: 2.778 # log10(600) = 2.778
       description: "Log10 of filter cutoff frequency in Hz"
 
@@ -79,12 +80,14 @@ synthesizer:
     filter_env_attack:
       min_value: 0.0
       max_value: 0.01
+      step: 0.000625 # range/16 (was the implicit default); inaudible while filter_env_amount = 0
       default: 0.0
       description: "Filter envelope attack time (seconds) - minimal"
 
     filter_env_decay:
       min_value: 0.0
       max_value: 0.1
+      step: 0.00625 # range/16 (was the implicit default); inaudible while filter_env_amount = 0
       default: 0.0
       description: "Filter envelope decay time (seconds) - minimal"
 
@@ -97,6 +100,7 @@ synthesizer:
     filter_env_release:
       min_value: 0.0
       max_value: 0.05
+      step: 0.003125 # range/16 (was the implicit default); inaudible while filter_env_amount = 0
       default: 0.0
       description: "Filter envelope release time (seconds) - minimal"
 
