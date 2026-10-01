@@ -194,8 +194,8 @@ evwt eval-wah-tiny: check-env ## Evaluate latest wah_cnn_tiny best checkpoint (s
 		done); \
 		if [ -z "$$RUN_DIR" ]; then echo "No matching run found in logs/train/runs"; exit 1; fi; \
 		echo "[eval] Using run: $$RUN_DIR"; \
-		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
-		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		CKPT_PATH=$$RUN_DIR/checkpoints/best.ckpt; \
+		if [ ! -e "$$CKPT_PATH" ]; then echo "*** $$CKPT_PATH not found (train.py writes it after fitting); set CKPT=..."; exit 1; fi; \
 		echo "[eval] Using checkpoint: $$CKPT_PATH"; \
 		time python src/train.py experiment=wah_cnn_tiny train=false test=true ckpt_path=$$CKPT_PATH; \
 	else \
@@ -217,8 +217,8 @@ evwtr eval-wah-tiny-regression: check-env ## Evaluate latest wah_cnn_tiny_regres
 		done); \
 		if [ -z "$$RUN_DIR" ]; then echo "No matching regression run found in logs/train/runs"; exit 1; fi; \
 		echo "[eval] Using run: $$RUN_DIR"; \
-		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
-		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		CKPT_PATH=$$RUN_DIR/checkpoints/best.ckpt; \
+		if [ ! -e "$$CKPT_PATH" ]; then echo "*** $$CKPT_PATH not found (train.py writes it after fitting); set CKPT=..."; exit 1; fi; \
 		echo "[eval] Using checkpoint: $$CKPT_PATH"; \
 		time python src/train.py experiment=wah_cnn_tiny_regression train=false test=true ckpt_path=$$CKPT_PATH; \
 	else \
@@ -239,7 +239,7 @@ ae ae_latest audio-eval-latest: check-env ## Display eval of latest best model c
 #     make aef FILTER=regression
 # - You can still override with CKPT=path/to/checkpoint.ckpt
 
-aer ae_reg audio-eval-regression: check-env ## Audio-eval latest run with "regression" tag (auto-picks best/last ckpt)
+aer ae_reg audio-eval-regression: check-env ## Audio-eval latest run with "regression" tag (its checkpoints/best.ckpt)
 	@set -e; \
 	if [ -z "$(CKPT)" ]; then \
 		echo "[ae] Locating latest run tagged 'regression'..."; \
@@ -248,8 +248,8 @@ aer ae_reg audio-eval-regression: check-env ## Audio-eval latest run with "regre
 		done); \
 		if [ -z "$$RUN_DIR" ]; then echo "No matching regression run found in logs/train/runs"; exit 1; fi; \
 		echo "[ae] Using run: $$RUN_DIR"; \
-		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
-		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		CKPT_PATH=$$RUN_DIR/checkpoints/best.ckpt; \
+		if [ ! -e "$$CKPT_PATH" ]; then echo "*** $$CKPT_PATH not found (train.py writes it after fitting); set CKPT=..."; exit 1; fi; \
 		echo "[ae] Using checkpoint: $$CKPT_PATH"; \
 		python src/audio_reconstruction_eval.py ckpt_path=$$CKPT_PATH; \
 	else \
@@ -264,8 +264,8 @@ aep ae_prev audio-eval-previous: check-env ## Audio-eval the second most recent 
 		RUN_DIR=$$(ls -td logs/train/runs/* 2>/dev/null | sed -n '2p'); \
 		if [ -z "$$RUN_DIR" ]; then echo "No previous run found in logs/train/runs"; exit 1; fi; \
 		echo "[ae] Using run: $$RUN_DIR"; \
-		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
-		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		CKPT_PATH=$$RUN_DIR/checkpoints/best.ckpt; \
+		if [ ! -e "$$CKPT_PATH" ]; then echo "*** $$CKPT_PATH not found (train.py writes it after fitting); set CKPT=..."; exit 1; fi; \
 		echo "[ae] Using checkpoint: $$CKPT_PATH"; \
 		python src/audio_reconstruction_eval.py ckpt_path=$$CKPT_PATH; \
 	else \
@@ -283,8 +283,8 @@ aef ae_filter audio-eval-filter: check-env ## Audio-eval latest run whose tags.l
 		done); \
 		if [ -z "$$RUN_DIR" ]; then echo "No run matched FILTER='$(FILTER)'"; exit 1; fi; \
 		echo "[ae] Using run: $$RUN_DIR"; \
-		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
-		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		CKPT_PATH=$$RUN_DIR/checkpoints/best.ckpt; \
+		if [ ! -e "$$CKPT_PATH" ]; then echo "*** $$CKPT_PATH not found (train.py writes it after fitting); set CKPT=..."; exit 1; fi; \
 		echo "[ae] Using checkpoint: $$CKPT_PATH"; \
 		python src/audio_reconstruction_eval.py ckpt_path=$$CKPT_PATH; \
 	else \
@@ -301,8 +301,8 @@ ae_cls audio-eval-classification: check-env ## Audio-eval latest classification 
 		done); \
 		if [ -z "$$RUN_DIR" ]; then echo "No classification run found in logs/train/runs"; exit 1; fi; \
 		echo "[ae] Using run: $$RUN_DIR"; \
-		CKPT_PATH=$$(ls -t $$RUN_DIR/checkpoints/epoch_*.ckpt 2>/dev/null | head -1); \
-		if [ -z "$$CKPT_PATH" ]; then CKPT_PATH=$$RUN_DIR/checkpoints/last.ckpt; fi; \
+		CKPT_PATH=$$RUN_DIR/checkpoints/best.ckpt; \
+		if [ ! -e "$$CKPT_PATH" ]; then echo "*** $$CKPT_PATH not found (train.py writes it after fitting); set CKPT=..."; exit 1; fi; \
 		echo "[ae] Using checkpoint: $$CKPT_PATH"; \
 		python src/audio_reconstruction_eval.py ckpt_path=$$CKPT_PATH; \
 	else \

@@ -7,6 +7,12 @@ Usage:
 
     # Legacy mode (explicit paths):
     python scripts/save_reference.py model_name --run-dir logs/train/runs/2025-10-21_11-10-32
+
+    # Make an older reference checkpoint self-contained for audio_reconstruction_eval.py:
+    python scripts/save_reference.py --embed checkpoints/reference/NAME.ckpt --run-dir logs/train/runs/RUN
+
+The saved checkpoint carries the run's dataset-configured model/data config
+(hyper_parameters.run_config), so it can be rebuilt exactly without its run directory.
 """
 
 import argparse
@@ -41,22 +47,59 @@ def get_experiment_name(run_dir: Path) -> Optional[str]:
 
 
 def find_best_checkpoint(run_dir: Path) -> Optional[Path]:
-    """Find the best checkpoint in a run directory."""
+    """Find the best (monitored-metric) checkpoint in a run directory.
+
+    The newest epoch_*.ckpt is NOT necessarily the best (save_top_k > 1), so use the
+    best.ckpt symlink written by train.py, or for older runs the best_model_path that
+    ModelCheckpoint recorded in last.ckpt.
+    """
+    import torch
+
     ckpt_dir = run_dir / "checkpoints"
-    if not ckpt_dir.exists():
-        return None
-
-    # Prefer the latest epoch checkpoint
-    epoch_ckpts = sorted(ckpt_dir.glob("epoch_*.ckpt"), reverse=True)
-    if epoch_ckpts:
-        return epoch_ckpts[0]
-
-    # Fall back to last.ckpt
+    best_link = ckpt_dir / "best.ckpt"
+    if best_link.exists():
+        return best_link.resolve()
     last_ckpt = ckpt_dir / "last.ckpt"
-    if last_ckpt.exists():
-        return last_ckpt
-
+    if not last_ckpt.exists():
+        return None
+    state = torch.load(last_ckpt, map_location="cpu", weights_only=False)
+    for key, cb_state in state.get("callbacks", {}).items():
+        best = cb_state.get("best_model_path") if key.startswith("ModelCheckpoint") else None
+        if best:
+            # Recorded path may be relative to another cwd; the file lives in ckpt_dir
+            candidate = ckpt_dir / Path(best).name
+            if candidate.exists():
+                return candidate
     return None
+
+
+def embed_run_config(ckpt_path: Path, run_dir: Path) -> None:
+    """Store the run's dataset-configured model/data config in the checkpoint hparams.
+
+    audio_reconstruction_eval.py rebuilds models from this ``run_config`` (or the
+    run's .hydra dir, which a copied reference checkpoint no longer sits next to).
+    """
+    import torch
+    from omegaconf import OmegaConf
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from src.train import configure_vimh_run_config
+
+    state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    hparams = state.setdefault("hyper_parameters", {})
+    if "run_config" in hparams:
+        return
+    hydra_cfg = run_dir / ".hydra" / "config.yaml"
+    if not hydra_cfg.exists():
+        raise FileNotFoundError(f"No run_config in {ckpt_path} and no Hydra config {hydra_cfg}")
+    cfg = OmegaConf.load(hydra_cfg)
+    configure_vimh_run_config(cfg)
+    hparams["run_config"] = {
+        "model": OmegaConf.to_container(cfg.model, resolve=True),
+        "data": OmegaConf.to_container(cfg.data, resolve=True),
+    }
+    torch.save(state, ckpt_path)
+    print(f"Embedded run_config from {hydra_cfg}")
 
 
 def list_recent_runs(n: int = 5) -> List[Path]:
@@ -140,6 +183,7 @@ def save_reference(name: Optional[str] = None, run_dir: Optional[Path] = None) -
     print(f"Source: {ckpt}")
     print(f"Dest:   {dest}")
     shutil.copy2(ckpt, dest)
+    embed_run_config(dest, run_dir)
 
     print(f"\n✅ Saved reference checkpoint: {dest}")
     return 0
@@ -171,8 +215,19 @@ Examples:
         action="store_true",
         help="List recent runs and exit",
     )
+    parser.add_argument(
+        "--embed",
+        type=Path,
+        help="Embed run_config (from --run-dir) into an existing reference checkpoint and exit",
+    )
 
     args = parser.parse_args()
+
+    if args.embed:
+        if args.run_dir is None:
+            parser.error("--embed requires --run-dir")
+        embed_run_config(args.embed, args.run_dir)
+        return 0
 
     if args.list:
         print("Recent runs:")

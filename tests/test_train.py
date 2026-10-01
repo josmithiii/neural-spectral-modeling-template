@@ -127,6 +127,8 @@ def test_train_resume(tmp_path: Path, cfg_train: DictConfig) -> None:
     """
     with open_dict(cfg_train):
         cfg_train.trainer.max_epochs = 1
+        # Unseeded, the accuracy comparison below was flaky (~1 in 3 runs failed)
+        cfg_train.seed = 12345
         # Configure checkpoint callback to save every epoch for testing
         cfg_train.callbacks.model_checkpoint.every_n_epochs = 1
         cfg_train.callbacks.model_checkpoint.save_top_k = -1  # Save all checkpoints

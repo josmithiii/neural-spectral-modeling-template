@@ -695,48 +695,35 @@ class CheckpointArchitectureReconstructor:
 
 def find_latest_checkpoint(base_dir: str = "logs/train") -> Optional[str]:
     """
-    Find the latest best checkpoint from training runs.
+    Find the best checkpoint of the most recent training run.
+
+    Uses the ``checkpoints/best.ckpt`` symlink that train.py writes after fitting (the
+    newest file in a run is usually ``last.ckpt``, not the best one).
 
     Args:
         base_dir: Base directory to search for training logs
 
     Returns:
-        Path to the latest best checkpoint, or None if not found
+        Path to the latest run's best checkpoint, or None if there are no runs
     """
     import glob
-    from pathlib import Path
 
-    # Look for checkpoint patterns in training logs
-    patterns = [
-        f"{base_dir}/runs/*/checkpoints/best.ckpt",
-        f"{base_dir}/runs/*/checkpoints/last.ckpt",
-        f"{base_dir}/runs/*/checkpoints/*.ckpt",
-        f"{base_dir}/*/checkpoints/best.ckpt",
-        f"{base_dir}/*/checkpoints/last.ckpt",
-        f"{base_dir}/*/checkpoints/*.ckpt",
+    run_dirs = [
+        d for d in glob.glob(f"{base_dir}/runs/*") + glob.glob(f"{base_dir}/*")
+        if os.path.isdir(os.path.join(d, "checkpoints"))
     ]
-
-    latest_checkpoint = None
-    latest_time = 0
-
-    for pattern in patterns:
-        checkpoints = glob.glob(pattern)
-        for ckpt_path in checkpoints:
-            try:
-                # Get modification time
-                mtime = os.path.getmtime(ckpt_path)
-                if mtime > latest_time:
-                    latest_time = mtime
-                    latest_checkpoint = ckpt_path
-            except OSError:
-                continue
-
-    if latest_checkpoint:
-        log.info(f"Auto-discovered checkpoint: {latest_checkpoint}")
-        return latest_checkpoint
-    else:
-        log.warning(f"No checkpoints found in {base_dir}")
+    if not run_dirs:
+        log.warning(f"No training runs with checkpoints found in {base_dir}")
         return None
+    latest_run = max(run_dirs, key=os.path.getmtime)
+    best = os.path.join(latest_run, "checkpoints", "best.ckpt")
+    if not os.path.exists(best):
+        raise CheckpointError(
+            f"Latest run {latest_run} has no checkpoints/best.ckpt (written by train.py after "
+            f"fitting); pass ckpt_path=... explicitly"
+        )
+    log.info(f"Auto-discovered best checkpoint of latest run: {best}")
+    return best
 
 
 class AudioReconstructionEvaluator:
@@ -837,10 +824,12 @@ class AudioReconstructionEvaluator:
             self.synth = PercussionSynth(sample_rate=self.sample_rate)
             self.synth_type = 'percussion'
             log.info(f"Using PercussionSynth (synth_type={synth_type_metadata})")
-        else:  # "simple", "saw", or any other type defaults to SimpleSawSynth
+        elif synth_type_metadata in ("simple", "saw"):
             self.synth = SimpleSawSynth(sample_rate=self.sample_rate)
             self.synth_type = 'saw'
             log.info(f"Using SimpleSawSynth (synth_type={synth_type_metadata})")
+        else:
+            raise ValueError(f"Unknown synth_type '{synth_type_metadata}' in dataset metadata")
 
         # Initialize spectrogram processor for visualization
         stft_config = self.dataset_info.get("spectrogram_config", {"type": "stft"})
@@ -904,6 +893,11 @@ class AudioReconstructionEvaluator:
 
         self.param_names = list(self.model.net.heads_config.keys())
         log.info(f"Model heads config: {self.model.net.heads_config}")
+        # Auxiliary features are measured model inputs, not predictions; both true and
+        # predicted audio are synthesized with their true values.
+        self.auxiliary_params = list(getattr(self.test_dataset, "auxiliary_features", None) or [])
+        if self.auxiliary_params:
+            log.info(f"Auxiliary inputs (synthesized with true values): {self.auxiliary_params}")
 
         log.info(f"Initialized evaluator with {len(self.test_dataset)} test samples")
         log.info(f"Sample rate: {self.sample_rate} Hz, Duration: {self.duration}s")
@@ -1022,15 +1016,17 @@ class AudioReconstructionEvaluator:
             if is_regression:
                 # Direct regression output – models emit sigmoid-activated [0,1]
                 # Be robust to tiny numerical drift and clamp to [0,1].
-                try:
-                    normalized_value = float(pred_tensor.item())
-                except Exception:
-                    normalized_value = float(pred_tensor)
-                # Safety clamp
-                if normalized_value < 0.0:
-                    normalized_value = 0.0
-                elif normalized_value > 1.0:
-                    normalized_value = 1.0
+                normalized_value = float(pred_tensor.item())
+                if not np.isfinite(normalized_value):
+                    # Sanctioned numerical exception: warn and replace by MIN/MAX
+                    replacement = 1.0 if normalized_value == float("inf") else 0.0
+                    log.warning(
+                        f"*** Non-finite regression output {normalized_value} for "
+                        f"'{param_name}'; using {replacement}"
+                    )
+                    normalized_value = replacement
+                # Sigmoid outputs lie in [0, 1]; clamp tiny numerical drift
+                normalized_value = min(1.0, max(0.0, normalized_value))
             else:
                 # Classification - convert class index to normalized value
                 if "num_classes" in mapping:
@@ -1043,8 +1039,8 @@ class AudioReconstructionEvaluator:
                         # Round to nearest int within tolerance
                         num_steps = int(round(num_floats))
                         if abs(num_floats - num_steps) > 1e-3:
-                            print(
-                                f"Warning: parameter '{param_name}' (max-min)/step = {num_floats} not integer; rounding to {num_steps}"
+                            raise ValueError(
+                                f"Parameter '{param_name}': (max-min)/step = {num_floats} is not an integer"
                             )
                         num_classes = int(num_steps) + 1
                         mapping["num_classes"] = num_classes  # cache for later
@@ -1093,7 +1089,7 @@ class AudioReconstructionEvaluator:
 
         # Extract actual parameter values
         true_params = {}
-        for param_name in self.param_names:
+        for param_name in self.param_names + self.auxiliary_params:
             param_info_key = f"{param_name}_info"
             if param_info_key in sample_metadata:
                 actual_value = sample_metadata[param_info_key]["actual_value"]
@@ -1133,10 +1129,8 @@ class AudioReconstructionEvaluator:
             self._samples_checked = 0
         # Get the sample from specified dataset
         sample_data = dataset[sample_idx]
-        if len(sample_data) == 2:
-            image_tensor, labels_dict = sample_data
-        else:
-            image_tensor, labels_dict = sample_data[0], sample_data[1]
+        image_tensor = sample_data[0]
+        auxiliary = sample_data[2] if len(sample_data) > 2 else None
 
         # Debug: Print image tensor info for first few samples (can be removed)
         # if sample_idx < 2:
@@ -1150,7 +1144,8 @@ class AudioReconstructionEvaluator:
         # Run inference
         with torch.no_grad():
             image_batch = image_tensor.unsqueeze(0).to(self.device)
-            raw_predictions = self.model(image_batch)
+            aux_batch = auxiliary.unsqueeze(0).to(self.device) if auxiliary is not None else None
+            raw_predictions = self.model(image_batch, aux_batch)
 
             # Debug: Print raw predictions to see if they're changing (can be removed)
             # if isinstance(raw_predictions, dict):
@@ -1163,8 +1158,11 @@ class AudioReconstructionEvaluator:
 
             # Process predictions based on model type
             if not isinstance(raw_predictions, dict):
-                print("Model is expected to be multihead and return a dict of logits; aborting.")
-                sys.exit(1)
+                if len(self.param_names) != 1:
+                    raise RuntimeError(
+                        f"Model returned a single tensor for heads {self.param_names}"
+                    )
+                raw_predictions = {self.param_names[0]: raw_predictions}  # single-head net
 
             # Enforce that model heads match dataset parameter names
             model_heads = list(raw_predictions.keys())
@@ -1207,8 +1205,11 @@ class AudioReconstructionEvaluator:
                         f"   Expected behavior: predictions should vary across different input samples."
                     )
 
-        # Get true parameters
+        # Get true parameters (heads + auxiliary inputs); auxiliary inputs are not
+        # predicted, so the predicted audio uses their true values too
         true_params = self.get_true_parameters(sample_idx, dataset)
+        for param_name in self.auxiliary_params:
+            predicted_params[param_name] = true_params[param_name]
 
         return predicted_params, true_params, image_tensor
 
@@ -1364,7 +1365,7 @@ class AudioReconstructionEvaluator:
 
         # Parameter errors
         param_errors = {}
-        for param_name in true_params:
+        for param_name in self.param_names:  # predicted heads only (not auxiliary inputs)
             if param_name in predicted_params:
                 true_val = true_params[param_name]
                 pred_val = predicted_params[param_name]
@@ -2550,75 +2551,27 @@ def _resolve_checkpoint_path(cfg: DictConfig) -> str:
 
 def _determine_device() -> str:
     """Determine the appropriate device for evaluation."""
-    return "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
 
 
 def _setup_datamodule(cfg: DictConfig, ckpt_path: str) -> LightningDataModule:
-    """Setup and configure the datamodule for evaluation."""
-    # Load checkpoint to extract dataset metadata
+    """Instantiate the datamodule exactly as configured for training the checkpoint."""
     checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    vimh_data = checkpoint.get("VIMHDataModule", {})
-    dataset_metadata = vimh_data.get("dataset_metadata", {})
+    dataset_metadata = checkpoint.get("VIMHDataModule", {}).get("dataset_metadata", {})
 
-    # Override config with checkpoint's datamodule hyperparameters
-    datamodule_hparams = checkpoint.get("datamodule_hyper_parameters", {})
-    if not datamodule_hparams:
-        log.error("Checkpoint missing datamodule_hyper_parameters - cannot determine training dataset")
-        sys.exit(1)
-
-    # CRITICAL: Use the exact data_dir from training to ensure parameter consistency
-    if "data_dir" not in datamodule_hparams:
-        log.error("Checkpoint missing data_dir in datamodule_hyper_parameters")
-        sys.exit(1)
-
-    trained_data_dir = datamodule_hparams["data_dir"]
-    if not os.path.exists(trained_data_dir):
-        log.error(
-            f"Training dataset directory not found: {trained_data_dir}\n"
-            f"Evaluation requires the exact dataset used during training.\n"
-            f"Please ensure the dataset exists at the specified path."
+    data_cfg = _run_config_from_checkpoint(ckpt_path).data
+    if not os.path.exists(data_cfg.data_dir):
+        raise CheckpointError(
+            f"Training dataset directory not found: {data_cfg.data_dir}\n"
+            f"Evaluation requires the exact dataset used during training."
         )
-        sys.exit(1)
-
-    log.info(f"Using training dataset directory: {trained_data_dir}")
-    cfg.data.data_dir = trained_data_dir
-
-    if datamodule_hparams:
-        log.info("Applying checkpoint's datamodule hyperparameters to ensure consistency")
-
-        # Temporarily disable struct mode to allow adding new keys
-        from omegaconf import OmegaConf
-        OmegaConf.set_struct(cfg.data, False)
-        try:
-            # Critical: preserve auxiliary_features from training
-            if "auxiliary_features" in datamodule_hparams:
-                aux_features = datamodule_hparams["auxiliary_features"]
-                cfg.data.auxiliary_features = aux_features
-                log.info(f"Using auxiliary_features from checkpoint: {aux_features}")
-
-            # Also preserve other critical hyperparameters
-            if "label_mode" in datamodule_hparams:
-                cfg.data.label_mode = datamodule_hparams["label_mode"]
-                log.info(f"Using label_mode from checkpoint: {datamodule_hparams['label_mode']}")
-
-            if "target_width" in datamodule_hparams:
-                cfg.data.target_width = datamodule_hparams["target_width"]
-        finally:
-            OmegaConf.set_struct(cfg.data, True)
-
-    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-
-    # Use identity transforms for spectrograms
-    from torchvision.transforms import transforms
-
-    identity_transform = transforms.Compose([])
-
-    datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data,
-        train_transform=identity_transform,
-        val_transform=identity_transform,
-        test_transform=identity_transform,
-    )
+    log.info(f"Using training dataset directory: {data_cfg.data_dir}")
+    log.info(f"Instantiating datamodule <{data_cfg._target_}>")
+    datamodule: LightningDataModule = hydra.utils.instantiate(data_cfg)
 
     # Inject saved metadata if available
     if dataset_metadata and "parameter_names" in dataset_metadata:
@@ -2633,93 +2586,60 @@ def _setup_datamodule(cfg: DictConfig, ckpt_path: str) -> LightningDataModule:
     return datamodule
 
 
-def _load_from_hydra_config(ckpt_path: str, device: str) -> LightningModule:
-    """Load model by reconstructing from Hydra config file.
+def _hydra_config_path(ckpt_path: str) -> Path:
+    """``<run>/checkpoints/<file>.ckpt`` -> ``<run>/.hydra/config.yaml`` (symlinks resolved)."""
+    return Path(ckpt_path).resolve().parent.parent / ".hydra" / "config.yaml"
 
-    This is the standard practice for Hydra-based projects where the full
-    configuration is saved alongside the checkpoint in .hydra/config.yaml.
+
+def _run_config_from_checkpoint(ckpt_path: str) -> DictConfig:
+    """Return the dataset-configured model+data config the checkpoint was trained with.
+
+    Sources, in order:
+    1. ``run_config`` stored in the checkpoint hparams by train.py
+    2. the run's ``.hydra/config.yaml``, re-configured from the dataset with the same
+       ``configure_vimh_run_config`` that train.py applies
+    Anything else is an error: the model is never rebuilt by guessing from weights.
     """
-    from pathlib import Path
     from omegaconf import OmegaConf
-    from hydra.utils import instantiate
 
-    # Find .hydra/config.yaml relative to checkpoint
-    ckpt_dir = Path(ckpt_path).parent.parent  # checkpoints/last.ckpt -> run_dir
-    hydra_config_path = ckpt_dir / ".hydra" / "config.yaml"
+    from src.train import configure_vimh_run_config
 
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    run_config = checkpoint.get("hyper_parameters", {}).get("run_config")
+    if run_config is not None:
+        log.info("Using the model/data config stored in the checkpoint (run_config)")
+        return OmegaConf.create(run_config)
+
+    hydra_config_path = _hydra_config_path(ckpt_path)
     if not hydra_config_path.exists():
-        raise FileNotFoundError(f"Hydra config not found: {hydra_config_path}")
-
-    log.info(f"Loading model from Hydra config: {hydra_config_path}")
-
-    # Load checkpoint to extract heads configuration
-    checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
-    state_dict = checkpoint["state_dict"]
-
-    # Extract heads config from checkpoint state_dict
-    heads_config = {}
-    for key in state_dict.keys():
-        if key.startswith("net.heads.") and key.endswith(".weight"):
-            # Extract head name: net.heads.log10_decay_time.0.weight -> log10_decay_time
-            parts = key.split(".")
-            if len(parts) >= 4:
-                head_name = parts[2]
-                # Get number of outputs from weight shape
-                num_outputs = state_dict[key].shape[0]
-                heads_config[head_name] = num_outputs
-
-    log.info(f"Extracted heads config from checkpoint: {heads_config}")
-
-    # Load configuration
+        raise CheckpointError(
+            f"{ckpt_path} has no stored run_config and its run's Hydra config "
+            f"{hydra_config_path} does not exist, so the model cannot be rebuilt exactly. "
+            f"Use a checkpoint inside its training run directory, or embed the config: "
+            f"python scripts/save_reference.py --embed {ckpt_path} --run-dir logs/train/runs/<run>"
+        )
+    log.info(f"Rebuilding model config from {hydra_config_path}")
     cfg = OmegaConf.load(hydra_config_path)
-
-    # Update net config with actual heads from checkpoint
-    if heads_config:
-        cfg.model.net.heads_config = heads_config
-        # Pass output_mode and parameter_names to net for proper head creation
-        if hasattr(cfg.model, 'output_mode'):
-            cfg.model.net.output_mode = cfg.model.output_mode
-        # Extract parameter names from heads_config
-        cfg.model.net.parameter_names = list(heads_config.keys())
-
-    # Instantiate model using Hydra (this creates net, optimizer, scheduler from config)
-    model = instantiate(cfg.model)
-
-    # Load checkpoint weights into the model
-    model.load_state_dict(state_dict)
-
-    return model
+    configure_vimh_run_config(cfg)
+    return OmegaConf.create({"model": cfg.model, "data": cfg.data})
 
 
 def _load_model_from_checkpoint(
     ckpt_path: str, datamodule: LightningDataModule, device: str
 ) -> LightningModule:
-    """Load model from checkpoint with proper architecture reconstruction."""
+    """Rebuild the model exactly as trained and load its weights strictly.
+
+    The model is configured from the dataset first (as Lightning does in
+    ``setup``), then every checkpoint tensor must match: a missing or unexpected
+    key raises instead of leaving layers randomly initialized.
+    """
     log.info(f"Loading model from checkpoint: {ckpt_path}")
-
-    # Step 1: Try Lightning's built-in checkpoint loading (fast path)
-    try:
-        from src.models.vimh_lit_module import VIMHLitModule
-
-        model: LightningModule = VIMHLitModule.load_from_checkpoint(
-            ckpt_path, map_location=device, strict=False
-        )
-        log.info("Successfully loaded VIMH model using Lightning's built-in method")
-        return model
-    except Exception as e:
-        log.warning(f"Lightning checkpoint loading failed: {e}")
-
-    # Step 2: Try loading from Hydra config file (reliable, standard practice)
-    try:
-        model = _load_from_hydra_config(ckpt_path, device)
-        log.info("Successfully loaded model from Hydra config")
-        return model
-    except Exception as e:
-        log.warning(f"Hydra config loading failed: {e}")
-        log.info("Attempting weight-based architecture inference (last resort)...")
-
-    # Step 3: Manual reconstruction by inferring from weights (brittle fallback)
-    return _reconstruct_model_manually(ckpt_path, datamodule, device)
+    run_config = _run_config_from_checkpoint(ckpt_path)
+    model: LightningModule = hydra.utils.instantiate(run_config.model)
+    model._auto_configure_from_dataset(datamodule.data_train)
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    model.load_state_dict(checkpoint["state_dict"], strict=True)
+    return model.to(device)
 
 
 def _reconstruct_model_manually(
@@ -2925,8 +2845,8 @@ def _print_evaluation_header(ckpt_path: str, evaluator: AudioReconstructionEvalu
         # Model information from hyperparameters
         hyper_params = checkpoint.get("hyper_parameters", {})
         if hyper_params:
-            output_mode = hyper_params.get("output_mode", "Unknown")
-            print(f"🤖 Model Output Mode: {output_mode}")
+            loss_type = hyper_params.get("loss_type", "Unknown")
+            print(f"🤖 Model Output Mode: {evaluator.model.output_mode} (loss_type={loss_type})")
 
             # Architecture metadata if available
             arch_metadata = hyper_params.get("architecture_metadata", {})
@@ -3018,6 +2938,15 @@ def _compute_aggregate_metrics(results: List[Dict[str, Any]]) -> Dict[str, float
 
     for metric_name in all_metrics[0].keys():
         values = [m[metric_name] for m in all_metrics if np.isfinite(m[metric_name])]
+        n_nonfinite = len(all_metrics) - len(values)
+        if n_nonfinite:
+            # e.g. SNR = +inf for a perfect reconstruction: excluded from mean/std, so say so
+            n_pos_inf = sum(1 for m in all_metrics if m[metric_name] == float("inf"))
+            log.warning(
+                f"*** {metric_name}: {n_nonfinite}/{len(all_metrics)} samples non-finite "
+                f"({n_pos_inf} = +inf, e.g. perfect reconstructions); excluded from mean/std"
+            )
+            aggregate_metrics[f"n_nonfinite_{metric_name}"] = n_nonfinite
         if values:
             aggregate_metrics[f"mean_{metric_name}"] = float(np.mean(values))
             aggregate_metrics[f"std_{metric_name}"] = float(np.std(values))

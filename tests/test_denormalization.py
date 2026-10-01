@@ -35,7 +35,7 @@ class _FakeDataset:
                 "duration": 1.0,
                 "spectrogram_config": {"type": "stft", "n_fft": 80, "n_window": 80, "hop_length": 40},
                 "mel_config": {"freq_min": 40.0, "freq_max_ratio": 0.9},
-                "synth_type": "SimpleSawSynth",
+                "synth_type": "simple",  # as written by generate_vimh.py
             }
         }
 
@@ -54,7 +54,7 @@ class _FakeDataModule:
             "duration": 1.0,
             "spectrogram_config": {"type": "stft", "n_fft": 80, "n_window": 80, "hop_length": 40},
             "mel_config": {"freq_min": 40.0, "freq_max_ratio": 0.9},
-            "synth_type": "SimpleSawSynth",
+            "synth_type": "simple",  # as written by generate_vimh.py
         }
         self.data_train = _FakeDataset(param_mappings, param_names)
         self.data_test = _FakeDataset(param_mappings, param_names)
@@ -149,3 +149,71 @@ def test_checkpoint_reconstruction_sets_regression_heads(tmp_path: Path):
     assert set(out.keys()) == set(heads_config.keys())
     for t in out.values():
         assert t.shape[-1] == 1
+
+
+def _wah_evaluator():
+    param_mappings = {
+        "log10_decay_time": {"min": -1.0, "max": 0.3, "step": 0.1, "num_classes": 14},
+        "wah_position": {"min": 0.0, "max": 0.9, "step": 0.05, "num_classes": 19},
+    }
+    names = list(param_mappings)
+    return AudioReconstructionEvaluator(_FakeModel(names), _FakeDataModule(param_mappings, names), device="cpu")
+
+
+def test_nonfinite_regression_output_is_replaced_by_min_max():
+    """NaN skipped the old clamp (NaN < 0 is False) and silently became NaN audio."""
+    evaluator = _wah_evaluator()
+    denorm = evaluator.denormalize_parameters(
+        {"wah_position": torch.tensor([float("nan")]), "log10_decay_time": torch.tensor([float("inf")])}
+    )
+    assert denorm["wah_position"] == 0.0  # NaN -> MIN
+    assert abs(denorm["log10_decay_time"] - 0.3) < 1e-6  # +inf -> MAX
+
+
+def test_checkpoint_without_run_config_or_hydra_dir_raises(tmp_path: Path):
+    """Loading must never fall back to guessing the architecture from weights."""
+    import pytest
+
+    from src.audio_reconstruction_eval import CheckpointError, _run_config_from_checkpoint
+
+    ckpt_path = tmp_path / "ref.ckpt"
+    torch.save({"hyper_parameters": {}, "state_dict": {}}, ckpt_path)
+    with pytest.raises(CheckpointError, match="--embed"):
+        _run_config_from_checkpoint(str(ckpt_path))
+
+    torch.save({"hyper_parameters": {"run_config": {"model": {"a": 1}, "data": {"b": 2}}}}, ckpt_path)
+    assert _run_config_from_checkpoint(str(ckpt_path)).data.b == 2
+
+
+def test_find_latest_checkpoint_uses_best_symlink(tmp_path: Path):
+    """The newest file in a run is usually last.ckpt, not the best checkpoint."""
+    import os
+    import time
+
+    import pytest
+
+    from src.audio_reconstruction_eval import CheckpointError, find_latest_checkpoint
+
+    old = tmp_path / "runs" / "2025-01-01_00-00-00" / "checkpoints"
+    new = tmp_path / "runs" / "2025-01-02_00-00-00" / "checkpoints"
+    for d in (old, new):
+        d.mkdir(parents=True)
+        (d / "epoch_001.ckpt").write_bytes(b"")
+        (d / "last.ckpt").write_bytes(b"")
+    (old / "best.ckpt").symlink_to("epoch_001.ckpt")
+    os.utime(old.parent, (time.time() - 100, time.time() - 100))
+    with pytest.raises(CheckpointError, match="best.ckpt"):
+        find_latest_checkpoint(str(tmp_path))  # newest run lacks best.ckpt
+    (new / "best.ckpt").symlink_to("epoch_001.ckpt")
+    os.utime(new.parent)
+    assert find_latest_checkpoint(str(tmp_path)) == str(new / "best.ckpt")
+
+
+def test_aggregate_metrics_report_nonfinite_values():
+    """Perfect reconstructions (SNR = +inf) were silently dropped from the mean."""
+    from src.audio_reconstruction_eval import _compute_aggregate_metrics
+
+    results = [{"audio_metrics": {"snr_db": v}} for v in (10.0, float("inf"), 20.0)]
+    agg = _compute_aggregate_metrics(results)
+    assert agg["mean_snr_db"] == 15.0
+    assert agg["n_nonfinite_snr_db"] == 1
