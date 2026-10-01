@@ -9,7 +9,6 @@ from src.models.losses import (
     MultiScaleSpectralLoss,
     NormalizedRegressionLoss,
     OrdinalRegressionLoss,
-    QuantizedRegressionLoss,
     WeightedCrossEntropyLoss,
     create_loss_function,
 )
@@ -258,10 +257,6 @@ class TestNumericalGuards:
         """num_classes < 2 would divide by zero computing quantization_step."""
         with pytest.raises(ValueError):
             OrdinalRegressionLoss(num_classes=1, param_range=1.0)
-
-    def test_quantized_regression_requires_multiple_classes(self):
-        with pytest.raises(ValueError):
-            QuantizedRegressionLoss(num_classes=1, param_range=1.0)
 
     def test_jnd_tolerance_must_be_positive(self):
         """tolerance_jnds == 0 would divide by zero in the tolerance score."""

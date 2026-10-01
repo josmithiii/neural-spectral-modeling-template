@@ -5,8 +5,46 @@ import pytest
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, open_dict
 
-from src.train import train
+from src.train import _link_best_checkpoint, _select_test_checkpoint, train
 from tests.helpers.run_if import RunIf
+
+
+def _fake_trainer(best_model_path: str, fast_dev_run: bool = False, has_ckpt_cb: bool = True):
+    from types import SimpleNamespace
+
+    cb = SimpleNamespace(best_model_path=best_model_path, monitor="val/acc_best", best_model_score=0.5)
+    return SimpleNamespace(
+        checkpoint_callback=cb if has_ckpt_cb else None, fast_dev_run=fast_dev_run, global_rank=0
+    )
+
+
+def test_select_test_checkpoint() -> None:
+    """Test the best checkpoint of this run, also when resuming from ckpt_path."""
+    from omegaconf import OmegaConf
+
+    resumed = OmegaConf.create({"train": True, "ckpt_path": "resume.ckpt"})
+    assert _select_test_checkpoint(resumed, _fake_trainer("best.ckpt")) == "best.ckpt"
+    trained = OmegaConf.create({"train": True})
+    assert _select_test_checkpoint(trained, _fake_trainer("", has_ckpt_cb=False)) is None
+    assert _select_test_checkpoint(trained, _fake_trainer("", fast_dev_run=True)) is None
+    with pytest.raises(RuntimeError, match="no best checkpoint"):
+        _select_test_checkpoint(trained, _fake_trainer(""))
+    with pytest.raises(ValueError, match="requires ckpt_path"):
+        _select_test_checkpoint(OmegaConf.create({"train": False}), _fake_trainer(""))
+
+
+def test_link_best_checkpoint(tmp_path: Path) -> None:
+    (tmp_path / "epoch_003.ckpt").write_bytes(b"best")
+    _link_best_checkpoint(_fake_trainer(str(tmp_path / "epoch_003.ckpt")))
+    link = tmp_path / "best.ckpt"
+    assert link.is_symlink() and os.readlink(link) == "epoch_003.ckpt"
+
+    # Never replace a real file
+    link.unlink()
+    link.write_bytes(b"real checkpoint")
+    with pytest.raises(RuntimeError, match="Refusing"):
+        _link_best_checkpoint(_fake_trainer(str(tmp_path / "epoch_003.ckpt")))
+    assert link.read_bytes() == b"real checkpoint"
 
 
 def test_train_fast_dev_run(cfg_train: DictConfig) -> None:

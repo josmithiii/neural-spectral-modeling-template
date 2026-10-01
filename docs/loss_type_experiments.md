@@ -11,7 +11,6 @@ The NSMT template includes 6 wah_cnn_tiny experiments, each demonstrating a diff
 | `wah_cnn_tiny` | CrossEntropyLoss | Classification baseline | Standard approach, discrete predictions |
 | `wah_cnn_tiny_regression` | NormalizedRegressionLoss | Pure regression | Continuous outputs in [0,1] space |
 | `wah_cnn_tiny_ordinal` | OrdinalRegressionLoss | **Recommended** | Distance-aware, perceptual units |
-| `wah_cnn_tiny_quantized` | QuantizedRegressionLoss | Lightweight regression | Simpler than ordinal, still distance-aware |
 | `wah_cnn_tiny_weighted` | WeightedCrossEntropyLoss | Enhanced classification | Keeps discrete predictions + distance penalty |
 | `wah_cnn_tiny_soft_target` | SoftTargetLoss | Smooth classification | KL divergence with soft target distributions |
 
@@ -22,12 +21,11 @@ The NSMT template includes 6 wah_cnn_tiny experiments, each demonstrating a diff
 make ewt         # CrossEntropyLoss (standard classification)
 make ewtr        # NormalizedRegressionLoss (pure regression)
 python src/train.py experiment=wah_cnn_tiny_ordinal    # OrdinalRegressionLoss (recommended)
-python src/train.py experiment=wah_cnn_tiny_quantized  # QuantizedRegressionLoss
 python src/train.py experiment=wah_cnn_tiny_weighted   # WeightedCrossEntropyLoss
 python src/train.py experiment=wah_cnn_tiny_soft_target # SoftTargetLoss
 
 # Compare all loss types (will run for ~30 minutes total on MPS)
-for exp in wah_cnn_tiny wah_cnn_tiny_regression wah_cnn_tiny_ordinal wah_cnn_tiny_quantized wah_cnn_tiny_weighted wah_cnn_tiny_soft_target; do
+for exp in wah_cnn_tiny wah_cnn_tiny_regression wah_cnn_tiny_ordinal wah_cnn_tiny_weighted wah_cnn_tiny_soft_target; do
   echo "Running $exp..."
   python src/train.py experiment=$exp trainer=mps
 done
@@ -54,11 +52,8 @@ done
 - **Use when**: Want distance-aware classification with continuous predictions
 - **Benefits**: Best of both worlds - classification structure + regression continuity
 
-### 4. QuantizedRegressionLoss (Lightweight)
-- **Experiment**: `wah_cnn_tiny_quantized`
-- **Output**: Continuous (clamped to [0, num_classes-1])
-- **Metrics**: Accuracy + loss in perceptual units
-- **Use when**: Want simpler distance-aware regression without softmax overhead
+### 4. QuantizedRegressionLoss (removed)
+- Duplicated `wah_cnn_tiny_regression` with an L1 loss; use that experiment instead.
 
 ### 5. WeightedCrossEntropyLoss (Enhanced Classification)
 - **Experiment**: `wah_cnn_tiny_weighted`
@@ -103,7 +98,6 @@ All experiments use the same CNN architecture (~40K parameters) and dataset (16K
 - **CrossEntropyLoss**: ~94% accuracy, no distance awareness
 - **NormalizedRegressionLoss**: ~0.017 MAE, continuous outputs
 - **OrdinalRegressionLoss**: ~94% accuracy + continuous predictions + distance awareness
-- **QuantizedRegressionLoss**: Similar to ordinal but with lower computational overhead
 - **WeightedCrossEntropyLoss**: ~94% accuracy with reduced large-error penalties
 - **SoftTargetLoss**: ~94% accuracy with smoother probability distributions
 
@@ -124,11 +118,6 @@ All experiments use the same CNN architecture (~40K parameters) and dataset (16K
 - Need baseline comparison
 - Working with truly discrete categories (not quantized continuous)
 - Downstream code expects discrete class predictions
-
-### Choose QuantizedRegressionLoss when:
-- Want distance awareness with minimal computational overhead
-- Working with scalar outputs rather than classification heads
-- Need simpler alternative to ordinal regression
 
 ### Choose WeightedCrossEntropyLoss when:
 - Must maintain discrete outputs for compatibility

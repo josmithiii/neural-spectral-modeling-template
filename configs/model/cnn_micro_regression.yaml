@@ -15,7 +15,7 @@ scheduler:
   patience: 3
 
 # Pure regression mode with continuous outputs
-output_mode: regression
+loss_type: normalized_regression
 
 # Loss weighting auto-configured from dataset JNDs (Just Noticeable Differences)
 loss_weights: {} # Empty - will be auto-configured from dataset metadata

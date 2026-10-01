@@ -524,22 +524,6 @@ class TestVIMHDataModule:
         assert num_classes["note_number"] == 256
         assert num_classes["note_velocity"] == 256
 
-    def test_adjust_transforms_for_image_size(self, temp_dir, mock_vimh_data, mock_vimh_metadata):
-        """Test transform adjustment based on image size."""
-        create_test_vimh_files(temp_dir, mock_vimh_data, mock_vimh_metadata)
-
-        dm = VIMHDataModule(data_dir=str(temp_dir), batch_size=4, num_workers=0)
-
-        # Test 32x32 image adjustment
-        dm._adjust_transforms_for_image_size(32, 32, 3)
-        assert dm.train_transform is not None
-        assert dm.val_transform is not None
-
-        # Test 28x28 image adjustment
-        dm._adjust_transforms_for_image_size(28, 28, 1)
-        assert dm.train_transform is not None
-        assert dm.val_transform is not None
-
     def test_efficient_dimension_detection(self, temp_dir, mock_vimh_data, mock_vimh_metadata):
         """Test efficient dimension detection methods."""
         create_test_vimh_files(temp_dir, mock_vimh_data, mock_vimh_metadata)
@@ -788,6 +772,24 @@ def test_binary_path_normalizes_pixels_to_unit_range(temp_dir):
     # Pixel values must equal raw/255 (e.g. 255 -> 1.0, 0 -> 0.0).
     expected = torch.from_numpy(pixels.astype(np.float32) / 255.0).unsqueeze(0)
     assert torch.allclose(image, expected, atol=1e-6)
+
+
+def test_stale_pickle_next_to_binary_raises(temp_dir):
+    """Regenerating without -p left an old train_batch that silently won over new data."""
+    pixels = np.zeros((4, 4), dtype=np.uint8)
+    _write_binary_vimh_dataset(temp_dir, pixels)
+    (temp_dir / "train_batch").write_bytes(b"stale")
+    with pytest.raises(RuntimeError, match="stale"):
+        VIMHDataset(temp_dir, train=True)
+
+
+def test_loading_does_not_rewrite_metadata(temp_dir):
+    """Loading used to inject num_classes into (and reformat) vimh_dataset_info.json."""
+    _write_binary_vimh_dataset(temp_dir, np.zeros((4, 4), dtype=np.uint8))
+    meta_file = temp_dir / "vimh_dataset_info.json"
+    before = meta_file.read_bytes()
+    VIMHDataset(temp_dir, train=True)
+    assert meta_file.read_bytes() == before
 
 
 if __name__ == "__main__":

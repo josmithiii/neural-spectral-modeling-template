@@ -115,29 +115,16 @@ class VIMHDataModule(LightningDataModule):
         # also ensures init params will be stored in ckpt
         self.save_hyperparameters(logger=False, ignore=["kwargs"])
 
-        # Default transforms for variable-size images
-        # These will be adjusted based on the actual image dimensions
-        # Note: Data is already converted to tensor by the dataset
-        self.default_transforms = transforms.Compose(
-            [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]  # Generic normalization
-        )
-
-        # Training transforms. Spectrograms get no geometric augmentation by default
-        # (see _adjust_transforms_for_image_size); this placeholder is replaced once
-        # the actual image dimensions are known in setup().
-        self.default_train_transforms = transforms.Compose(
-            [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-        )
-
-        # Set transforms (use provided or defaults)
-        self.train_transform = train_transform or self.default_train_transforms
-        self.val_transform = val_transform or self.default_transforms
-        self.test_transform = test_transform or self.default_transforms
-
-        # Track if we're using defaults (for later adjustment)
-        self.using_default_train_transform = train_transform is None
-        self.using_default_val_transform = val_transform is None
-        self.using_default_test_transform = test_transform is None
+        # Images are spectrograms (height=frequency, width=time) already scaled to
+        # [0, 1] by the dataset. By default NO transform is applied, so training,
+        # evaluation and audio reconstruction all see the same values. Geometric
+        # augmentation is deliberately absent: a horizontal flip reverses time and a
+        # rotation mixes frequency and time, changing the very synth parameters being
+        # predicted. To add spectrogram-appropriate augmentation (e.g. SpecAugment
+        # time/frequency masking), pass an explicit ``train_transform``.
+        self.train_transform = train_transform
+        self.val_transform = val_transform
+        self.test_transform = test_transform
 
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
@@ -174,49 +161,16 @@ class VIMHDataModule(LightningDataModule):
                 else:
                     idx_t = torch.tensor(idx, dtype=torch.float32)
 
-                num_classes = float(heads_config.get(name, 1))
-                pmin, pmax = param_bounds.get(name, (0.0, 1.0))
-                # Avoid division by zero if only 1 class (shouldn't happen for VIMH)
-                step = (pmax - pmin) / max(1.0, (num_classes - 1.0))
-                out[name] = pmin + idx_t * step
+                if name not in heads_config or name not in param_bounds:
+                    raise KeyError(f"No class count / bounds in dataset metadata for '{name}'")
+                num_classes = float(heads_config[name])
+                if num_classes < 2:
+                    raise ValueError(f"Parameter '{name}' has {num_classes} class(es); need >= 2")
+                pmin, pmax = param_bounds[name]
+                out[name] = pmin + idx_t * (pmax - pmin) / (num_classes - 1.0)
             return out
 
         return to_actual
-
-    def _adjust_transforms_for_image_size(self, height: int, width: int, channels: int) -> None:
-        """Adjust normalization transforms based on actual image dimensions.
-
-        Images are spectrograms (height=frequency, width=time), so geometric
-        augmentation is *not* applied by default: a horizontal flip reverses the
-        time axis and a rotation mixes the frequency and time axes, both of which
-        change the very synth parameters being predicted (e.g. decay time). The
-        default train, val and test transforms therefore apply normalization only,
-        so train and eval see identical preprocessing. To add spectrogram-
-        appropriate augmentation (e.g. SpecAugment time/frequency masking), pass an
-        explicit ``train_transform`` to the datamodule.
-        """
-        if channels == 1:
-            # Single channel normalization
-            normalize = transforms.Normalize((0.5,), (0.5,))
-        elif height == 32 and width == 32:
-            # CIFAR-10 style normalization for 32x32 RGB
-            normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-        else:
-            # Generic RGB normalization
-            normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-
-        # Normalize operates directly on the [0, 1] tensor produced by the dataset,
-        # so no ToPILImage/ToTensor round-trip is needed.
-        self.default_transforms = transforms.Compose([normalize])
-        self.default_train_transforms = transforms.Compose([normalize])
-
-        # Update transforms if they were using defaults
-        if self.using_default_train_transform:
-            self.train_transform = self.default_train_transforms
-        if self.using_default_val_transform:
-            self.val_transform = self.default_transforms
-        if self.using_default_test_transform:
-            self.test_transform = self.default_transforms
 
     def _parse_image_dims_from_path(self, data_dir: str) -> Optional[Tuple[int, int, int]]:
         """Extract image dimensions from dataset directory name.
@@ -664,9 +618,6 @@ class VIMHDataModule(LightningDataModule):
 
                 # Load parameter bounds for regression mode
                 self.parameter_bounds = self._load_parameter_bounds(self.hparams.data_dir)
-
-                # Adjust transforms based on detected image dimensions
-                self._adjust_transforms_for_image_size(height, width, channels)
 
                 # Optionally map labels to continuous values for regression
                 target_transform = None

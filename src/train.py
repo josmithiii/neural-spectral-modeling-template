@@ -71,158 +71,107 @@ from src.utils import (
     task_wrapper,
 )
 from src.utils.vimh_utils import load_vimh_metadata
-from src.utils.architecture_utils import (
-    ArchitectureMetadataExtractor,
-    create_spectrogram_transforms,
-)
+from src.utils.architecture_utils import ArchitectureMetadataExtractor
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
-def _configure_vimh_model_config(cfg: DictConfig) -> None:
-    """Configure model config for VIMH datasets before instantiation."""
-    try:
-        from src.utils.vimh_utils import (
-            get_heads_config_from_metadata,
-            get_parameter_names_from_metadata,
-            get_parameter_ranges_from_metadata,
-            load_vimh_metadata,
+def configure_vimh_run_config(cfg: DictConfig) -> None:
+    """Pre-configure the model and data configs from VIMH dataset metadata.
+
+    Must run before the datamodule and model are instantiated (train.py and eval.py
+    both call it), so every entry point sees identical wiring:
+
+    - Output mode comes from ``model.loss_type`` alone (``output_mode_for_loss_type``);
+      ``data.label_mode`` is set to match (regression -> physical-unit float targets,
+      classification -> class indices). A conflicting explicit ``data.label_mode`` raises.
+    - Network heads = dataset parameters minus ``data.auxiliary_features`` (which are
+      measured inputs, not predictions).
+    - Regression: one ``NormalizedRegressionLoss`` per head with the dataset bounds,
+      merged with any per-head user keys in ``model.criteria`` (e.g. ``loss_type: l1``).
+    - ``model.net.auxiliary_input_size`` = number of auxiliary features.
+
+    Loss weights are left to ``VIMHLitModule`` (JND-based when ``model.loss_weights`` is empty).
+    """
+    from src.models.vimh_lit_module import output_mode_for_loss_type
+    from src.utils.vimh_utils import (
+        get_heads_config_from_metadata,
+        get_parameter_names_from_metadata,
+        get_parameter_ranges_from_metadata,
+    )
+
+    data_dir = cfg.data.data_dir
+    # "cross_entropy" is VIMHLitModule's default loss_type
+    output_mode = output_mode_for_loss_type(cfg.model.get("loss_type", "cross_entropy"))
+
+    label_mode = "regression" if output_mode == "regression" else "classification"
+    explicit_label_mode = cfg.data.get("label_mode")
+    if explicit_label_mode is not None and explicit_label_mode != label_mode:
+        raise ValueError(
+            f"data.label_mode={explicit_label_mode} conflicts with model.loss_type="
+            f"{cfg.model.loss_type} ({output_mode}); remove data.label_mode or fix loss_type"
         )
-    except ImportError as exc:
-        log.warning(f"VIMH utilities unavailable; skipping auto-configuration: {exc}")
-        return
+    with open_dict(cfg.data):
+        cfg.data.label_mode = label_mode
 
-    if not getattr(cfg, "data", None) or not getattr(cfg.data, "data_dir", None):
-        return
-    if not getattr(cfg, "model", None) or not hasattr(cfg.model, "net"):
-        return
-
-    parameter_names = get_parameter_names_from_metadata(cfg.data.data_dir)
+    auxiliary_features = list(cfg.data.get("auxiliary_features") or [])
+    all_parameter_names = get_parameter_names_from_metadata(data_dir)
+    unknown_aux = [a for a in auxiliary_features if a not in all_parameter_names]
+    if unknown_aux:
+        raise ValueError(
+            f"Auxiliary features {unknown_aux} are not dataset parameters {all_parameter_names}"
+        )
+    parameter_names = [p for p in all_parameter_names if p not in auxiliary_features]
     if not parameter_names:
-        log.debug("No VIMH parameter names discovered; skipping auto-configuration.")
-        return
-
-    # Remove auxiliary features from parameter_names (they are inputs, not predictions)
-    auxiliary_features = getattr(cfg.data, "auxiliary_features", None) or []
+        raise ValueError(
+            f"No parameters left to predict: dataset parameters {all_parameter_names}, "
+            f"auxiliary features {auxiliary_features}"
+        )
     if auxiliary_features:
-        original_params = parameter_names.copy()
-        parameter_names = [p for p in parameter_names if p not in auxiliary_features]
-        removed = [p for p in original_params if p not in parameter_names]
-        if removed:
-            log.info(
-                f"Removed auxiliary features from prediction targets: {removed}"
-            )
-            log.info(
-                f"Auxiliary features (measured inputs): {auxiliary_features}"
-            )
+        log.info(f"Auxiliary features (measured inputs, not predicted): {auxiliary_features}")
+    log.info(f"Configuring model to predict parameters: {parameter_names} ({output_mode})")
 
-    if not parameter_names:
-        log.warning("No parameters left to predict after removing auxiliary features!")
-        return
-
-    log.info(f"Configuring model to predict parameters: {parameter_names}")
-    output_mode = getattr(cfg.model, "output_mode", None)
-
-    if output_mode == "regression":
-        with open_dict(cfg.model):
+    all_heads = get_heads_config_from_metadata(data_dir)
+    heads_config = {name: all_heads[name] for name in parameter_names}
+    with open_dict(cfg.model):
+        if output_mode == "regression":
             cfg.model.net.parameter_names = parameter_names
             cfg.model.net.output_mode = "regression"
             cfg.model.net.heads_config = None
-    else:
-        heads_config = get_heads_config_from_metadata(cfg.data.data_dir)
-        with open_dict(cfg.model):
+        else:
             cfg.model.net.heads_config = heads_config
+            if "output_mode" in cfg.model.net:
+                cfg.model.net.output_mode = "classification"
+        # Always set (0 when unused) so a network that lacks auxiliary support fails at
+        # instantiation instead of silently ignoring the auxiliary input.
+        if auxiliary_features or "auxiliary_input_size" in cfg.model.net:
+            cfg.model.net.auxiliary_input_size = len(auxiliary_features)
 
     if output_mode == "regression":
-        param_ranges = get_parameter_ranges_from_metadata(cfg.data.data_dir)
-
-        # Determine loss type from config (default to normalized_regression)
-        loss_type = getattr(cfg.model, "loss_type", "normalized_regression")
-
-        # Map loss_type to loss class
-        if loss_type == "normalized_regression":
-            loss_class = "src.models.losses.NormalizedRegressionLoss"
-            log.info("Using NormalizedRegressionLoss (parameter MSE)")
-        else:
-            # Fall back to normalized regression for other loss types
-            loss_class = "src.models.losses.NormalizedRegressionLoss"
-            log.info(f"Using NormalizedRegressionLoss for loss_type={loss_type}")
-
-        base_criteria_cfg: Dict[str, Any] = {}
-
-        # Per-parameter losses (NormalizedRegressionLoss, etc.)
-        for param_name in parameter_names:
-            if param_name not in param_ranges:
-                raise KeyError(f"Missing parameter range for '{param_name}' in metadata")
-            param_range = param_ranges[param_name]
-            base_criteria_cfg[param_name] = {
-                "_target_": loss_class,
-                "param_range": tuple(param_range),
-            }
-
-        merged_criteria_cfg: Dict[str, Any] = {}
-        user_criteria = getattr(cfg.model, "criteria", None)
-        for head, base_cfg in base_criteria_cfg.items():
-            merged = dict(base_cfg)
-            if user_criteria and head in user_criteria:
-                for key, value in user_criteria[head].items():
-                    if key not in ("_target_", "param_range"):
-                        merged[key] = value
-            merged_criteria_cfg[head] = merged
-
-        with open_dict(cfg.model):
-            cfg.model.criteria = OmegaConf.create(merged_criteria_cfg)
-
-        log.info(
-            f"Auto-configured regression loss functions for: {list(merged_criteria_cfg.keys())}"
-        )
-
-    configure_loss_weights = not getattr(cfg.model, "loss_weights", None)
-    if configure_loss_weights:
-        # Per-parameter JND-based weights
-        metadata = load_vimh_metadata(cfg.data.data_dir)
-        param_mappings = metadata.get("parameter_mappings", {})
-        loss_weights = {}
-        for param_name in parameter_names:
-            if param_name not in param_mappings:
-                raise KeyError(f"Parameter '{param_name}' missing from parameter_mappings")
-            mapping = param_mappings[param_name]
-            step = float(mapping["step"])
-            if step <= 0:
-                raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
-            param_range = float(mapping["max"]) - float(mapping["min"])
-            loss_weights[param_name] = float(param_range / step)
-
-        if loss_weights:
-            max_weight = max(loss_weights.values()) or 1.0
-            loss_weights = {name: weight / max_weight for name, weight in loss_weights.items()}
-
-        with open_dict(cfg.model):
-            cfg.model.loss_weights = loss_weights
-        log.info(f"Auto-configured loss_weights: {cfg.model.loss_weights}")
-
-    # Configure auxiliary_input_size if auxiliary features are present
-    if auxiliary_features:
-        # Check if model.net config exists and update auxiliary_input_size
-        if hasattr(cfg.model, "net") and "auxiliary_input_size" in cfg.model.net:
-            with open_dict(cfg.model.net):
-                cfg.model.net.auxiliary_input_size = len(auxiliary_features)
-            log.info(
-                f"Configured model auxiliary_input_size={len(auxiliary_features)} for features: {auxiliary_features}"
+        param_bounds = get_parameter_ranges_from_metadata(data_dir)
+        user_criteria = cfg.model.get("criteria") or {}
+        unknown_heads = [h for h in user_criteria if h not in parameter_names]
+        if unknown_heads:
+            raise ValueError(
+                f"model.criteria has entries {unknown_heads} that are not prediction heads "
+                f"{parameter_names}"
             )
-
-
-def _setup_datamodule_with_transforms(cfg: DictConfig) -> LightningDataModule:
-    """Setup datamodule with appropriate transforms for the dataset type."""
-    datamodule_kwargs = {}
-
-    if "vimh" in cfg.data._target_.lower():
-        # Use shared spectrogram transforms utility
-        transforms_kwargs, log_message = create_spectrogram_transforms()
-        datamodule_kwargs.update(transforms_kwargs)
-        log.info(log_message)
-
-    return hydra.utils.instantiate(cfg.data, **datamodule_kwargs)
+        criteria_cfg: Dict[str, Any] = {}
+        for head in parameter_names:
+            if head not in param_bounds:
+                raise KeyError(f"Missing parameter range for '{head}' in metadata")
+            merged: Dict[str, Any] = {
+                "_target_": "src.models.losses.NormalizedRegressionLoss",
+                "param_range": tuple(param_bounds[head]),
+            }
+            for key, value in (user_criteria.get(head) or {}).items():
+                if key in ("_target_", "param_range"):
+                    raise ValueError(f"model.criteria.{head}.{key} is set from dataset metadata")
+                merged[key] = value
+            criteria_cfg[head] = merged
+        with open_dict(cfg.model):
+            cfg.model.criteria = OmegaConf.create(criteria_cfg)
+        log.info(f"Auto-configured regression loss functions for: {list(criteria_cfg)}")
 
 
 def _preflight_check_label_diversity(
@@ -232,75 +181,91 @@ def _preflight_check_label_diversity(
 
     Raises a ValueError if any head shows a single unique class across the sampled batches.
     """
-    try:
-        # Ensure setup ran so loaders are available; if setup fails, surface the error
+    datamodule.setup("fit")
+
+    # Skip this check for regression label mode where labels are continuous
+    if datamodule.hparams.label_mode == "regression":
+        log.info("Preflight skipped: regression label mode (continuous targets)")
+        return
+
+    it = iter(datamodule.train_dataloader())
+    uniques: Dict[str, set] = {}
+    sampled = 0
+    while sampled < max_batches:
         try:
-            datamodule.setup("fit")
-        except Exception as e:
-            # If setup fails (e.g., dataset missing), don't proceed with preflight
-            raise
+            batch = next(it)
+        except StopIteration:
+            break
+        sampled += 1
+        labels = batch[1]
+        for head, tens in labels.items():
+            # Hard class-index targets only (soft targets are 2-D float distributions)
+            if tens.ndim == 1 and not torch.is_floating_point(tens):
+                uniques.setdefault(head, set()).update(tens.tolist())
 
-        # Skip this check for regression label mode where labels are continuous
-        try:
-            if hasattr(datamodule, "hparams"):
-                label_mode = str(
-                    getattr(datamodule.hparams, "label_mode", "classification")
-                ).lower()
-                if label_mode == "regression":
-                    log.info("Preflight skipped: regression label mode (continuous targets)")
-                    return
-        except Exception:
-            pass
+    # Log a brief summary of unique labels observed per head
+    for head in sorted(uniques.keys()):
+        vals = sorted(list(uniques[head]))
+        preview = ", ".join(map(str, vals[:10])) + (" …" if len(vals) > 10 else "")
+        log.info(
+            f"Preflight head '{head}': {len(vals)} unique label(s) across {sampled} batch(es): [{preview}]"
+        )
 
-        loader = datamodule.train_dataloader()
-        if loader is None:
-            # No loader available yet; skip preflight quietly
-            log.info("Preflight skipped: train_dataloader not available")
-            return
-        it = iter(loader)
-        uniques: Dict[str, set] = {}
-        sampled = 0
-        while sampled < max_batches:
-            try:
-                batch = next(it)
-            except StopIteration:
-                break
-            sampled += 1
-            images, labels = batch[0], batch[1]
-            for head, tens in labels.items():
-                if head not in uniques:
-                    uniques[head] = set()
-                try:
-                    if tens.ndim == 1 and tens.dtype in (
-                        torch.int8,
-                        torch.int16,
-                        torch.int32,
-                        torch.int64,
-                    ):
-                        uniques[head].update(tens.tolist())
-                except Exception:
-                    # Non-scalar labels or different dtype – skip diversity check for this head
-                    pass
+    problems = [h for h, s in uniques.items() if len(s) <= 1]
+    if problems:
+        details = ", ".join(f"{h}: {sorted(list(uniques[h]))}" for h in problems)
+        raise ValueError(
+            f"Label preflight failed: non-diverse targets for heads [{', '.join(problems)}]. "
+            f"Observed unique labels across {sampled} batch(es): {details}. "
+            f"This often indicates label decoding issues."
+        )
 
-        # Log a brief summary of unique labels observed per head
-        for head in sorted(uniques.keys()):
-            vals = sorted(list(uniques[head]))
-            preview = ", ".join(map(str, vals[:10])) + (" …" if len(vals) > 10 else "")
-            log.info(
-                f"Preflight head '{head}': {len(vals)} unique label(s) across {sampled} batch(es): [{preview}]"
+
+def _link_best_checkpoint(trainer: Trainer) -> None:
+    """Point ``<checkpoint dir>/best.ckpt`` at the best checkpoint of this run.
+
+    ``ls -t epoch_*.ckpt`` finds the newest top-k checkpoint, not the best one, so
+    Makefile targets and the audio evaluator use this symlink instead.
+    """
+    ckpt_cb = trainer.checkpoint_callback
+    if ckpt_cb is None or not ckpt_cb.best_model_path or trainer.global_rank != 0:
+        return
+    best = os.path.abspath(ckpt_cb.best_model_path)
+    link = os.path.join(os.path.dirname(best), "best.ckpt")
+    if os.path.abspath(link) == best:
+        return  # ModelCheckpoint(filename="best") already wrote it there
+    if os.path.lexists(link):
+        if not os.path.islink(link):
+            raise RuntimeError(
+                f"Refusing to replace real file {link} with a best-checkpoint symlink; "
+                f"use a per-run checkpoint dirpath and a filename other than 'best'"
             )
+        os.remove(link)
+    os.symlink(os.path.basename(best), link)
+    log.info(f"Best checkpoint ({ckpt_cb.monitor}={ckpt_cb.best_model_score}): {best} -> {link}")
 
-        problems = [h for h, s in uniques.items() if len(s) <= 1]
-        if problems:
-            details = ", ".join(f"{h}: {sorted(list(uniques[h]))}" for h in problems)
-            raise ValueError(
-                f"Label preflight failed: non-diverse targets for heads [{', '.join(problems)}]. "
-                f"Observed unique labels across {sampled} batch(es): {details}. "
-                f"This often indicates label decoding issues."
-            )
-    except Exception:
-        # Re-raise to be handled by the caller with existing error handling/logging
-        raise
+
+def _select_test_checkpoint(cfg: DictConfig, trainer: Trainer) -> Optional[str]:
+    """Choose the checkpoint to test.
+
+    - After training: the best checkpoint of this run (even when resuming from
+      ``ckpt_path``, which is the pre-resume state). With checkpointing disabled or
+      ``fast_dev_run``, the final in-memory weights (returns None).
+    - Test-only (``train=false``): ``ckpt_path`` is required.
+    """
+    if not cfg.get("train"):
+        if not cfg.get("ckpt_path"):
+            raise ValueError("test=true with train=false requires ckpt_path=<checkpoint>")
+        return cfg.ckpt_path
+    ckpt_cb = trainer.checkpoint_callback
+    if ckpt_cb is None or trainer.fast_dev_run:
+        log.warning("*** No checkpointing in this run; testing the final in-memory weights")
+        return None
+    if not ckpt_cb.best_model_path:
+        raise RuntimeError(
+            f"Training finished but no best checkpoint was saved (monitor={ckpt_cb.monitor})"
+        )
+    return ckpt_cb.best_model_path
 
 
 @task_wrapper
@@ -315,21 +280,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     :return: A tuple with metrics and dict with all instantiated objects.
     """
     # set seed for random number generators in pytorch, numpy and python.random
-    if cfg.get("seed"):
+    if cfg.get("seed") is not None:
         L.seed_everything(cfg.seed, workers=True)
 
+    # Configure model + data configs from the dataset BEFORE instantiating either
+    configure_vimh_run_config(cfg)
+
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-
-    # Setup datamodule with appropriate transforms
-    datamodule: LightningDataModule = _setup_datamodule_with_transforms(cfg)
-
-    # For VIMH datasets, configure model config BEFORE instantiation (cleaner approach from /l/av)
-    if (
-        "vimh" in cfg.data._target_.lower()
-        and hasattr(cfg.model, "auto_configure_from_dataset")
-        and cfg.model.auto_configure_from_dataset
-    ):
-        _configure_vimh_model_config(cfg)
+    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
@@ -375,52 +333,43 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         metadata_extractor = ArchitectureMetadataExtractor()
         metadata_extractor.extract_and_store_metadata(model, datamodule)
 
-    # Store experiment name in model hparams for later reference
-    # This enables the evaluator to display the experiment configuration
-    try:
-        from hydra.core.hydra_config import HydraConfig
-        hydra_cfg = HydraConfig.get()
-        experiment_name = hydra_cfg.runtime.choices.get("experiment", None)
+    # Store the experiment name and the fully configured (dataset-wired) model and data
+    # configs in the checkpoint hparams, so a checkpoint can be rebuilt exactly without
+    # the run's .hydra directory (see audio_reconstruction_eval.py).
+    from hydra.core.hydra_config import HydraConfig
+
+    if HydraConfig.initialized():
+        experiment_name = HydraConfig.get().runtime.choices.get("experiment", None)
         if experiment_name:
             model.hparams["experiment_name"] = experiment_name
             log.info(f"Stored experiment name in checkpoint: {experiment_name}")
-    except Exception:
-        pass  # Not critical if experiment name can't be stored
+    model.hparams["run_config"] = {
+        "model": OmegaConf.to_container(cfg.model, resolve=True),
+        "data": OmegaConf.to_container(cfg.data, resolve=True),
+    }
 
     if cfg.get("train"):
         # Preflight: ensure label diversity across a few batches before fitting
-        enabled = True
-        batches = 3
-        try:
-            if hasattr(cfg, "preflight"):
-                enabled = getattr(cfg.preflight, "enabled", True)
-                batches = getattr(cfg.preflight, "label_diversity_batches", 3)
-        except Exception:
-            pass
-
-        if enabled:
-            try:
-                _preflight_check_label_diversity(datamodule, max_batches=int(batches))
-                log.info("Label preflight passed (diverse targets across heads)")
-            except Exception as e:
-                log.error(f"Label preflight failed: {e}")
-                raise
+        preflight = cfg.get("preflight") or {}
+        if preflight.get("enabled", True):
+            _preflight_check_label_diversity(
+                datamodule, max_batches=int(preflight.get("label_diversity_batches", 3))
+            )
+            log.info("Label preflight passed (diverse targets across heads)")
         else:
             log.info("Preflight checks disabled via config")
 
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
+        _link_best_checkpoint(trainer)
 
     train_metrics = trainer.callback_metrics
 
     if cfg.get("test"):
         log.info("Starting testing!")
-        ckpt_path = cfg.get("ckpt_path") or trainer.checkpoint_callback.best_model_path
-        if ckpt_path == "":
-            log.warning("Best ckpt not found! Using current weights for testing...")
-            ckpt_path = None
+        ckpt_path = _select_test_checkpoint(cfg, trainer)
         trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
-        log.info(f"Best ckpt path: {ckpt_path}")
+        log.info(f"Tested checkpoint: {ckpt_path or 'final in-memory weights'}")
 
     test_metrics = trainer.callback_metrics
 
@@ -444,45 +393,18 @@ def main(cfg: DictConfig) -> Optional[float]:
     # Print the key configs being used
     log.info("=" * 60)
     # Extract config names from hydra context
-    try:
-        from hydra.core.hydra_config import HydraConfig
+    from hydra.core.hydra_config import HydraConfig
 
-        hydra_cfg = HydraConfig.get()
-        model_config = hydra_cfg.runtime.choices.get("model", "unknown")
-        data_config = hydra_cfg.runtime.choices.get("data", "unknown")
-        trainer_config = hydra_cfg.runtime.choices.get("trainer", "unknown")
-        experiment_config = hydra_cfg.runtime.choices.get("experiment", None)
-    except:
-        # Fallback if hydra context not available
-        model_config = "unknown"
-        data_config = "unknown"
-        trainer_config = "unknown"
-        experiment_config = None
+    choices = HydraConfig.get().runtime.choices
+    model_config = choices.get("model", "unknown")
+    data_config = choices.get("data", "unknown")
+    trainer_config = choices.get("trainer", "unknown")
+    experiment_config = choices.get("experiment", None)
 
     log.info(f"MODEL CONFIG:     {model_config} ({cfg.model._target_})")
-    data_dir = getattr(cfg.data, "data_dir", "unknown")
-    # Show relative path if it's under project root
-    import os
-
-    if data_dir != "unknown" and os.path.isabs(data_dir):
-        try:
-            data_dir = os.path.relpath(data_dir)
-        except:
-            pass  # Keep original if relpath fails
+    data_dir = os.path.relpath(cfg.data.data_dir)
     batch_size = getattr(cfg.data, "batch_size", "unknown")
-
-    # Try to read synth_type from dataset metadata for display
-    synth_type_display = "unknown"
-    if data_dir != "unknown" and os.path.exists(data_dir):
-        metadata_path = os.path.join(data_dir, "vimh_dataset_info.json")
-        if os.path.exists(metadata_path):
-            try:
-                import json
-                with open(metadata_path, 'r') as f:
-                    metadata = json.load(f)
-                    synth_type_display = metadata.get("synth_type", "unknown")
-            except:
-                pass
+    synth_type_display = load_vimh_metadata(cfg.data.data_dir).get("synth_type", "unknown")
 
     log.info(f"DATA CONFIG:      {data_config} (data_dir={data_dir}, batch_size={batch_size}, synth_type={synth_type_display})")
     max_epochs = getattr(cfg.trainer, "max_epochs", "unknown")
@@ -494,7 +416,7 @@ def main(cfg: DictConfig) -> Optional[float]:
     else:
         log.info(f"EXPERIMENT:       none")
     log.info(f"TAGS:             {cfg.get('tags', 'none')}")
-    if cfg.get("seed"):
+    if cfg.get("seed") is not None:
         log.info(f"SEED:             {cfg.seed}")
     log.info("=" * 60)
 

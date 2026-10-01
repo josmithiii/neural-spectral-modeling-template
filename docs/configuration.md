@@ -158,8 +158,9 @@ python src/train.py model.optimizer.lr=0.0005
 python src/train.py experiment=wah_cnn_tiny model=cnn_medium_ordinal trainer=mps
 
 # Wah regression experiment with auxiliary inputs enabled
-python src/train.py experiment=wah_cnn_tiny_regression model=cnn_medium_auxiliary trainer=mps \
-    model.net.auxiliary_input_size=1 model.net.output_mode=regression
+python src/train.py experiment=wah_cnn_tiny_auxiliary_regression trainer=mps
+# (model.loss_type alone selects regression; auxiliary_input_size and data.label_mode
+#  are derived from data.auxiliary_features and the loss type)
 
 # Disable preflight checks for rapid iteration (not recommended for releases)
 python src/train.py preflight.enabled=false

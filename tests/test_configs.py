@@ -43,7 +43,7 @@ def test_regression_model_config() -> None:
     with hydra.initialize(version_base=None, config_path="../configs"):
         cfg = hydra.compose(config_name="train", overrides=["model=cnn_medium_regression"])
 
-        assert cfg.model.output_mode == "regression"
+        assert cfg.model.loss_type == "normalized_regression"
         assert cfg.model.net.output_mode == "regression"
         assert cfg.model.auto_configure_from_dataset == True
 
@@ -69,7 +69,7 @@ def test_regression_experiment_config() -> None:
             config_name="train", overrides=["experiment=trivial_micro_small_regression"]
         )
 
-        assert cfg.model.output_mode == "regression"
+        assert cfg.model.loss_type == "normalized_regression"
         assert cfg.optimized_metric == "val/mae_best"
         assert "regression" in cfg.tags
         assert "trivial" in cfg.tags

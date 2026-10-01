@@ -15,7 +15,7 @@ scheduler:
   patience: 3
 
 # Enable regression in the Lightning module
-output_mode: regression
+loss_type: normalized_regression
 
 # Loss weighting auto-configured from dataset JNDs (Just Noticeable Differences)
 loss_weights: {} # Empty - will be auto-configured from dataset metadata

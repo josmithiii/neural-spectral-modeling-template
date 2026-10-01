@@ -159,19 +159,20 @@ class TestNormalizedRegressionLoss:
         # Perceptual loss should be scaled by parameter range
         assert torch.allclose(loss_perceptual, loss_normalized * 2.0)
 
-    def test_normalized_regression_loss_target_clamping(self):
-        """Test that targets are properly clamped to [0,1] range."""
+    def test_normalized_regression_loss_rejects_out_of_range_targets(self):
+        """Targets outside [min, max] are in the wrong units: fail instead of clamping.
+
+        Regression test: class-index targets fed to a regression loss were silently
+        clamped to the parameter range, so training "succeeded" on garbage.
+        """
         loss_fn = NormalizedRegressionLoss(
             param_range=(50.0, 52.0), loss_type="l1", return_perceptual_units=False
         )
-
-        # Test with target outside parameter range
         preds = torch.tensor([[0.5]])
-        targets_out_of_range = torch.tensor([55.0])  # Outside [50, 52]
-
-        # Should not raise error due to clamping
-        loss = loss_fn(preds, targets_out_of_range)
-        assert torch.isfinite(loss)
+        with pytest.raises(ValueError, match="outside"):
+            loss_fn(preds, torch.tensor([55.0]))  # Outside [50, 52]
+        with pytest.raises(TypeError, match="label_mode=regression"):
+            loss_fn(preds, torch.tensor([51]))  # integer class index
 
 
 class TestMultiheadRegressionModule:
@@ -197,7 +198,7 @@ class TestMultiheadRegressionModule:
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria=criteria,
-            output_mode="regression",
+            loss_type="normalized_regression",
             auto_configure_from_dataset=False,
         )
 
@@ -225,9 +226,13 @@ class TestMultiheadRegressionModule:
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria=criteria,
-            output_mode="regression",
+            loss_type="normalized_regression",
             auto_configure_from_dataset=False,
         )
+
+        # Bounds are normally set by dataset auto-configuration
+        bounds = {"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)}
+        module.param_bounds = bounds
 
         # Test model step
         batch_size = 4
@@ -247,12 +252,12 @@ class TestMultiheadRegressionModule:
         assert isinstance(preds, dict)
         assert isinstance(targets, dict)
 
-        # Check prediction shapes and ranges
+        # Predictions are denormalized to physical parameter units
         for param_name, pred in preds.items():
             assert pred.shape == (batch_size,)
-            # Since we don't have a trainer/datamodule, predictions will be in [0,1] range
-            assert torch.all(pred >= 0.0)
-            assert torch.all(pred <= 1.0)
+            pmin, pmax = bounds[param_name]
+            assert torch.all(pred >= pmin)
+            assert torch.all(pred <= pmax)
 
     def test_multihead_regression_metrics_setup(self):
         """Test that regression metrics are set up correctly."""
@@ -274,7 +279,7 @@ class TestMultiheadRegressionModule:
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria=criteria,
-            output_mode="regression",
+            loss_type="normalized_regression",
             auto_configure_from_dataset=False,
         )
 
@@ -292,32 +297,6 @@ class TestMultiheadRegressionModule:
         # Check that no accuracy metrics are created
         assert "note_number_acc" not in module.train_metrics
         assert "note_velocity_acc" not in module.train_metrics
-
-    def test_multihead_regression_is_regression_loss(self):
-        """Test the _is_regression_loss method correctly identifies regression losses."""
-        net = SimpleCNN(
-            input_channels=3,
-            output_mode="regression",
-            parameter_names=["note_number"],
-            parameter_ranges={"note_number": (50.0, 52.0)},
-            input_size=32,
-        )
-
-        module = VIMHLitModule(
-            net=net,
-            optimizer=torch.optim.Adam,
-            scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
-            criteria={"note_number": nn.CrossEntropyLoss()},
-            output_mode="regression",
-            auto_configure_from_dataset=False,
-        )
-
-        # Test different loss types
-        regression_loss = NormalizedRegressionLoss(param_range=(50.0, 52.0))
-        classification_loss = nn.CrossEntropyLoss()
-
-        assert module._is_regression_loss(regression_loss)
-        assert not module._is_regression_loss(classification_loss)
 
 
 class TestRegressionModeIntegration:
@@ -346,7 +325,7 @@ class TestRegressionModeIntegration:
             optimizer=torch.optim.Adam,
             scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
             criteria=criteria,
-            output_mode="regression",
+            loss_type="normalized_regression",
             auto_configure_from_dataset=False,
         )
 
@@ -359,8 +338,9 @@ class TestRegressionModeIntegration:
         }
         batch = (x, y)
 
-        # Setup metrics
+        # Setup metrics; bounds are normally set by dataset auto-configuration
         module._setup_metrics()
+        module.param_bounds = {"note_number": (50.0, 52.0), "note_velocity": (80.0, 82.0)}
 
         # Test model step
         loss, preds, targets = module.model_step(batch)

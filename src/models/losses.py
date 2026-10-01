@@ -215,79 +215,6 @@ class OrdinalRegressionLoss(nn.Module):
         return total_loss
 
 
-class QuantizedRegressionLoss(nn.Module):
-    """
-    Simplified quantized regression loss for continuous parameters in perceptual units.
-
-    This loss function directly applies regression loss to the output logits,
-    treating the model output as a continuous prediction in the range [0, num_classes-1].
-
-    Args:
-        num_classes: Number of quantized levels (e.g., 256 for VIMH)
-        param_range: Actual parameter range (max - min) in perceptual units
-        loss_type: Type of regression loss ('l1', 'l2', 'huber')
-        huber_delta: Delta parameter for Huber loss
-        normalize_loss: DEPRECATED - loss is now in perceptual units
-    """
-
-    def __init__(
-        self,
-        num_classes: int,
-        param_range: float,
-        loss_type: str = "l1",
-        huber_delta: float = 1.0,
-        normalize_loss: bool = False,  # Deprecated, kept for compatibility
-    ):
-        super().__init__()
-        self.num_classes = num_classes
-        self.param_range = param_range
-        self.loss_type = loss_type
-        self.huber_delta = huber_delta
-
-        if num_classes < 2:
-            raise ValueError(
-                f"QuantizedRegressionLoss requires num_classes >= 2, got {num_classes}."
-            )
-        # Calculate perceptual step size
-        self.quantization_step = param_range / (num_classes - 1)
-
-    def forward(self, output: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of quantized regression loss.
-
-        Args:
-            output: Model output (single continuous value per sample) [batch_size, 1]
-            targets: Target class indices [batch_size]
-
-        Returns:
-            Loss value in perceptual units
-        """
-        # Convert target indices to continuous values
-        target_continuous = targets.float()
-
-        # Ensure output is squeezed to match target shape
-        if output.dim() > 1:
-            output = output.squeeze(-1)
-
-        # Clamp predictions to valid range
-        output = torch.clamp(output, 0, self.num_classes - 1)
-
-        # Calculate distance in quantization steps
-        if self.loss_type == "l1":
-            distance_steps = F.l1_loss(output, target_continuous)
-        elif self.loss_type == "l2":
-            distance_steps = F.mse_loss(output, target_continuous)
-        elif self.loss_type == "huber":
-            distance_steps = F.huber_loss(output, target_continuous, delta=self.huber_delta)
-        else:
-            raise ValueError(f"Unknown loss type: {self.loss_type}")
-
-        # Convert distance to perceptual units
-        perceptual_distance = distance_steps * self.quantization_step
-
-        return perceptual_distance
-
-
 class NormalizedRegressionLoss(nn.Module):
     """
     Regression loss for normalized [0,1] parameter values.
@@ -336,8 +263,21 @@ class NormalizedRegressionLoss(nn.Module):
         # Ensure predictions are in [0,1] range (should be from sigmoid)
         normalized_pred = torch.clamp(normalized_pred.squeeze(-1), 0.0, 1.0)
 
-        # Normalize targets to [0,1] range
+        if not torch.is_floating_point(target):
+            raise TypeError(
+                f"NormalizedRegressionLoss needs physical-unit float targets, got {target.dtype} "
+                f"(class indices?); set data.label_mode=regression"
+            )
+        # Normalize targets to [0,1] range. Targets outside [min, max] mean the labels
+        # are not in this head's physical units, so fail instead of clamping them away.
         normalized_target = (target - self.param_min) / self.param_range
+        if normalized_target.numel() and (
+            normalized_target.min() < -1e-4 or normalized_target.max() > 1 + 1e-4
+        ):
+            raise ValueError(
+                f"Regression targets [{target.min().item()}, {target.max().item()}] lie outside "
+                f"the parameter bounds [{self.param_min}, {self.param_max}]"
+            )
         normalized_target = torch.clamp(normalized_target, 0.0, 1.0)
 
         # Compute loss in normalized space
@@ -449,8 +389,6 @@ def create_loss_function(loss_config: Dict[str, Any]) -> nn.Module:
     # Handle custom losses
     elif target == "src.models.losses.OrdinalRegressionLoss":
         return OrdinalRegressionLoss(**params)
-    elif target == "src.models.losses.QuantizedRegressionLoss":
-        return QuantizedRegressionLoss(**params)
     elif target == "src.models.losses.WeightedCrossEntropyLoss":
         return WeightedCrossEntropyLoss(**params)
     elif target == "src.models.losses.NormalizedRegressionLoss":

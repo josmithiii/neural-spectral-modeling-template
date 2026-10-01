@@ -4,11 +4,15 @@ defaults:
   - _self_
   - data: vimh # choose datamodule with `test_dataloader()` for evaluation
   - model: cnn_medium
+  - callbacks: null # unused by eval.py; present so experiment configs can override it
   - logger: null
   - trainer: default
   - paths: default
   - extras: default
   - hydra: default
+  # evaluate with the same experiment config the checkpoint was trained with
+  # (e.g. `python src/eval.py experiment=wah_cnn_tiny ckpt_path=...`)
+  - experiment: null
 
 task_name: "eval"
 

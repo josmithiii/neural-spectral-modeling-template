@@ -14,7 +14,7 @@ scheduler:
   patience: 10
 
 # Pure regression mode with sigmoid-activated outputs
-output_mode: regression
+loss_type: normalized_regression
 
 # Criteria and loss_weights will be auto-configured from dataset metadata
 loss_weights: {} # Will be auto-configured from dataset metadata

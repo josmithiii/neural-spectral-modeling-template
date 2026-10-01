@@ -5,16 +5,13 @@ import torch
 import torch.nn.functional as F
 
 
-def extract_decay_time_features(
-    temporal_envelope: torch.Tensor, sample_rate: float = 8000.0, frame_hop: float = 0.01
-) -> torch.Tensor:
+def extract_decay_time_features(temporal_envelope: torch.Tensor, frame_hop: float) -> torch.Tensor:
     """
     Extract decay time scalar features from temporal envelope.
 
     Args:
         temporal_envelope: Temporal envelope tensor [B, C, H, W]
-        sample_rate: Audio sample rate in Hz
-        frame_hop: Time between frames in seconds
+        frame_hop: Time between frames in seconds (hop_length / sample_rate)
 
     Returns:
         decay_features: [B, 1] tensor with log10_decay_time_measured
@@ -138,42 +135,36 @@ def compute_temporal_envelope_from_spectrogram(
     return temporal_envelope
 
 
+SUPPORTED_AUXILIARY_FEATURES = ("log10_decay_time",)
+
+
 def extract_auxiliary_features(
-    data: Dict[str, torch.Tensor], feature_types: List[str] = ["log10_decay_time"]
+    data: Dict[str, torch.Tensor], feature_types: List[str], frame_hop: float
 ) -> torch.Tensor:
     """
     Extract auxiliary scalar features from VIMH data dict.
 
     Args:
-        data: Dictionary with 'image', 'temporal_envelope', etc.
-        feature_types: List of feature types to extract (e.g., ["log10_decay_time"])
+        data: Dictionary with 'image' and optionally a pre-computed 'temporal_envelope'
+        feature_types: Feature types to extract, each one of SUPPORTED_AUXILIARY_FEATURES
+        frame_hop: Time between spectrogram frames in seconds (hop_length / sample_rate)
 
     Returns:
-        auxiliary_features: [B, num_features] tensor
+        auxiliary_features: [B, num_features] tensor, one column per feature type
     """
+    unsupported = [f for f in feature_types if f not in SUPPORTED_AUXILIARY_FEATURES]
+    if unsupported or not feature_types:
+        raise ValueError(
+            f"Unsupported auxiliary features {unsupported or feature_types}; "
+            f"supported: {list(SUPPORTED_AUXILIARY_FEATURES)}"
+        )
+
     features_list = []
-
-    if "log10_decay_time" in feature_types:
-        # First try to use pre-computed temporal envelope (faster)
+    for feature_type in feature_types:  # only log10_decay_time so far
         if "temporal_envelope" in data:
-            decay_features = extract_decay_time_features(data["temporal_envelope"])
-            features_list.append(decay_features)
-        # If no temporal envelope available, compute it from raw spectrogram
-        elif "image" in data:
-            # Compute temporal envelope from raw spectrogram
-            temporal_envelope = compute_temporal_envelope_from_spectrogram(data["image"])
-            decay_features = extract_decay_time_features(temporal_envelope)
-            features_list.append(decay_features)
-
-    if len(features_list) == 0:
-        # No features available - return empty tensor
-        if "image" in data:
-            batch_size = data["image"].shape[0] if data["image"].dim() > 2 else 1
+            temporal_envelope = data["temporal_envelope"]
         else:
-            batch_size = 1
-        device = data["image"].device if "image" in data else torch.device("cpu")
-        dtype = data["image"].dtype if "image" in data else torch.float32
-        return torch.zeros(batch_size, 0, dtype=dtype, device=device)
+            temporal_envelope = compute_temporal_envelope_from_spectrogram(data["image"])
+        features_list.append(extract_decay_time_features(temporal_envelope, frame_hop=frame_hop))
 
-    # Concatenate all feature types
     return torch.cat(features_list, dim=1)

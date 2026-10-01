@@ -12,7 +12,7 @@ NSMT is a Lightning + Hydra template optimized for VIMH spectrogram datasets. It
   - Tooling for generation (`make gd*`), visualization (`make dd*`), and inspection (`make vd*`, `make vp*`)
 
 - **Distance-aware loss stack**
-  - Ordinal regression, quantized regression, and weighted cross-entropy variants
+  - Ordinal regression, normalized regression, and weighted cross-entropy variants
   - Automatic parameter range wiring from `vimh_dataset_info.json`
 
 - **Model zoo**

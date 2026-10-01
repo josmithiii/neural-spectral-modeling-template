@@ -18,8 +18,9 @@ callbacks:
     save_top_k: 1
     save_last: true
     verbose: false
-    dirpath: ${paths.log_dir}/checkpoints
-    filename: "best"
+    dirpath: ${paths.output_dir}/checkpoints  # per-run (was shared logs/checkpoints: best-vN pile-up)
+    filename: "epoch_{epoch:03d}"
+    auto_insert_metric_name: False
   early_stopping:
     _target_: lightning.pytorch.callbacks.EarlyStopping
     monitor: "val/mae_best"

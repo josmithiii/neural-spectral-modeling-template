@@ -39,9 +39,7 @@ model:
     factor: 0.5
     patience: 3
   loss_type: "normalized_regression"  # Best regression loss type
-  criteria:
-    log10_decay_time:
-      loss_type: l1
+  criteria:  # log10_decay_time is an auxiliary input here, not a predicted head
     wah_position:
       loss_type: l1
 

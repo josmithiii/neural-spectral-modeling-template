@@ -79,6 +79,7 @@ rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # more info: https://github.com/ashleve/rootutils
 # ------------------------------------------------------------------------------------ #
 
+from src.train import configure_vimh_run_config
 from src.utils import (
     RankedLogger,
     extras,
@@ -100,7 +101,11 @@ def evaluate(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     :param cfg: DictConfig configuration composed by Hydra.
     :return: Tuple[dict, dict] with metrics and dict with all instantiated objects.
     """
-    assert cfg.ckpt_path
+    if not cfg.get("ckpt_path"):
+        raise ValueError("eval.py requires ckpt_path=<checkpoint>")
+
+    # Same dataset-driven model/data configuration as training (src/train.py)
+    configure_vimh_run_config(cfg)
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)

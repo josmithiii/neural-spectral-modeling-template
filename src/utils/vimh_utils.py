@@ -40,10 +40,10 @@ def get_image_dimensions_from_metadata(data_dir: str) -> Tuple[int, int, int]:
     :return: Tuple of (height, width, channels)
     """
     metadata = load_vimh_metadata(data_dir)
-    height = metadata.get("height", 32)
-    width = metadata.get("width", 32)
-    channels = metadata.get("channels", 3)
-    return height, width, channels
+    missing = [k for k in ("height", "width", "channels") if k not in metadata]
+    if missing:
+        raise KeyError(f"VIMH metadata in {data_dir} lacks image dimensions {missing}")
+    return metadata["height"], metadata["width"], metadata["channels"]
 
 
 def get_parameter_ranges_from_metadata(data_dir: str) -> Dict[str, Tuple[float, float]]:
@@ -53,17 +53,13 @@ def get_parameter_ranges_from_metadata(data_dir: str) -> Dict[str, Tuple[float, 
     :return: Dictionary mapping parameter names to (min, max) tuples
     """
     metadata = load_vimh_metadata(data_dir)
+    param_mappings = metadata.get("parameter_mappings", {})
     parameter_ranges = {}
-
-    if "parameter_names" in metadata and "parameter_mappings" in metadata:
-        param_names = metadata["parameter_names"]
-        param_mappings = metadata["parameter_mappings"]
-
-        for param_name in param_names:
-            if param_name in param_mappings:
-                mapping = param_mappings[param_name]
-                parameter_ranges[param_name] = (mapping["min"], mapping["max"])
-
+    for param_name in metadata.get("parameter_names", []):
+        if param_name not in param_mappings:
+            raise ValueError(f"Parameter '{param_name}' not found in parameter_mappings")
+        mapping = param_mappings[param_name]
+        parameter_ranges[param_name] = (mapping["min"], mapping["max"])
     return parameter_ranges
 
 
@@ -95,14 +91,16 @@ def get_heads_config_from_metadata(data_dir: str) -> Dict[str, int]:
             num = (float(info["max"]) - float(info["min"])) / step
             steps = int(round(num))
             if abs(num - steps) > 1e-3:
-                print(
-                    f"Warning: parameter '{param_name}' (max-min)/step = {num} not integer; rounding to {steps}"
+                raise ValueError(
+                    f"Parameter '{param_name}': (max-min)/step = {num} is not an integer; "
+                    f"step must evenly divide the range"
                 )
             computed = steps + 1
             # If metadata supplies num_classes, verify consistency
             if "num_classes" in info and int(info["num_classes"]) != computed:
-                print(
-                    f"Warning: parameter '{param_name}' num_classes={info['num_classes']} differs from computed {computed}; using computed"
+                raise ValueError(
+                    f"Parameter '{param_name}': metadata num_classes={info['num_classes']} "
+                    f"differs from (max-min)/step+1 = {computed}"
                 )
             heads_config[param_name] = computed
 

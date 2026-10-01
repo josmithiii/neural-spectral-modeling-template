@@ -63,11 +63,16 @@ class VIMHDataset(MultiheadDatasetBase):
                 self.data_dir / ("train" if train else "test"),  # binary format
             ]
 
-            self.batch_file = None
-            for candidate in candidate_files:
-                if candidate.exists():
-                    self.batch_file = candidate
-                    break
+            existing = [c for c in candidate_files if c.exists()]
+            if len(existing) > 1:
+                # Regenerating without -p rewrites the binary file + metadata but leaves an
+                # old pickle behind, which would otherwise silently win.
+                raise RuntimeError(
+                    f"Both pickle and binary {'train' if train else 'test'} files exist in "
+                    f"{self.data_dir} ({[c.name for c in existing]}); one is stale. "
+                    f"Delete the stale one."
+                )
+            self.batch_file = existing[0] if existing else None
 
             if self.batch_file is None:
                 raise FileNotFoundError(
@@ -93,20 +98,28 @@ class VIMHDataset(MultiheadDatasetBase):
         self._validate_dataset()
 
         # Enrich metadata with num_classes entries derived from min/max/step
-        self._ensure_num_classes_in_metadata(write_back=True)
+        self._ensure_num_classes_in_metadata()
 
-    def _ensure_num_classes_in_metadata(self, write_back: bool = True) -> None:
-        """Ensure each parameter mapping has a correct 'num_classes' field.
+        # Spectrogram frame spacing, needed to measure auxiliary features in seconds
+        self.frame_hop: Optional[float] = None
+        if self.auxiliary_features:
+            spec_cfg = self.metadata_format.get("spectrogram_config", {})
+            if "hop_length" not in spec_cfg or "sample_rate" not in spec_cfg:
+                raise KeyError(
+                    f"Auxiliary features need spectrogram_config.hop_length and sample_rate "
+                    f"in {self.metadata_file}"
+                )
+            self.frame_hop = float(spec_cfg["hop_length"]) / float(spec_cfg["sample_rate"])
 
-        Computes 1 + round((max - min)/step) when step > 0. If an existing
-        'num_classes' differs from the computed value beyond a small tolerance,
-        update it and optionally write the updated value back to the dataset's
-        `vimh_dataset_info.json`.
+    def _ensure_num_classes_in_metadata(self) -> None:
+        """Ensure each in-memory parameter mapping has a correct 'num_classes' field.
+
+        Computes 1 + round((max - min)/step) when step > 0. The dataset's
+        ``vimh_dataset_info.json`` is never modified (loading must be side-effect free).
         """
         if "parameter_mappings" not in self.metadata_format:
             return
 
-        changed = False
         for name, info in self.metadata_format["parameter_mappings"].items():
             if not all(k in info for k in ("min", "max", "step")):
                 raise KeyError(
@@ -123,26 +136,12 @@ class VIMHDataset(MultiheadDatasetBase):
                     f"Parameter '{name}' step {step} does not evenly divide range ({pmin}, {pmax})."
                 )
             computed = steps + 1
-            if "num_classes" not in info or int(info["num_classes"]) != computed:
-                self.metadata_format["parameter_mappings"][name]["num_classes"] = computed
-                changed = True
-
-        if (
-            changed
-            and write_back
-            and hasattr(self, "metadata_file")
-            and self.metadata_file.exists()
-        ):
-            with open(self.metadata_file) as f:
-                meta = json.load(f)
-            if "parameter_mappings" in meta:
-                for name, info in self.metadata_format["parameter_mappings"].items():
-                    if name in meta["parameter_mappings"]:
-                        meta["parameter_mappings"][name]["num_classes"] = info.get(
-                            "num_classes"
-                        )
-            with open(self.metadata_file, "w") as f:
-                json.dump(meta, f, indent=2)
+            if "num_classes" in info and int(info["num_classes"]) != computed:
+                raise ValueError(
+                    f"Parameter '{name}': metadata num_classes={info['num_classes']} differs "
+                    f"from (max-min)/step+1 = {computed}"
+                )
+            info["num_classes"] = computed
 
     def _load_metadata_config(self) -> Dict[str, Any]:
         """Load dataset metadata configuration from JSON file.
@@ -371,7 +370,9 @@ class VIMHDataset(MultiheadDatasetBase):
             }  # Add batch dimension for processing
 
             # Extract auxiliary features and squeeze batch dimension since we're processing single samples
-            batch_features = extract_auxiliary_features(data_dict, self.auxiliary_features)
+            batch_features = extract_auxiliary_features(
+                data_dict, self.auxiliary_features, frame_hop=self.frame_hop
+            )
             auxiliary_features = batch_features.squeeze(
                 0
             )  # [num_features] instead of [1, num_features]

@@ -62,7 +62,6 @@ experiments=(
     "wah_cnn_medium_regression"
     "wah_cnn_medium"
     "wah_cnn_tiny_ordinal"
-    "wah_cnn_tiny_quantized"
     "wah_cnn_tiny_regression"
     "wah_cnn_tiny_soft_target"
     "wah_cnn_tiny_weighted"

@@ -38,13 +38,11 @@ from Hydra configs. The factory understands standard PyTorch losses, the custom 
 `src/models/losses.py`, and `SoftTargetLoss` in `src/models/soft_target_loss.py`.
 
 - **CrossEntropyLoss** (`torch.nn.CrossEntropyLoss`): legacy classification heads;
-  argmax predictions; no distance signal.  Used by default (no `output_mode`).
+  argmax predictions; no distance signal.  Used by default (`loss_type=cross_entropy`).
 - **OrdinalRegressionLoss** (`src.models.losses.OrdinalRegressionLoss`): default for
   quantized continuous parameters; distance-aware and expressed in perceptual units.
-- **QuantizedRegressionLoss** (`src.models.losses.QuantizedRegressionLoss`): lightweight
-  regression over quantized bins; retains step awareness without softmax.
 - **NormalizedRegressionLoss** (`src.models.losses.NormalizedRegressionLoss`): used when
-  `output_mode=regression`; operates in `[0,1]` space and denormalizes to perceptual units.
+  `loss_type=normalized_regression`; operates in `[0,1]` space and denormalizes to perceptual units.
 - **WeightedCrossEntropyLoss** (`src.models.losses.WeightedCrossEntropyLoss`): keeps
   classification heads but adds a power-law distance penalty.
 - **MultiScaleSpectralLoss** (`src.models.losses.MultiScaleSpectralLoss`): multi-resolution STFT distance for waveform or spectrogram comparisons.
@@ -87,41 +85,15 @@ criterion = OrdinalRegressionLoss(
 - Auto-configuration: `VIMHLitModule` injects parameter ranges from dataset metadata when
   `auto_configure_from_dataset=True`
 
-## 2. QuantizedRegressionLoss
+## 2. QuantizedRegressionLoss (removed)
 
-**Best for**: Lightweight regression on quantized targets when logits already encode a
-single scalar.
-
-```python
-from src.models.losses import QuantizedRegressionLoss
-
-criterion = QuantizedRegressionLoss(
-    num_classes=256,
-    param_range=2.0,
-    loss_type="l1",  # or "l2", "huber"
-)
-```
-
-**How it works**:
-
-- Treats the model output as a single continuous value in range `[0, num_classes-1]`
-- Clamps predictions to valid range
-- Calculates distance in quantization steps between prediction and target
-- Converts to perceptual units: `loss = distance_steps * quantization_step`
-  - Uses the same `quantization_step = param_range / (num_classes - 1)` formula
-- Applies regression loss (L1/L2/Huber) directly in perceptual space
-
-**Benefits**:
-
-- Simple drop-in replacement for scalar heads
-- Maintains distance awareness without softmax
-- Lower computational overhead than ordinal regression
-- Auto-configuration updates `param_range` using the same metadata pipeline as
-  OrdinalRegressionLoss
+Removed: it duplicated `normalized_regression` with an L1 loss on grid-snapped targets
+(and its wiring mixed sigmoid outputs with class-index targets). Use
+`loss_type: normalized_regression` with per-head `criteria: {<head>: {loss_type: l1}}`.
 
 ## 3. NormalizedRegressionLoss (Also Recommended)
 
-**Best for**: Pure regression mode (`model.output_mode=regression`) where heads emit
+**Best for**: Pure regression mode (`model.loss_type=normalized_regression`) where heads emit
 sigmoid outputs in `[0, 1]`.
 
 ```python
@@ -142,7 +114,7 @@ criterion = NormalizedRegressionLoss(
 
 **Benefits**:
 
-- Matches the regression heads created when `output_mode=regression`
+- Matches the regression heads created when `loss_type=normalized_regression`
 - Auto-configured by `src/train.py` using dataset metadata (`cfg.model.criteria` receives
   (min, max) tuples)
 - Supports consistent loss magnitudes across parameters with different ranges
@@ -262,7 +234,7 @@ criteria:
 
 ```yaml
 # configs/model/cnn_medium_regression.yaml
-output_mode: regression
+loss_type: normalized_regression
 criteria:
   log10_decay_time:
     _target_: src.models.losses.NormalizedRegressionLoss
@@ -298,7 +270,6 @@ python src/train.py experiment=wah_cnn_tiny_ordinal trainer=mps
 python src/train.py experiment=wah_cnn_tiny trainer=mps                    # cross_entropy
 python src/train.py experiment=wah_cnn_tiny_regression trainer=mps         # normalized_regression
 python src/train.py experiment=wah_cnn_tiny_ordinal trainer=mps            # ordinal_regression
-python src/train.py experiment=wah_cnn_tiny_quantized trainer=mps          # quantized_regression
 python src/train.py experiment=wah_cnn_tiny_weighted trainer=mps           # weighted_cross_entropy
 python src/train.py experiment=wah_cnn_tiny_soft_target trainer=mps        # soft_target
 ```
