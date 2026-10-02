@@ -249,6 +249,32 @@ class TestLossFunctionIntegration:
         assert output.numel() == 1  # Scalar loss
         assert output >= 0  # Loss should be non-negative
 
+    def test_soft_targets_vectorized_shapes(self):
+        """Vectorized soft targets match the per-sample definition (was a Python loop)."""
+        import math
+
+        from src.models.soft_target_loss import SoftTargetLoss
+
+        targets = torch.tensor([0, 3, 9])
+        tri = SoftTargetLoss(num_classes=10, mode="triangular", width=2).soft_targets(targets)
+        expected = torch.zeros(10)
+        expected[1:6] = torch.tensor([1.0, 2.0, 3.0, 2.0, 1.0])
+        assert torch.allclose(tri[1], expected / expected.sum())
+        assert torch.allclose(tri.sum(dim=1), torch.ones(3))
+        assert tri[0, 3] == 0 and tri[2, 6] == 0  # outside +-width, clipped at the edges
+
+        logt = SoftTargetLoss(num_classes=10, mode="log-triangular", width=1).soft_targets(targets)
+        w = torch.tensor([math.exp(-1), 1.0, math.exp(-1)])
+        assert torch.allclose(logt[1, 2:5], w / w.sum())
+
+    def test_soft_target_gaussian_support_follows_sigma(self):
+        """Gaussian targets were cut off at +-width (default 1) whatever sigma was."""
+        from src.models.soft_target_loss import SoftTargetLoss
+
+        st = SoftTargetLoss(num_classes=41, mode="gaussian", sigma=5.0).soft_targets(torch.tensor([20]))
+        assert (st[0] > 0).sum() > 10  # wide support for sigma = 5
+        assert int(st[0].argmax()) == 20
+
 
 class TestNumericalGuards:
     """Guards against div-by-zero / NaN in regression losses and the JND metric."""

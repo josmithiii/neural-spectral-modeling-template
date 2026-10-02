@@ -89,8 +89,9 @@ def configure_vimh_run_config(cfg: DictConfig) -> None:
     - Regression: one ``NormalizedRegressionLoss`` per head with the dataset bounds,
       merged with any per-head user keys in ``model.criteria`` (e.g. ``loss_type: l1``).
     - ``model.net.auxiliary_input_size`` = number of auxiliary features.
-    - Network input geometry from the dataset: ``image_size`` = [height, width] (ViT),
-      ``n_channels`` / ``input_channels`` = channels, when the net config has those keys.
+    - Network input geometry from the dataset: ``image_size`` (ViT) and ``input_size``
+      (SimpleCNN) = [height, width], ``n_channels`` / ``input_channels`` = channels,
+      when the net config has those keys.
 
     Loss weights are left to ``VIMHLitModule`` (JND-based when ``model.loss_weights`` is empty).
     """
@@ -152,6 +153,8 @@ def configure_vimh_run_config(cfg: DictConfig) -> None:
         height, width, channels = get_image_dimensions_from_metadata(data_dir)
         if "image_size" in cfg.model.net:  # VisionTransformer
             cfg.model.net.image_size = [height, width]
+        if "input_size" in cfg.model.net and "SimpleCNN" in cfg.model.net._target_:
+            cfg.model.net.input_size = [height, width]  # sets MPS-safe pooling bins
         for key in ("n_channels", "input_channels"):
             if key in cfg.model.net:
                 cfg.model.net[key] = channels

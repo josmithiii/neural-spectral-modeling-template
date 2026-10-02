@@ -273,12 +273,10 @@ class VIMHLitModule(LightningModule):
                 self.val_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
                 self.test_metrics[f"{head_name}_mae"] = MeanAbsoluteError()
 
-                # Add JND tolerance accuracies for regression (converting continuous predictions to class indices)
+                # JND tolerance accuracies (val/test only; continuous predictions are
+                # converted to class-index units)
                 for tolerance in [1, 3, 5]:
                     metric_name = f"{head_name}_acc_jnd{tolerance}"
-                    self.train_metrics[metric_name] = JNDToleranceAccuracy(
-                        tolerance_jnds=tolerance, num_classes=num_classes
-                    )
                     self.val_metrics[metric_name] = JNDToleranceAccuracy(
                         tolerance_jnds=tolerance, num_classes=num_classes
                     )
@@ -291,12 +289,9 @@ class VIMHLitModule(LightningModule):
                 self.val_metrics[f"{head_name}_acc"] = ExactAccuracy()
                 self.test_metrics[f"{head_name}_acc"] = ExactAccuracy()
 
-                # Add JND tolerance accuracies for classification
+                # JND tolerance accuracies (val/test only)
                 for tolerance in [1, 3, 5]:
                     metric_name = f"{head_name}_acc_jnd{tolerance}"
-                    self.train_metrics[metric_name] = JNDToleranceAccuracy(
-                        tolerance_jnds=tolerance, num_classes=num_classes
-                    )
                     self.val_metrics[metric_name] = JNDToleranceAccuracy(
                         tolerance_jnds=tolerance, num_classes=num_classes
                     )
@@ -657,7 +652,7 @@ class VIMHLitModule(LightningModule):
 
         loss, preds_dict, targets_dict = self.model_step(batch)
 
-        # Update metrics
+        # Update metrics (JND tolerance accuracies are tracked for val/test only)
         self.train_loss(loss)
         for head_name in preds_dict.keys():
             if self.output_mode == "regression":
@@ -665,29 +660,11 @@ class VIMHLitModule(LightningModule):
                     self.train_metrics[f"{head_name}_mae"](
                         preds_dict[head_name], targets_dict[head_name]
                     )
-
-                # Update JND tolerance accuracies for regression. JND tolerance is
-                # measured in quantization steps, so convert physical-unit preds and
-                # targets to class-index space first.
-                jnd_preds = self._to_jnd_index_space(preds_dict[head_name], head_name)
-                jnd_targets = self._to_jnd_index_space(targets_dict[head_name], head_name)
-                for tolerance in [1, 3, 5]:
-                    metric_name = f"{head_name}_acc_jnd{tolerance}"
-                    if metric_name in self.train_metrics:
-                        self.train_metrics[metric_name](jnd_preds, jnd_targets)
             else:
                 if f"{head_name}_acc" in self.train_metrics:
                     self.train_metrics[f"{head_name}_acc"](
                         preds_dict[head_name], targets_dict[head_name]
                     )
-
-                # Update JND tolerance accuracies for classification
-                for tolerance in [1, 3, 5]:
-                    metric_name = f"{head_name}_acc_jnd{tolerance}"
-                    if metric_name in self.train_metrics:
-                        self.train_metrics[metric_name](
-                            preds_dict[head_name], targets_dict[head_name]
-                        )
 
         # Log metrics
         self.log(self.train_prefix + "loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -790,6 +767,15 @@ class VIMHLitModule(LightningModule):
                         on_epoch=True,
                         prog_bar=True,
                     )
+            for tolerance in [1, 3, 5]:
+                metric_name_base = f"{head_name}_acc_jnd{tolerance}"
+                self.log(
+                    self.val_prefix + metric_name_base,
+                    self.val_metrics[metric_name_base],
+                    on_step=False,
+                    on_epoch=True,
+                    prog_bar=False,
+                )
 
     def on_validation_epoch_end(self) -> None:
         """Lightning hook that is called when a validation epoch ends.

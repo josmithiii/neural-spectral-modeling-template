@@ -1,7 +1,18 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import torch
 from torch import nn
+
+
+def _pool_bins(n: int, target: int = 4) -> int:
+    """Smallest divisor of ``n`` that is >= ``target`` (``n`` itself if ``n`` < ``target``).
+
+    Equal-size bins are required by AdaptiveAvgPool2d on MPS; never pooling below
+    ``target`` bins keeps time/frequency resolution (a prime n gives n bins, not 1).
+    """
+    if n < 1:
+        raise ValueError("SimpleCNN needs inputs of at least 4x4 (two 2x max-pools)")
+    return next(d for d in range(min(target, n), n + 1) if n % d == 0)
 
 
 class SimpleCNN(nn.Module):
@@ -16,7 +27,7 @@ class SimpleCNN(nn.Module):
         output_size: Optional[int] = None,
         heads_config: Optional[Dict[str, int]] = None,
         dropout: float = 0.25,
-        input_size: int = 28,
+        input_size: Union[int, Sequence[int]] = 28,
         output_mode: str = "classification",
         parameter_names: Optional[List[str]] = None,
         parameter_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
@@ -33,7 +44,7 @@ class SimpleCNN(nn.Module):
             (used only when ``heads_config`` is None).
         :param heads_config: Dict mapping head names to number of classes for multihead.
         :param dropout: Dropout probability.
-        :param input_size: Input spectrogram size (e.g., 32 for default wah datasets).
+        :param input_size: Input spectrogram size, int (square) or [height, width]; train.py sets it from the dataset.
         :param output_mode: Output mode - "classification" or "regression".
         :param parameter_names: List of parameter names for regression mode.
         :param parameter_ranges: Dict mapping parameter names to (min, max) ranges.
@@ -51,7 +62,11 @@ class SimpleCNN(nn.Module):
         self.auxiliary_hidden_size = auxiliary_hidden_size
         self.fc_hidden = fc_hidden
         self.input_size = input_size
-        self.input_resolution = (input_size, input_size)
+        if isinstance(input_size, int):
+            height, width = input_size, input_size
+        else:
+            height, width = (int(v) for v in input_size)
+        self.input_resolution = (height, width)
 
         if output_mode == "regression":
             # One output per parameter; empty until auto-configured from the dataset
@@ -60,14 +75,10 @@ class SimpleCNN(nn.Module):
             # Placeholder head, replaced by auto-configuration from the dataset
             heads_config = {"digit": output_size if output_size is not None else 10}
 
-        # Calculate pooling size based on input size to avoid MPS issues
-        # After two MaxPool2d with stride 2: input_size -> input_size/4
-        pooled_size = input_size // 4
-        # Choose adaptive pool size that divides evenly into pooled_size
-        if pooled_size == 7:  # Example: 28px height inputs
-            self.adaptive_pool_size = (7, 7)
-        else:  # Example: 32px height wah spectrograms (8 is divisible by 4)
-            self.adaptive_pool_size = (4, 4)
+        # After two stride-2 MaxPool2d layers the feature map is (H//4, W//4). MPS only
+        # supports AdaptiveAvgPool2d when each output size divides its input size, so
+        # pick per-axis bin counts that do (e.g. 32x32 -> 4x4, 28x28 -> 7x7, 32x100 -> 4x5).
+        self.adaptive_pool_size = (_pool_bins(height // 4), _pool_bins(width // 4))
 
         self.conv_layers = nn.Sequential(
             # First conv block

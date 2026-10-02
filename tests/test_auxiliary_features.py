@@ -55,3 +55,15 @@ def test_simple_cnn_single_head_rebuild():
     net = SimpleCNN(input_size=32, heads_config={"a": 3, "b": 4})
     net._build_heads({"only": 14})
     assert net(torch.rand(2, 1, 32, 32)).shape == (2, 14)
+
+
+@pytest.mark.parametrize(
+    "hw,bins", [((32, 32), (4, 4)), ((28, 28), (7, 7)), ((32, 100), (4, 5)), ((32, 52), (4, 13))]
+)
+def test_simple_cnn_pool_bins_divide_feature_map(hw, bins):
+    """AdaptiveAvgPool2d on MPS needs equal bins; a fixed 4x4 pool crashed on e.g. 32x100."""
+    net = SimpleCNN(input_size=list(hw), heads_config={"a": 3, "b": 4})
+    assert net.adaptive_pool_size == bins
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    out = net.to(device)(torch.rand(2, 1, *hw, device=device))
+    assert out["a"].shape == (2, 3)
