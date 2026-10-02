@@ -48,13 +48,13 @@ logger:
 # Callbacks
 callbacks:
   model_checkpoint:
-    monitor: "val/loss"
-    mode: "min"
+    monitor: "val/acc_best"  # was val/loss: tested a different epoch than the reported best accuracy
+    mode: "max"
     save_top_k: 3
     save_last: true
 
   early_stopping:
-    monitor: "val/loss"
-    mode: "min"
+    monitor: "val/acc_best"
+    mode: "max"
     patience: 50
     min_delta: 0.0001
