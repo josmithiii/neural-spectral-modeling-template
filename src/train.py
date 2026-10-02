@@ -71,7 +71,6 @@ from src.utils import (
     task_wrapper,
 )
 from src.utils.vimh_utils import load_vimh_metadata
-from src.utils.architecture_utils import ArchitectureMetadataExtractor
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -337,11 +336,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if logger:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
-
-    # Extract and store architecture metadata for checkpoint reconstruction
-    if hasattr(model, "net"):
-        metadata_extractor = ArchitectureMetadataExtractor()
-        metadata_extractor.extract_and_store_metadata(model, datamodule)
 
     # Store the experiment name and the fully configured (dataset-wired) model and data
     # configs in the checkpoint hparams, so a checkpoint can be rebuilt exactly without

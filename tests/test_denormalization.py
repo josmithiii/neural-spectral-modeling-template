@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 
-from src.audio_reconstruction_eval import AudioReconstructionEvaluator, CheckpointArchitectureReconstructor
+from src.audio_reconstruction_eval import AudioReconstructionEvaluator
 
 
 class _FakeDataset:
@@ -111,44 +111,6 @@ def test_denormalize_parameters_regression_and_classification():
     denorm_cls = evaluator.denormalize_parameters(predicted_cls)
     assert abs(denorm_cls["wah_position"] - 0.45) < 1e-6
     assert abs(denorm_cls["log10_decay_time"] - (-0.5)) < 1e-6
-
-
-def test_checkpoint_reconstruction_sets_regression_heads(tmp_path: Path):
-    # Minimal fake checkpoint with regression output_mode and CNN metadata
-    ckpt = {
-        "hyper_parameters": {
-            "output_mode": "regression",
-            "architecture_metadata": {
-                "type": "CNN",
-                "input_channels": 1,
-                "conv1_channels": 16,
-                "conv2_channels": 32,
-                "fc_hidden": 64,
-                "dropout": 0.3,
-                "input_size": 32,
-            },
-        },
-        "state_dict": {},
-    }
-    ckpt_path = tmp_path / "fake.ckpt"
-    torch.save(ckpt, ckpt_path)
-
-    heads_config = {"log10_decay_time": 1, "wah_position": 1}
-    dataset_metadata = {"parameter_names": ["log10_decay_time", "wah_position"]}
-
-    recon = CheckpointArchitectureReconstructor()
-    net, cfg = recon.reconstruct_from_checkpoint(str(ckpt_path), heads_config, dataset_metadata)
-
-    assert cfg.architecture_type == "CNN"
-    # Ensure regression heads were built (1 output with Sigmoid per head)
-    assert hasattr(net, "heads"), "Network should expose heads in regression mode"
-    assert set(net.heads.keys()) == set(heads_config.keys())
-    # Each head should output a single value in [0,1]
-    x = torch.zeros(1, 1, 32, 32)
-    out = net(x)
-    assert set(out.keys()) == set(heads_config.keys())
-    for t in out.values():
-        assert t.shape[-1] == 1
 
 
 def _wah_evaluator():
