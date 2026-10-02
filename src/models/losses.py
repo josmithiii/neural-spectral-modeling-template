@@ -21,13 +21,15 @@ class DistanceLoss(nn.Module):
         self.ops = []  # Will be populated by subclasses
 
     def dist(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Compute distance between tensors."""
+        """Compute the per-element p-mean distance (mean(|x-y|^p))^(1/p).
+
+        For p=1 this is the mean absolute error and for p=2 the RMS error. Both
+        are invariant to batch size and STFT size (a plain p-norm over the whole
+        tensor, as used previously for p != 1, grows with the number of elements).
+        """
         if self.p == 1.0:
             return torch.abs(x - y).mean()
-        elif self.p == 2.0:
-            return torch.norm(x - y, p=self.p)
-        else:
-            return torch.norm(x - y, p=self.p)
+        return torch.abs(x - y).pow(self.p).mean().pow(1.0 / self.p)
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, transform_y: bool = True) -> torch.Tensor:
         """Forward pass computing multi-scale distance."""
@@ -202,8 +204,10 @@ class OrdinalRegressionLoss(nn.Module):
         else:
             raise ValueError(f"Unknown regression loss: {self.regression_loss}")
 
-        # Convert distance to perceptual units
-        perceptual_distance = distance_steps * self.quantization_step
+        # Convert to perceptual units: l1 scales by the step, while l2 and huber
+        # (huber_delta measured in steps) are squared quantities and scale by step^2.
+        scale = self.quantization_step if self.regression_loss == "l1" else self.quantization_step**2
+        perceptual_distance = distance_steps * scale
 
         # Add classification term for regularization (helps with training stability)
         if self.alpha > 0:

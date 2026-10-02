@@ -10,15 +10,19 @@ class JNDToleranceAccuracy(Metric):
     """
     Just Noticeable Difference (JND) tolerance-based accuracy metric.
 
-    Uses triangular tolerance: accuracy = 1.0 at exact match, linearly decreasing
-    to 0.0 at ±tolerance_jnds away. Designed for synthesizer parameters where
-    each quantization step represents one JND.
+    Uses triangular tolerance: score = max(0, 1 - d / (tolerance_jnds + 1)),
+    where d is the |prediction - target| distance in quantization steps.
+    Score is 1.0 at exact match and stays positive out to d = tolerance_jnds,
+    reaching 0.0 at d = tolerance_jnds + 1. Designed for synthesizer parameters
+    where each quantization step represents one JND.
 
     Args:
-        tolerance_jnds: Number of JNDs (quantization steps) for full tolerance window
-                       Total triangle width = 2 * tolerance_jnds + 1
-                       Default 5 gives 11-step triangle (±5 JNDs)
-        num_classes: Number of parameter quantization levels (for clamping)
+        tolerance_jnds: Largest distance (in JNDs = quantization steps) that earns
+                       partial credit. The nonzero support is 2 * tolerance_jnds + 1
+                       steps wide; default 5 gives an 11-step triangle (±5 JNDs).
+                       (The earlier formula 1 - d/tolerance_jnds gave zero credit at
+                       d = tolerance_jnds, making jnd1 identical to exact accuracy.)
+        num_classes: Number of parameter quantization levels (informational only)
     """
 
     def __init__(
@@ -56,10 +60,10 @@ class JNDToleranceAccuracy(Metric):
         # Calculate absolute distance in quantization steps (JNDs)
         distances = torch.abs(pred_indices - target).float()
 
-        # Apply triangular tolerance function
-        # accuracy = max(0, 1 - distance / tolerance_jnds)
+        # Apply triangular tolerance function with nonzero support |d| <= tolerance_jnds
+        # accuracy = max(0, 1 - distance / (tolerance_jnds + 1))
         tolerance_scores = torch.clamp(
-            1.0 - distances / self.tolerance_jnds,
+            1.0 - distances / (self.tolerance_jnds + 1),
             min=0.0,
             max=1.0
         )
@@ -102,6 +106,9 @@ class ExactAccuracy(Metric):
 
     def compute(self) -> torch.Tensor:
         """Compute exact accuracy."""
+        if self.total == 0:
+            # No samples seen yet; avoid 0/0 NaN.
+            return self.correct.float()  # tensor(0.0)
         return self.correct.float() / self.total
 
 

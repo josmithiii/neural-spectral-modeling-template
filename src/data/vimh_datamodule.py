@@ -1,4 +1,5 @@
 import json
+import re
 import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -180,17 +181,13 @@ class VIMHDataModule(LightningDataModule):
         :param data_dir: Path to dataset directory
         :return: (height, width, channels) tuple or None if pattern not found
         """
-        try:
-            dir_name = Path(data_dir).name
-            if dir_name.startswith("vimh-"):
-                # Extract "32x32x3" from "vimh-32x32x3_8000Hz_1p0s_256dss_simple_2p"
-                parts = dir_name.split("_")[0]  # "vimh-32x32x3"
-                dims = parts.split("-")[1]  # "32x32x3"
-                h, w, c = map(int, dims.split("x"))
-                return h, w, c
-        except (IndexError, ValueError):
-            pass
-        return None
+        # Matches "vimh-32x32x3_8000Hz_..." and "vimh-avix-32x32x1_8000Hz_..." (the old
+        # split-based parser raised on "vimh-avix-" names and silently returned None).
+        match = re.match(r"vimh-(?:avix-)?(\d+)x(\d+)x(\d+)(?:_|$)", Path(data_dir).name)
+        if match is None:
+            return None
+        h, w, c = map(int, match.groups())
+        return h, w, c
 
     def _load_image_dims_from_json(self, data_dir: str) -> Optional[Tuple[int, int, int]]:
         """Load image dimensions from dataset metadata JSON.
@@ -216,31 +213,31 @@ class VIMHDataModule(LightningDataModule):
         :param data_dir: Path to dataset directory
         :return: (height, width, channels) tuple or None if validation fails
         """
-        try:
-            import pickle
-            import struct
+        import pickle
+        import struct
 
-            # Check pickle format first (easier to parse)
-            train_file = Path(data_dir) / "train_batch"
-            if train_file.exists():
-                with open(train_file, "rb") as f:
-                    data = pickle.load(f)
-                    if "height" in data and "width" in data and "channels" in data:
-                        return data["height"], data["width"], data["channels"]
+        # No exception handling: a corrupt train file must fail here, loudly,
+        # rather than silently dropping out of the dimension cross-check.
+        # Check pickle format first (easier to parse)
+        train_file = Path(data_dir) / "train_batch"
+        if train_file.exists():
+            with open(train_file, "rb") as f:
+                data = pickle.load(f)
+                if "height" in data and "width" in data and "channels" in data:
+                    return data["height"], data["width"], data["channels"]
 
-            # Check binary format if pickle not available
-            binary_file = Path(data_dir) / "train"
-            if binary_file.exists():
-                with open(binary_file, "rb") as f:
-                    # Read first sample metadata (first 6 bytes)
-                    metadata_bytes = f.read(6)
-                    if len(metadata_bytes) == 6:
-                        # Unpack as 3 uint16 values: height, width, channels
-                        h, w, c = struct.unpack("<HHH", metadata_bytes)
-                        return h, w, c
+        # Check binary format if pickle not available
+        binary_file = Path(data_dir) / "train"
+        if binary_file.exists():
+            with open(binary_file, "rb") as f:
+                # Read first sample metadata (first 6 bytes)
+                metadata_bytes = f.read(6)
+                if len(metadata_bytes) != 6:
+                    raise ValueError(f"Binary VIMH file {binary_file} is too short to hold a header")
+                # Unpack as 3 uint16 values: height, width, channels
+                h, w, c = struct.unpack("<HHH", metadata_bytes)
+                return h, w, c
 
-        except (FileNotFoundError, pickle.UnpicklingError, struct.error):
-            pass
         return None
 
     def _fallback_dimension_detection(self, data_dir: str) -> Tuple[int, int, int]:

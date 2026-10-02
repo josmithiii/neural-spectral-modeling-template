@@ -59,7 +59,7 @@ class SimpleDenseNet(nn.Module):
         """Perform a single forward pass through the network.
 
         :param x: The input tensor.
-        :return: A tensor of predictions (single head) or dict of tensors (multihead).
+        :return: Dict mapping head name to predictions (for any number of heads).
         """
         batch_size, channels, width, height = x.size()
 
@@ -69,12 +69,10 @@ class SimpleDenseNet(nn.Module):
         # Extract features
         features = self.feature_extractor(x)
 
-        # Multihead case: return dict of predictions
-        if self.is_multihead:
-            return {head_name: head(features) for head_name, head in self.heads.items()}
-
-        # Single head case: return tensor directly (backward compatibility)
-        return self.heads["digit"](features)
+        # Always a dict of head outputs, also for a single head (like SimpleCNN).
+        # Previously a single head returned heads["digit"](...), a KeyError for any
+        # single head with another name.
+        return {head_name: head(features) for head_name, head in self.heads.items()}
 
 
 if __name__ == "__main__":
