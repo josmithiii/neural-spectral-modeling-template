@@ -79,15 +79,13 @@ synthesizer:
     # Minimal envelope - let resonance be the star
     filter_env_attack:
       min_value: 0.0
-      max_value: 0.01
-      step: 0.000625 # range/16 (was the implicit default); inaudible while filter_env_amount = 0
+      max_value: 0.0 # fixed: inaudible while filter_env_amount = 0
       default: 0.0
       description: "Filter envelope attack time (seconds) - minimal"
 
     filter_env_decay:
       min_value: 0.0
-      max_value: 0.1
-      step: 0.00625 # range/16 (was the implicit default); inaudible while filter_env_amount = 0
+      max_value: 0.0 # fixed: inaudible while filter_env_amount = 0
       default: 0.0
       description: "Filter envelope decay time (seconds) - minimal"
 
@@ -99,8 +97,7 @@ synthesizer:
 
     filter_env_release:
       min_value: 0.0
-      max_value: 0.05
-      step: 0.003125 # range/16 (was the implicit default); inaudible while filter_env_amount = 0
+      max_value: 0.0 # fixed: inaudible while filter_env_amount = 0
       default: 0.0
       description: "Filter envelope release time (seconds) - minimal"
 

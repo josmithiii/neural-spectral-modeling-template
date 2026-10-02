@@ -364,19 +364,19 @@ class ParameterGenerator:
         for param_name, param_info in self.params_config.items():
             min_val = param_info["min_value"]
             max_val = param_info["max_value"]
-            step_val = param_info.get("step", None)  # Optional step parameter
 
             if min_val == max_val:
-                value = min_val
-            else:
-                value = np.random.uniform(min_val, max_val)
+                params[param_name] = min_val
+                continue
 
-            params[param_name] = value
-
-            # Only add varying parameters to labels
-            if min_val != max_val:
-                normalized = (value - min_val) / (max_val - min_val)
-                label_vector.append(normalized)
+            # Sample uniformly on the step grid min + k*step, k = 0..n_steps (the grid is
+            # validated by validate_parameter_grid). Continuous sampling gave the two end
+            # classes half the samples of interior ones, and the 8-bit label code plus
+            # snapping to the grid at load time mislabeled 2-8% of samples.
+            n_steps = int(round((max_val - min_val) / float(param_info["step"])))
+            k = np.random.randint(0, n_steps + 1)
+            params[param_name] = min_val + k * (max_val - min_val) / n_steps
+            label_vector.append(k / n_steps)  # normalized [0, 1]; exact through the 8-bit code
 
         return params, label_vector
 

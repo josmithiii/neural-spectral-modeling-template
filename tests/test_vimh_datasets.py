@@ -877,3 +877,27 @@ def test_statistics_work_on_binary_datasets(temp_dir):
     dataset = VIMHDataset(temp_dir, train=True)
     assert dataset.get_class_distribution()
     assert dataset.get_dataset_statistics()
+
+
+def test_generator_samples_on_grid_and_labels_round_trip_exactly():
+    """Parameters are drawn on the step grid, so the 8-bit label code decodes exactly.
+
+    Continuous sampling gave end classes half the samples and mislabeled ~8% of
+    samples at 81 classes (label code rounding + snapping to the grid at load time).
+    """
+    from generate_vimh import ParameterGenerator
+
+    np.random.seed(0)
+    pmin, pmax, step = 0.0, 80.0, 1.0  # 81 classes
+    gen = ParameterGenerator({"v": {"min_value": pmin, "max_value": pmax, "step": step}})
+    counts = np.zeros(81, dtype=int)
+    for _ in range(8100):
+        params, labels = gen.generate_random_parameters(duration=1.0)
+        k = int(round((params["v"] - pmin) / step))
+        assert params["v"] == pytest.approx(pmin + k * step)
+        code = round(labels[0] * 255)  # what generate_vimh.py stores
+        decoded = pmin + code / 255.0 * (pmax - pmin)  # what VIMHDataset decodes
+        assert int(round((decoded - pmin) / step)) == k
+        counts[k] += 1
+    # End classes are no longer half-populated (expected 100 per class)
+    assert counts[0] > 60 and counts[-1] > 60
