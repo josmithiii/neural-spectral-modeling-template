@@ -1,4 +1,4 @@
-"""Regression tests for fixes ported from nsm-synth-match's Oct-2026 code review."""
+"""Regression tests for fixes from the Oct-2026 code review."""
 
 import pytest
 import torch
@@ -51,11 +51,11 @@ def test_ordinal_l2_scales_by_step_squared() -> None:
     "name, expected",
     [
         ("vimh-32x32x3_8000Hz_1p0s_256dss_simple_2p", (32, 32, 3)),
-        ("vimh-avix-32x64x1_8000Hz_1p0s_72dss_simple_2p", (32, 64, 1)),
+        ("vimh-32x64x1_8000Hz_1p0s_72dss_simple_2p", (32, 64, 1)),
         ("some_other_dataset", None),
     ],
 )
-def test_parse_image_dims_from_path_handles_avix_names(name: str, expected) -> None:
+def test_parse_image_dims_from_path(name: str, expected) -> None:
     dm = VIMHDataModule(data_dir="unused")
     assert dm._parse_image_dims_from_path(f"/tmp/{name}") == expected
 

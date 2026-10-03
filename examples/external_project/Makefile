@@ -4,7 +4,7 @@
 #
 # Prerequisites:
 #   - Activate venv: source ../../.venv/bin/activate
-#   - Reference checkpoint must exist (run from nsm-synth-match root if needed)
+#   - Reference checkpoint must exist (run from the repository root if needed)
 
 PYTHON = python
 SHELL = /bin/bash

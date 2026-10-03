@@ -2,7 +2,7 @@
 """
 Example: Predict synthesis parameters from a .wav file using a trained NSMT model.
 
-This demonstrates using nsm-synth-match as an external package.
+This demonstrates using NSMT as an external package.
 
 Usage:
     python predict_params.py input.wav [checkpoint.ckpt]
@@ -37,7 +37,7 @@ class DetectedNote:
     duration: float  # Note duration in seconds
     params: Dict[str, float]  # Predicted synthesis parameters
 
-# Default checkpoint (relative to nsm-synth-match root)
+# Default checkpoint (relative to the repository root)
 DEFAULT_CKPT = str(PROJECT_ROOT / "checkpoints/reference/2025-12-18_03-41-00.ckpt")
 
 

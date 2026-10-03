@@ -153,9 +153,9 @@ class VIMHDataModule(LightningDataModule):
         :param data_dir: Path to dataset directory
         :return: (height, width, channels) tuple or None if pattern not found
         """
-        # Matches "vimh-32x32x3_8000Hz_..." and "vimh-avix-32x32x1_8000Hz_..." (the old
-        # split-based parser raised on "vimh-avix-" names and silently returned None).
-        match = re.match(r"vimh-(?:avix-)?(\d+)x(\d+)x(\d+)(?:_|$)", Path(data_dir).name)
+        # Matches "vimh-32x32x3_8000Hz_..." (the old split-based parser could raise on
+        # unexpected names and silently return None, skipping the dimension cross-check).
+        match = re.match(r"vimh-(\d+)x(\d+)x(\d+)(?:_|$)", Path(data_dir).name)
         if match is None:
             return None
         h, w, c = map(int, match.groups())
