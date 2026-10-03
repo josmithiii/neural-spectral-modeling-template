@@ -179,3 +179,20 @@ def test_aggregate_metrics_report_nonfinite_values():
     agg = _compute_aggregate_metrics(results)
     assert agg["mean_snr_db"] == 15.0
     assert agg["n_nonfinite_snr_db"] == 1
+
+
+def test_true_parameters_are_snapped_to_class_centers():
+    """8-bit label codes dequantize slightly off-center (-0.50039 for class -0.5), which
+    made true and predicted audio differ even at 100% accuracy (43 dB SNR, not inf)."""
+    evaluator = _wah_evaluator()
+
+    class _Meta:
+        def _get_sample_metadata(self, idx):
+            return {
+                "log10_decay_time_info": {"actual_value": -0.50039},
+                "wah_position_info": {"actual_value": 0.4482},
+            }
+
+    true = evaluator.get_true_parameters(0, dataset=_Meta())
+    assert abs(true["log10_decay_time"] - (-0.5)) < 1e-12
+    assert abs(true["wah_position"] - 0.45) < 1e-12

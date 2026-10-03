@@ -369,14 +369,22 @@ class ParameterGenerator:
                 params[param_name] = min_val
                 continue
 
-            # Sample uniformly on the step grid min + k*step, k = 0..n_steps (the grid is
-            # validated by validate_parameter_grid). Continuous sampling gave the two end
-            # classes half the samples of interior ones, and the 8-bit label code plus
-            # snapping to the grid at load time mislabeled 2-8% of samples.
+            # Pick class k uniformly (balanced classes), then jitter the value uniformly
+            # within its bin, min + (k + u)*step with u in [-1/2, 1/2), reflecting at the
+            # range ends so it stays in bin k and inside [min, max]. The label is the
+            # class k itself, exact through the 8-bit code. Plain grid values made the
+            # deterministic synth produce only one spectrogram per grid point, so test
+            # images duplicated training images; plain continuous sampling half-populated
+            # the end classes and mislabeled 2-8% of samples.
             n_steps = int(round((max_val - min_val) / float(param_info["step"])))
             k = np.random.randint(0, n_steps + 1)
-            params[param_name] = min_val + k * (max_val - min_val) / n_steps
-            label_vector.append(k / n_steps)  # normalized [0, 1]; exact through the 8-bit code
+            offset = k + np.random.uniform(-0.5, 0.5)
+            if offset < 0.0:
+                offset = -offset
+            elif offset > n_steps:
+                offset = 2 * n_steps - offset
+            params[param_name] = min_val + offset * (max_val - min_val) / n_steps
+            label_vector.append(k / n_steps)  # normalized class center in [0, 1]
 
         return params, label_vector
 

@@ -879,11 +879,13 @@ def test_statistics_work_on_binary_datasets(temp_dir):
     assert dataset.get_dataset_statistics()
 
 
-def test_generator_samples_on_grid_and_labels_round_trip_exactly():
-    """Parameters are drawn on the step grid, so the 8-bit label code decodes exactly.
+def test_generator_jitters_within_class_bins_with_exact_labels():
+    """Values are jittered within their class bin; the label is the class itself.
 
-    Continuous sampling gave end classes half the samples and mislabeled ~8% of
-    samples at 81 classes (label code rounding + snapping to the grid at load time).
+    Regression tests: plain grid values gave a deterministic synth one spectrogram per
+    grid point, so every test image duplicated a training image (2026-10-02 MPS
+    baselines: 266 unique images in 13107). Plain continuous sampling gave end classes
+    half the samples and mislabeled ~8% of samples at 81 classes.
     """
     from generate_vimh import ParameterGenerator
 
@@ -891,13 +893,19 @@ def test_generator_samples_on_grid_and_labels_round_trip_exactly():
     pmin, pmax, step = 0.0, 80.0, 1.0  # 81 classes
     gen = ParameterGenerator({"v": {"min_value": pmin, "max_value": pmax, "step": step}})
     counts = np.zeros(81, dtype=int)
+    values = []
     for _ in range(8100):
         params, labels = gen.generate_random_parameters(duration=1.0)
-        k = int(round((params["v"] - pmin) / step))
-        assert params["v"] == pytest.approx(pmin + k * step)
+        v = params["v"]
         code = round(labels[0] * 255)  # what generate_vimh.py stores
         decoded = pmin + code / 255.0 * (pmax - pmin)  # what VIMHDataset decodes
-        assert int(round((decoded - pmin) / step)) == k
+        k = int(round((decoded - pmin) / step))
+        # The value lies inside class k's bin and inside [min, max]
+        assert pmin <= v <= pmax
+        assert abs(v - (pmin + k * step)) <= step / 2 + 1e-9
         counts[k] += 1
-    # End classes are no longer half-populated (expected 100 per class)
+        values.append(v)
+    # Balanced classes, including the ends (expected 100 per class)
     assert counts[0] > 60 and counts[-1] > 60
+    # Continuous within bins: no two samples share a value (no duplicate spectrograms)
+    assert len(set(values)) == len(values)

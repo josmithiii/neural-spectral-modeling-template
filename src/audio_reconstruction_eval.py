@@ -542,8 +542,12 @@ class AudioReconstructionEvaluator:
         for param_name in self.param_names + self.auxiliary_params:
             param_info_key = f"{param_name}_info"
             if param_info_key in sample_metadata:
+                # The 8-bit label code encodes the class; snap its dequantized value to
+                # the class center (e.g. -0.50039 -> -0.5), the value predictions use
                 actual_value = sample_metadata[param_info_key]["actual_value"]
-                true_params[param_name] = actual_value
+                mapping = self.param_mappings[param_name]
+                pmin, step = float(mapping["min"]), float(mapping["step"])
+                true_params[param_name] = pmin + round((actual_value - pmin) / step) * step
             else:
                 raise ValueError(
                     f"Could not find true value for parameter {param_name} in sample metadata"
