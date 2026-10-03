@@ -48,6 +48,8 @@ dependencies = [
     "matplotlib",      # for displaying VIMH datasets
     "ipython",         # for IPython display functionality
     "pygame",          # for pygame audio functionality
+    "auraloss",        # multi-resolution STFT (MSS) distance in audio evaluation
+    "scipy",           # signal/stats in audio evaluation and vimhd.py
 ]
 
 [project.optional-dependencies]

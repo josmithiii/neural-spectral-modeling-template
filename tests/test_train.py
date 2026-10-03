@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
+import torch
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, open_dict
 
@@ -139,6 +140,11 @@ def test_train_resume(tmp_path: Path, cfg_train: DictConfig) -> None:
     files = os.listdir(tmp_path / "checkpoints")
     assert "last.ckpt" in files
     assert "epoch_000.ckpt" in files
+    epoch0 = tmp_path / "checkpoints" / "epoch_000.ckpt"
+    epoch0_mtime = epoch0.stat().st_mtime_ns
+    steps_1 = torch.load(tmp_path / "checkpoints" / "last.ckpt", map_location="cpu", weights_only=False)[
+        "global_step"
+    ]
 
     with open_dict(cfg_train):
         cfg_train.ckpt_path = str(tmp_path / "checkpoints" / "last.ckpt")
@@ -150,8 +156,12 @@ def test_train_resume(tmp_path: Path, cfg_train: DictConfig) -> None:
     assert "epoch_001.ckpt" in files
     assert "epoch_002.ckpt" not in files
 
-    # Use parameter-specific accuracy metrics for multihead predictions
-    assert (
-        metric_dict_1["train/log10_decay_time_acc"] <= metric_dict_2["train/log10_decay_time_acc"]
-    )
-    assert metric_dict_1["val/log10_decay_time_acc"] <= metric_dict_2["val/log10_decay_time_acc"]
+    # Resumed, not restarted: epoch 0 was not retrained (its checkpoint is untouched) and
+    # the step counter continued. (This used to assert that val accuracy did not drop
+    # from epoch 1 to 2, which a correct resume does not guarantee on 41 val samples;
+    # it failed once the dataset was regenerated.)
+    assert epoch0.stat().st_mtime_ns == epoch0_mtime
+    resumed = torch.load(tmp_path / "checkpoints" / "last.ckpt", map_location="cpu", weights_only=False)
+    assert resumed["epoch"] == 1
+    assert resumed["global_step"] == 2 * steps_1
+    assert "val/log10_decay_time_acc" in metric_dict_1 and "val/log10_decay_time_acc" in metric_dict_2

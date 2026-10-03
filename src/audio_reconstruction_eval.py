@@ -127,6 +127,7 @@ try:
 except ImportError:
     IPYTHON_AVAILABLE = False
     ipd = None
+import auraloss.freq
 from scipy.signal import correlate
 from scipy.stats import pearsonr
 
@@ -299,27 +300,14 @@ class AudioReconstructionEvaluator:
             mel_config=mel_config,
         )
 
-        # Initialize MSS loss for perceptual audio evaluation (PNP-compatible)
-        try:
-            import auraloss.freq
-            self.mss_loss = auraloss.freq.MultiResolutionSTFTLoss()
-            self.mss_implementation = "auraloss"
-            log.info("Initialized auraloss MultiResolutionSTFTLoss (PNP-compatible configuration)")
-            log.info("  FFT sizes: [1024, 2048, 512]")
-            log.info("  Hop sizes: [120, 240, 50]")
-            log.info("  Window lengths: [600, 1200, 240]")
-            log.info("  Loss components: spectral convergence + log magnitude")
-        except ImportError:
-            log.warning("auraloss not installed, falling back to custom MSS implementation")
-            log.warning("NOTE: Results will NOT be directly comparable to PNP paper")
-            from src.models.losses import MultiScaleSpectralLoss
-            self.mss_loss = MultiScaleSpectralLoss(
-                max_n_fft=2048,
-                num_scales=6,
-                p=1.0
-            )
-            self.mss_implementation = "custom"
-            log.info("Initialized custom MultiScaleSpectralLoss for audio evaluation")
+        # Multi-scale spectral (MSS) distance for perceptual audio evaluation, PNP's
+        # configuration (auraloss is a required dependency; no fallback implementation)
+        self.mss_loss = auraloss.freq.MultiResolutionSTFTLoss()
+        log.info("Initialized auraloss MultiResolutionSTFTLoss (PNP-compatible configuration)")
+        log.info("  FFT sizes: [1024, 2048, 512]")
+        log.info("  Hop sizes: [120, 240, 50]")
+        log.info("  Window lengths: [600, 1200, 240]")
+        log.info("  Loss components: spectral convergence + log magnitude")
 
         # Debug: Print spectrogram processor configuration (can be removed)
         # log.info(f"SpectrogramProcessor config:")
@@ -761,27 +749,11 @@ class AudioReconstructionEvaluator:
             metrics["max_xcorr"] = 0.0
             metrics["max_xcorr_lag_samples"] = 0.0
 
-        # Multi-Scale Spectral (MSS) distance
-        if hasattr(self, 'mss_loss'):
-            # Convert numpy arrays to torch tensors
-            # auraloss expects [batch, channels, time], custom expects [batch, time]
-            true_tensor = torch.from_numpy(true_audio).unsqueeze(0).float()
-            pred_tensor = torch.from_numpy(pred_audio).unsqueeze(0).float()
-
-            # Add channel dimension for auraloss (PNP-compatible format)
-            if hasattr(self, 'mss_implementation') and self.mss_implementation == "auraloss":
-                true_tensor = true_tensor.unsqueeze(1)  # [batch, 1, time]
-                pred_tensor = pred_tensor.unsqueeze(1)  # [batch, 1, time]
-
-            # Move to same device as MSS loss
-            device = next(self.mss_loss.parameters()).device if list(self.mss_loss.parameters()) else torch.device('cpu')
-            true_tensor = true_tensor.to(device)
-            pred_tensor = pred_tensor.to(device)
-
-            # Compute MSS distance (no gradients needed)
-            with torch.no_grad():
-                mss_distance = self.mss_loss(pred_tensor, true_tensor)
-                metrics["mss_distance"] = float(mss_distance.item())
+        # Multi-Scale Spectral (MSS) distance; auraloss expects [batch, channels, time]
+        true_tensor = torch.from_numpy(true_audio).float().view(1, 1, -1)
+        pred_tensor = torch.from_numpy(pred_audio).float().view(1, 1, -1)
+        with torch.no_grad():
+            metrics["mss_distance"] = float(self.mss_loss(pred_tensor, true_tensor).item())
 
         return metrics
 

@@ -227,3 +227,21 @@ def test_pnp_comparison_is_opt_in(capsys):
     assert "PNP (Han" not in capsys.readouterr().out
     _print_results_table(metrics, num_samples=50, pnp_comparison=True)
     assert "Improvement" in capsys.readouterr().out
+
+
+def test_mss_distance_uses_auraloss():
+    """MSS distance comes from auraloss (a required dependency). It used to fall back
+    silently to a custom implementation when auraloss was missing, so the reported MSS
+    numbers were not PNP-comparable without anyone noticing."""
+    import auraloss.freq
+    import numpy as np
+
+    evaluator = _wah_evaluator()
+    assert isinstance(evaluator.mss_loss, auraloss.freq.MultiResolutionSTFTLoss)
+    sr = 8000
+    t = np.arange(sr) / sr
+    a = (np.sin(2 * np.pi * 100 * t) * np.exp(-3 * t)).astype(np.float32)
+    b = (np.sin(2 * np.pi * 150 * t) * np.exp(-3 * t)).astype(np.float32)
+    same = evaluator.compute_audio_metrics(a, a.copy())["mss_distance"]
+    different = evaluator.compute_audio_metrics(a, b)["mss_distance"]
+    assert same < 1e-4 < different
