@@ -221,59 +221,83 @@ class OrdinalRegressionLoss(nn.Module):
 
 class NormalizedRegressionLoss(nn.Module):
     """
-    Regression loss for normalized [0,1] parameter values.
+    Regression loss for sigmoid [0,1] parameter heads, measured in JND steps.
 
-    This loss function is designed for pure regression heads that output sigmoid-activated
-    values in the [0,1] range. It normalizes the targets to [0,1] space, computes the
-    regression loss, and optionally scales the result back to parameter space for
-    interpretability.
+    The error is expressed in quantization steps (one step = one JND):
+        err_steps = (pred_normalized - target_normalized) * (num_classes - 1)
+    so a one-step miss costs the same on every head, whatever its units or range.
+    'mse' and 'huber' are in squared steps, 'l1' in steps; huber_delta is in steps.
+    Head loss weights should therefore be uniform (VIMHLitModule uses 1.0 in
+    regression mode); per-head JND weighting would count the step size twice.
+
+    (Previously the loss was computed in normalized [0,1] units and multiplied by
+    the parameter range, which for mse/huber had no physical meaning and made the
+    head balance depend on each parameter's units.)
 
     Args:
-        param_range: Tuple of (min, max) values for the parameter in its original space
-        loss_type: Type of regression loss ('mse', 'l1', 'huber')
-        huber_delta: Delta parameter for Huber loss (in normalized space)
-        return_perceptual_units: Whether to scale loss back to parameter space
+        param_range: (min, max) of the parameter in its physical units; used to
+            normalize targets given in those units.
+        num_classes: Number of quantization levels for this parameter, so that
+            num_classes - 1 JND steps span the range. May be None at construction
+            and set from the dataset during auto-configuration; forward() raises
+            while it is unset.
+        loss_type: 'mse', 'l1', or 'huber'
+        huber_delta: Huber transition point, in JND steps
     """
 
     def __init__(
         self,
         param_range: Tuple[float, float],
+        num_classes: Optional[int] = None,
         loss_type: str = "mse",
-        huber_delta: float = 0.1,
-        return_perceptual_units: bool = True,
+        huber_delta: float = 1.0,
     ):
         super().__init__()
         self.param_min, self.param_max = param_range
         self.param_range = self.param_max - self.param_min
         self.loss_type = loss_type
         self.huber_delta = huber_delta
-        self.return_perceptual_units = return_perceptual_units
+        self.num_classes: Optional[int] = None
 
         # Ensure valid parameter range
         if self.param_range <= 0:
             raise ValueError(f"Parameter range must be positive, got {self.param_range}")
+        if loss_type not in ("mse", "l1", "huber"):
+            raise ValueError(f"Unknown loss type: {loss_type}")
+        if num_classes is not None:
+            self.set_num_classes(num_classes)
+
+    def set_num_classes(self, num_classes: int) -> None:
+        """Set the number of quantization levels (num_classes - 1 JND steps span the range)."""
+        if int(num_classes) < 2:
+            raise ValueError(
+                f"NormalizedRegressionLoss requires num_classes >= 2, got {num_classes}"
+            )
+        self.num_classes = int(num_classes)
 
     def forward(self, normalized_pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
-        Compute regression loss between normalized predictions and targets.
+        Compute the regression loss in JND-step units.
 
         Args:
             normalized_pred: Sigmoid-activated predictions in [0,1] range [batch_size, 1]
-            target: Target values in original parameter space [batch_size]
+            target: Target values in physical parameter units [batch_size]
 
         Returns:
-            Loss value (in parameter space if return_perceptual_units=True)
+            Loss in steps (l1) or squared steps (mse, huber)
         """
-        # Ensure predictions are in [0,1] range (should be from sigmoid)
-        normalized_pred = torch.clamp(normalized_pred.squeeze(-1), 0.0, 1.0)
-
+        if self.num_classes is None:
+            raise RuntimeError(
+                "NormalizedRegressionLoss.num_classes is unset; it must be configured from "
+                "the dataset before training (JND step size unknown)"
+            )
         if not torch.is_floating_point(target):
             raise TypeError(
                 f"NormalizedRegressionLoss needs physical-unit float targets, got {target.dtype} "
                 f"(class indices?); set data.label_mode=regression"
             )
-        # Normalize targets to [0,1] range. Targets outside [min, max] mean the labels
-        # are not in this head's physical units, so fail instead of clamping them away.
+        # Targets outside [min, max] mean the labels are not in this head's physical
+        # units, so fail instead of clamping them away.
         normalized_target = (target - self.param_min) / self.param_range
         if normalized_target.numel() and (
             normalized_target.min() < -1e-4 or normalized_target.max() > 1 + 1e-4
@@ -282,23 +306,15 @@ class NormalizedRegressionLoss(nn.Module):
                 f"Regression targets [{target.min().item()}, {target.max().item()}] lie outside "
                 f"the parameter bounds [{self.param_min}, {self.param_max}]"
             )
-        normalized_target = torch.clamp(normalized_target, 0.0, 1.0)
 
-        # Compute loss in normalized space
+        num_steps = self.num_classes - 1
+        pred_steps = normalized_pred.squeeze(-1) * num_steps
+        target_steps = normalized_target * num_steps
         if self.loss_type == "mse":
-            loss = F.mse_loss(normalized_pred, normalized_target)
-        elif self.loss_type == "l1":
-            loss = F.l1_loss(normalized_pred, normalized_target)
-        elif self.loss_type == "huber":
-            loss = F.huber_loss(normalized_pred, normalized_target, delta=self.huber_delta)
-        else:
-            raise ValueError(f"Unknown loss type: {self.loss_type}")
-
-        # Convert back to parameter space for interpretability
-        if self.return_perceptual_units:
-            return loss * self.param_range
-        else:
-            return loss
+            return F.mse_loss(pred_steps, target_steps)
+        if self.loss_type == "l1":
+            return F.l1_loss(pred_steps, target_steps)
+        return F.huber_loss(pred_steps, target_steps, delta=self.huber_delta)
 
 
 class WeightedCrossEntropyLoss(nn.Module):

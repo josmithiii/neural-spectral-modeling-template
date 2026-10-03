@@ -206,9 +206,8 @@ class VIMHLitModule(LightningModule):
             )
         else:  # normalized_regression
             return NormalizedRegressionLoss(
-                param_range=(0.0, 1.0),  # Real bounds applied by _update_criteria_with_parameter_ranges
-                loss_type=regression_loss_type,
-                return_perceptual_units=True
+                param_range=(0.0, 1.0),  # Real bounds and num_classes applied by
+                loss_type=regression_loss_type,  # _update_criteria_with_parameter_ranges
             )
 
     def _process_criteria(self, criteria: Dict[str, any]) -> Dict[str, torch.nn.Module]:
@@ -462,6 +461,11 @@ class VIMHLitModule(LightningModule):
                     f"loss_weights heads {sorted(weights)} do not match dataset heads "
                     f"{sorted(heads_config)}"
                 )
+        elif self.output_mode == "regression":
+            # NormalizedRegressionLoss is already in JND-step units, so a one-step miss
+            # costs the same on every head: uniform weights (JND weights would double count).
+            weights = {name: 1.0 for name in heads_config}
+            log.info(f"Regression losses are in JND steps; uniform loss weights: {weights}")
         else:
             weights = self._compute_jnd_weights(dataset.metadata_format, list(heads_config))
             log.info(f"Auto-configured JND-based loss weights: {weights}")
@@ -480,6 +484,9 @@ class VIMHLitModule(LightningModule):
             elif isinstance(criterion, NormalizedRegressionLoss):
                 criterion.param_min, criterion.param_max = pmin, pmax
                 criterion.param_range = pmax - pmin
+                if head_name not in self.heads_config:
+                    raise KeyError(f"No dataset class count for head '{head_name}'")
+                criterion.set_num_classes(self.heads_config[head_name])  # JND step count
 
     def _bounds_for_head(self, head_name: str) -> Tuple[float, float]:
         """Physical (min, max) bounds of a head; fails loudly if not configured."""

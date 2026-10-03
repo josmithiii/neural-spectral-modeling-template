@@ -93,7 +93,8 @@ def configure_vimh_run_config(cfg: DictConfig) -> None:
       (SimpleCNN) = [height, width], ``n_channels`` / ``input_channels`` = channels,
       when the net config has those keys.
 
-    Loss weights are left to ``VIMHLitModule`` (JND-based when ``model.loss_weights`` is empty).
+    Loss weights are left to ``VIMHLitModule`` when ``model.loss_weights`` is empty: uniform
+    for regression (losses are already in JND steps), JND-based for classification.
     """
     from src.models.vimh_lit_module import output_mode_for_loss_type
     from src.utils.vimh_utils import (
@@ -177,7 +178,7 @@ def configure_vimh_run_config(cfg: DictConfig) -> None:
                 "param_range": tuple(param_bounds[head]),
             }
             for key, value in (user_criteria.get(head) or {}).items():
-                if key in ("_target_", "param_range"):
+                if key in ("_target_", "param_range", "num_classes"):
                     raise ValueError(f"model.criteria.{head}.{key} is set from dataset metadata")
                 merged[key] = value
             criteria_cfg[head] = merged
