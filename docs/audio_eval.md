@@ -29,7 +29,7 @@ All options mirror `configs/audio_eval.yaml` and can be overridden on the CLI.
 
 For each sample the evaluator:
 1. Runs inference on the spectrogram input.
-2. Reconstructs audio using true and predicted parameters.
+2. Reconstructs audio using true and predicted parameters. The true parameters are the dataset's stored rendered values (VIMH 2.2 `*_true_values.npy`), not class centers, so the reference is the sound behind the input spectrogram; a correct classification still differs from it by up to half a step.
 3. Calculates metrics (per-parameter error, waveform SNR, correlation, RMSE).
 4. Renders plots showing parameter trajectories and spectral differences.
 5. Writes WAV files so you can perform listening tests.
@@ -38,6 +38,7 @@ Key indicators:
 - **Classification runs (`make ewt`)**: look for per-head accuracy ≥ 0.85.
 - **Regression runs (`make ewtr`)**: mean absolute error below 0.05 on normalized scales is a strong baseline.
 - **Audio comparisons**: audible differences should be subtle; large spectral discrepancies usually indicate data/model mismatch.
+- **PNP comparison**: `pnp_comparison=true` also prints PNP's published MSS distance (Han et al. 2024) and the "improvement" over it; only meaningful on PNP's task and data.
 
 ## Troubleshooting
 

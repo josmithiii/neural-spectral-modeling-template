@@ -792,6 +792,7 @@ def _save_multichannel_dataset(out_dir: Path, spectrograms, pickle_format: bool)
         all_spectrograms=spectrograms,
         all_labels=[np.array([i / (n - 1)]) for i in range(n)],
         all_scale_factors=[(-80.0, 0.0)] * n,
+        all_true_values=[np.array([i / (n - 1)]) for i in range(n)],
         param_names=["p"],
         params_config={"p": {"min_value": 0.0, "max_value": 1.0, "step": 0.1}},
         dataset_name="roundtrip",
@@ -891,12 +892,15 @@ def test_generator_jitters_within_class_bins_with_exact_labels():
 
     np.random.seed(0)
     pmin, pmax, step = 0.0, 80.0, 1.0  # 81 classes
-    gen = ParameterGenerator({"v": {"min_value": pmin, "max_value": pmax, "step": step}})
+    gen = ParameterGenerator(
+        {"v": {"min_value": pmin, "max_value": pmax, "step": step}}, split_sizes=[8100]
+    )
     counts = np.zeros(81, dtype=int)
     values = []
     for _ in range(8100):
-        params, labels = gen.generate_random_parameters(duration=1.0)
+        params, labels, true_values = gen.generate_random_parameters(duration=1.0)
         v = params["v"]
+        assert true_values == [v]  # the stored true value is the rendered one
         code = round(labels[0] * 255)  # what generate_vimh.py stores
         decoded = pmin + code / 255.0 * (pmax - pmin)  # what VIMHDataset decodes
         k = int(round((decoded - pmin) / step))
@@ -905,7 +909,144 @@ def test_generator_jitters_within_class_bins_with_exact_labels():
         assert abs(v - (pmin + k * step)) <= step / 2 + 1e-9
         counts[k] += 1
         values.append(v)
-    # Balanced classes, including the ends (expected 100 per class)
-    assert counts[0] > 60 and counts[-1] > 60
+    # Stratified: exactly balanced classes, including the ends
+    assert np.all(counts == 100)
     # Continuous within bins: no two samples share a value (no duplicate spectrograms)
     assert len(set(values)) == len(values)
+    with pytest.raises(RuntimeError, match="exhausted"):
+        gen.generate_random_parameters(duration=1.0)
+
+
+def test_generator_balances_classes_exactly_within_each_split():
+    """i.i.d. class draws were flat only in expectation (seed 42: wah_position train
+    counts 593..755, chi-square p = 0.0015); each split is now stratified."""
+    from generate_vimh import ParameterGenerator, split_sizes
+
+    np.random.seed(42)
+    config = {
+        "a": {"min_value": 0.0, "max_value": 0.9, "step": 0.05},  # 19 classes
+        "b": {"min_value": -1.0, "max_value": 0.3, "step": 0.1},  # 14 classes
+        "fixed": {"min_value": 1.0, "max_value": 1.0},
+    }
+    n_train, n_test = split_sizes(1000)
+    assert (n_train, n_test) == (800, 200)
+    gen = ParameterGenerator(config, split_sizes=[n_train, n_test])
+    assert gen.varying_params == ["a", "b"]
+    labels = np.array([gen.generate_random_parameters(1.0)[1] for _ in range(1000)])
+    for col, num_classes in ((0, 19), (1, 14)):
+        for part in (labels[:n_train, col], labels[n_train:, col]):
+            counts = np.bincount(np.rint(part * (num_classes - 1)).astype(int), minlength=num_classes)
+            assert counts.max() - counts.min() <= 1
+
+
+def _save_jittered_dataset(out_dir: Path, n: int = 20, true_values=None, images=None) -> None:
+    """Save a 1-parameter VIMH 2.2 dataset (5 classes, step 0.25) via the generator."""
+    from generate_vimh import save_vimh_dataset
+
+    k = np.arange(n) % 5
+    if true_values is None:
+        true_values = k * 0.25 + 0.1 * np.sin(np.arange(n))  # within +-0.125 of center
+    if images is None:
+        images = [np.full((4, 4), i, dtype=np.uint8) for i in range(n)]
+    save_vimh_dataset(
+        all_spectrograms=images,
+        all_labels=[np.array([kk / 4]) for kk in k],
+        all_scale_factors=[(-80.0, 0.0)] * n,
+        all_true_values=[np.array([v]) for v in true_values],
+        param_names=["p"],
+        params_config={"p": {"min_value": 0.0, "max_value": 1.0, "step": 0.25}},
+        dataset_name="jitter",
+        output_dir=str(out_dir),
+        dataset_size=n,
+        sample_rate=8000,
+        duration=1.0,
+        height=4,
+        width=4,
+        channels=1,
+        stft_config={"type": "stft"},
+        mel_config={},
+        pre_emphasis_coeff=0.0,
+    )
+
+
+def test_regression_targets_are_stored_true_values(temp_dir):
+    """Regression trains on the rendered values, not class centers (which hide an
+    error of up to half a step); classification still gets exact class indices."""
+    n = 20
+    true_values = (np.arange(n) % 5) * 0.25 + 0.1 * np.sin(np.arange(n))
+    _save_jittered_dataset(temp_dir, n, true_values=true_values)
+    info = json.loads((temp_dir / "vimh_dataset_info.json").read_text())
+    assert info["version"] == "2.2" and info["true_values"]["columns"] == ["p"]
+
+    reg = VIMHDataset(temp_dir, train=True, label_mode="regression")
+    cls = VIMHDataset(temp_dir, train=True)
+    test = VIMHDataset(temp_dir, train=False, label_mode="regression")
+    assert len(reg) == 16 and len(test) == 4
+    for i in range(len(reg)):
+        target = reg[i][1]["p"]
+        assert target.dtype == torch.float32
+        assert abs(float(target) - true_values[i]) < 1e-6
+        assert cls[i][1]["p"] == i % 5
+        assert reg._get_sample_metadata(i)["p_info"]["true_value"] == pytest.approx(true_values[i])
+    assert abs(float(test[0][1]["p"]) - true_values[16]) < 1e-6
+
+
+def test_regression_requires_true_values(temp_dir):
+    """Datasets without the true-value sidecar (pre-2.2) cannot train regression."""
+    _save_jittered_dataset(temp_dir)
+    info_path = temp_dir / "vimh_dataset_info.json"
+    info = json.loads(info_path.read_text())
+    del info["true_values"]
+    info_path.write_text(json.dumps(info))
+    VIMHDataset(temp_dir, train=True)  # classification still loads
+    with pytest.raises(ValueError, match="no 'true_values' entry"):
+        VIMHDataset(temp_dir, train=True, label_mode="regression")
+
+
+def test_true_values_outside_their_class_bin_are_rejected(temp_dir):
+    """A true value more than half a step from its label's class center is corrupt."""
+    true_values = (np.arange(20) % 5) * 0.25
+    true_values[3] += 0.2  # step 0.25: 0.2 is beyond half a step
+    _save_jittered_dataset(temp_dir, true_values=true_values)
+    with pytest.raises(ValueError, match="from its class center"):
+        VIMHDataset(temp_dir, train=True)
+
+
+def test_generator_rejects_test_images_duplicated_in_train(temp_dir):
+    """Leakage guard: a test image identical to a training image fails generation."""
+    images = [np.full((4, 4), i, dtype=np.uint8) for i in range(20)]
+    images[18] = images[2].copy()  # sample 18 is in the test split (last 4)
+    with pytest.raises(ValueError, match="1/4 test images are identical to a training image"):
+        _save_jittered_dataset(temp_dir, images=images)
+
+
+def test_vimhd_class_counts_do_not_alias():
+    """Flat class counts must print flat: one bin per class, not 10 fixed bins."""
+    from vimhd import class_counts
+
+    values = np.repeat(-1.0 + 0.1 * np.arange(14), 50)  # 14 classes x 50 samples
+    counts = class_counts(values, pmin=-1.0, step=0.1, num_classes=14)
+    assert counts.tolist() == [50] * 14
+    hist, _ = np.histogram(values, bins=10)  # the old display: a comb
+    assert set(hist.tolist()) == {50, 100}
+
+
+def test_datamodule_regression_batches_carry_true_values(temp_dir):
+    """VIMHDataModule(label_mode="regression") feeds the stored true values through the
+    seeded train/val split (it used to map class indices to class centers)."""
+    from src.data.vimh_datamodule import VIMHDataModule
+
+    n = 20
+    true_values = (np.arange(n) % 5) * 0.25 + 0.1 * np.sin(np.arange(n))
+    _save_jittered_dataset(temp_dir, n, true_values=true_values)
+    dm = VIMHDataModule(
+        data_dir=str(temp_dir), batch_size=4, num_workers=0, val_split=0.25,
+        label_mode="regression",
+    )
+    dm.setup()
+    for batch in dm.train_dataloader():
+        assert batch[1]["p"].dtype == torch.float32
+    val_targets = sorted(float(t) for b in dm.val_dataloader() for t in b[1]["p"])
+    assert val_targets == pytest.approx(sorted(true_values[dm._val_indices]), abs=1e-6)
+    test_targets = [float(t) for b in dm.test_dataloader() for t in b[1]["p"]]
+    assert test_targets == pytest.approx(true_values[16:].tolist(), abs=1e-6)

@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 
+import pytest
 import torch
 
 from src.audio_reconstruction_eval import AudioReconstructionEvaluator
@@ -181,18 +182,48 @@ def test_aggregate_metrics_report_nonfinite_values():
     assert agg["n_nonfinite_snr_db"] == 1
 
 
-def test_true_parameters_are_snapped_to_class_centers():
-    """8-bit label codes dequantize slightly off-center (-0.50039 for class -0.5), which
-    made true and predicted audio differ even at 100% accuracy (43 dB SNR, not inf)."""
+def test_true_parameters_are_the_stored_rendered_values():
+    """The reference audio must be the sound behind the input spectrogram.
+
+    Labels are class centers, but jittered generation renders values up to half a step
+    away; a5e0aff snapped the 8-bit code to the center, so the "true" audio was the
+    class-center sound rather than the input. Now the stored true value is used.
+    """
     evaluator = _wah_evaluator()
 
     class _Meta:
         def _get_sample_metadata(self, idx):
             return {
-                "log10_decay_time_info": {"actual_value": -0.50039},
-                "wah_position_info": {"actual_value": 0.4482},
+                "log10_decay_time_info": {"actual_value": -0.50039, "true_value": -0.4731},
+                "wah_position_info": {"actual_value": 0.4482, "true_value": 0.4396},
             }
 
     true = evaluator.get_true_parameters(0, dataset=_Meta())
-    assert abs(true["log10_decay_time"] - (-0.5)) < 1e-12
-    assert abs(true["wah_position"] - 0.45) < 1e-12
+    assert true == {"log10_decay_time": -0.4731, "wah_position": 0.4396}
+
+
+def test_true_parameters_require_stored_true_values():
+    """Pre-2.2 datasets have no rendered values; resynthesis must fail loudly."""
+    evaluator = _wah_evaluator()
+
+    class _Meta:
+        def _get_sample_metadata(self, idx):
+            return {
+                "log10_decay_time_info": {"actual_value": -0.5, "true_value": None},
+                "wah_position_info": {"actual_value": 0.45, "true_value": None},
+            }
+
+    with pytest.raises(ValueError, match="no stored true values"):
+        evaluator.get_true_parameters(0, dataset=_Meta())
+
+
+def test_pnp_comparison_is_opt_in(capsys):
+    """PNP's published MSS distance is from a different task and data; print it only
+    when asked (it used to claim an "Improvement" on every run)."""
+    from src.audio_reconstruction_eval import _print_results_table
+
+    metrics = {"mean_mss_distance": 0.07, "std_mss_distance": 0.06}
+    _print_results_table(metrics, num_samples=50)
+    assert "PNP (Han" not in capsys.readouterr().out
+    _print_results_table(metrics, num_samples=50, pnp_comparison=True)
+    assert "Improvement" in capsys.readouterr().out

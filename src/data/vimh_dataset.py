@@ -24,7 +24,11 @@ class VIMHDataset(MultiheadDatasetBase):
     - Label format: [height] [width] [channels] [N] [param1_id] [param1_val] ... [paramN_id] [paramN_val]
     - Image data: Flattened pixel values in CHW format
     - Metadata: JSON file with parameter mappings and dataset information
+    - True values (VIMH 2.2): float32 sidecars named in the metadata ``true_values``
+      entry hold the rendered parameter values; the 8-bit labels are class centers
     """
+
+    LABEL_MODES = ("classification", "regression")
 
     def __init__(
         self,
@@ -34,6 +38,7 @@ class VIMHDataset(MultiheadDatasetBase):
         target_transform: Optional[callable] = None,
         target_width: float = 0.0,
         auxiliary_features: Optional[list] = None,
+        label_mode: str = "classification",
     ):
         """Initialize VIMH dataset.
 
@@ -43,7 +48,15 @@ class VIMHDataset(MultiheadDatasetBase):
         :param target_transform: Optional transform to apply to labels
         :param target_width: Standard deviation for soft targets (0.0 = hard targets)
         :param auxiliary_features: List of auxiliary feature types to extract (e.g., ["decay_time"])
+        :param label_mode: "classification" returns class indices (or soft targets);
+            "regression" returns the stored true parameter values (physical units) and
+            requires a dataset with true values
         """
+        if label_mode not in self.LABEL_MODES:
+            raise ValueError(f"label_mode must be one of {self.LABEL_MODES}, got {label_mode!r}")
+        if label_mode == "regression" and target_width > 0.0:
+            raise ValueError("Soft targets (target_width > 0) apply to classification only")
+        self.label_mode = label_mode
         self.train = train
         self.transform = transform
         self.target_transform = target_transform
@@ -104,6 +117,15 @@ class VIMHDataset(MultiheadDatasetBase):
         # Enrich metadata with num_classes entries derived from min/max/step
         self._ensure_num_classes_in_metadata()
 
+        # Rendered parameter values, one row per sample (None for pre-2.2 datasets)
+        self.true_values: Optional[np.ndarray] = self._load_true_values()
+        if self.label_mode == "regression" and self.true_values is None:
+            raise ValueError(
+                f"Regression needs the true parameter values, but {self.metadata_file} has "
+                f"no 'true_values' entry (dataset predates VIMH 2.2); regenerate it with "
+                f"generate_vimh.py"
+            )
+
         # Spectrogram frame spacing, needed to measure auxiliary features in seconds
         self.frame_hop: Optional[float] = None
         if self.auxiliary_features:
@@ -146,6 +168,67 @@ class VIMHDataset(MultiheadDatasetBase):
                     f"from (max-min)/step+1 = {computed}"
                 )
             info["num_classes"] = computed
+
+    def _class_index(self, param_name: str, code: int) -> int:
+        """Class index of an 8-bit label code, via min/max/step from the metadata."""
+        mapping = self.metadata_format["parameter_mappings"].get(param_name)
+        if mapping is None or not all(k in mapping for k in ("min", "max", "step")):
+            raise ValueError(f"Parameter '{param_name}' missing min/max/step in metadata")
+        pmin = float(mapping["min"])
+        pmax = float(mapping["max"])
+        step = float(mapping["step"])
+        if step <= 0:
+            raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
+        actual = pmin + float(code) / 255.0 * (pmax - pmin)
+        idx = int(round((actual - pmin) / step))
+        num_classes = int(self.heads_config[param_name])
+        if not 0 <= idx < num_classes:
+            raise ValueError(
+                f"Parameter '{param_name}': code {code} maps to class {idx} outside "
+                f"[0, {num_classes - 1}]; metadata min/max/step inconsistent with the data"
+            )
+        return idx
+
+    def _load_true_values(self) -> Optional[np.ndarray]:
+        """Load and validate this split's true-value sidecar, if the dataset has one.
+
+        Each row must lie within half a step of the class its 8-bit label encodes.
+        """
+        spec = self.metadata_format.get("true_values")
+        if spec is None:
+            return None
+        split = "train" if self.train else "test"
+        path = self.data_dir / spec[split]
+        if not path.exists():
+            raise FileNotFoundError(f"True-value file {path} named in {self.metadata_file} is missing")
+        values = np.load(path)
+        columns = list(spec["columns"])
+        if columns != list(self.metadata_format.get("parameter_names", [])):
+            raise ValueError(
+                f"{path}: columns {columns} differ from parameter_names "
+                f"{self.metadata_format.get('parameter_names')}"
+            )
+        if values.shape != (len(self.samples), len(columns)):
+            raise ValueError(
+                f"{path}: shape {values.shape}, expected ({len(self.samples)}, {len(columns)})"
+            )
+        if not np.all(np.isfinite(values)):
+            raise ValueError(f"{path}: non-finite true values")
+
+        mappings = self.metadata_format["parameter_mappings"]
+        for col, name in enumerate(columns):
+            pmin, step = float(mappings[name]["min"]), float(mappings[name]["step"])
+            codes = [sample[1][name] for sample in self.samples]
+            centers = pmin + step * np.array([self._class_index(name, int(c)) for c in codes])
+            # float32 storage: allow a little slack beyond half a step
+            off = np.abs(values[:, col].astype(np.float64) - centers)
+            worst = int(np.argmax(off))
+            if off[worst] > step / 2 * (1 + 1e-4) + 1e-6:
+                raise ValueError(
+                    f"{path}: sample {worst} '{name}' true value {values[worst, col]} is "
+                    f"{off[worst]:.4g} from its class center {centers[worst]:.4g} (step {step})"
+                )
+        return values.astype(np.float32)
 
     def _load_metadata_config(self) -> Dict[str, Any]:
         """Load dataset metadata configuration from JSON file.
@@ -301,12 +384,21 @@ class VIMHDataset(MultiheadDatasetBase):
                         "quantized_value": quantized_value,
                         "normalized_value": normalized_value,
                         "actual_value": actual_value,
+                        # Rendered value (VIMH 2.2); None when the dataset has no true values
+                        "true_value": self._true_value(idx, param_name),
                         "description": mapping_info.get("description", ""),
                         "range": [param_min, param_max],
                         "scale": mapping_info.get("scale", "linear"),
                     }
 
         return metadata
+
+    def _true_value(self, idx: int, param_name: str) -> Optional[float]:
+        """Rendered value of ``param_name`` for sample ``idx`` (None without true values)."""
+        if self.true_values is None:
+            return None
+        col = self.metadata_format["true_values"]["columns"].index(param_name)
+        return float(self.true_values[idx, col])
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, int], Optional[torch.Tensor]]:
         """Get a sample from the dataset.
@@ -327,31 +419,19 @@ class VIMHDataset(MultiheadDatasetBase):
         for param_name, qv in labels.items():
             if param_name not in self.heads_config:
                 raise ValueError(f"Head for parameter '{param_name}' not present in heads_config")
-            mapping = self.metadata_format["parameter_mappings"].get(param_name)
-            if mapping is None or not all(k in mapping for k in ("min", "max", "step")):
-                raise ValueError(f"Parameter '{param_name}' missing min/max/step in metadata")
-            pmin = float(mapping["min"])
-            pmax = float(mapping["max"])
-            step = float(mapping["step"])
-            if step <= 0:
-                raise ValueError(f"Parameter '{param_name}' has non-positive step: {step}")
-
-            # Convert quantized 0..255 to actual, then to class index
             if isinstance(qv, torch.Tensor):
                 qv = int(qv.item())
-            normalized = float(qv) / 255.0
-            actual = pmin + normalized * (pmax - pmin)
-            idx = int(round((actual - pmin) / step))
-            num_classes = int(self.heads_config[param_name])
-            if not 0 <= idx < num_classes:
-                raise ValueError(
-                    f"Parameter '{param_name}': code {qv} maps to class {idx} outside "
-                    f"[0, {num_classes - 1}]; metadata min/max/step inconsistent with the data"
-                )
-            class_labels[param_name] = idx
+            class_labels[param_name] = self._class_index(param_name, qv)
 
-        # Apply soft targets if enabled; otherwise return hard class indices
-        if self.target_width > 0.0:
+        if self.label_mode == "regression":
+            # The rendered values, not the class centers: centers would hide an error
+            # of up to half a step against the sound the network actually heard
+            labels = {
+                name: torch.tensor(self._true_value(idx, name), dtype=torch.float32)
+                for name in class_labels
+            }
+        elif self.target_width > 0.0:
+            # Soft targets
             soft_labels = {}
             for param_name, class_index in class_labels.items():
                 num_classes = int(self.heads_config[param_name])

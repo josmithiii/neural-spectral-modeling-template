@@ -11,12 +11,12 @@ Variable Image MultiHead (VIMH) is the dataset format used throughout NSMT. It p
 ## Binary Layout per Sample
 
 ```
-[height:uint16][width:uint16][channels:uint16]
+[height:uint16][width:uint16][channels:uint16][spec_min:float32][spec_max:float32]
 [N:uint8][param_0_id:uint8][param_0_val:uint8] ... [param_N-1_id][param_N-1_val]
 [pixel_data:uint8^(height*width*channels)]
 ```
 
-Parameter IDs map into `parameter_mappings` inside the JSON file, which also provides the value range and quantization step. De/quantization follows:
+Parameter IDs map into `parameter_mappings` inside the JSON file, which also provides the value range and quantization step. Each `param_val` is the 8-bit code of the sample's **class center** `min + k*step`, so class labels are exact. De/quantization follows:
 
 ```python
 normalized = (actual - param_min) / (param_max - param_min)
@@ -30,23 +30,35 @@ actual = param_min + (quantized / 255.0) * (param_max - param_min)
 data/vimh-32x32x1_8000Hz_1p0s_256dss_saw_wah_2p/
 ├── train/                     # Binary training data
 ├── test/                      # Binary test data
+├── train_true_values.npy      # float32 [n_train, N]: rendered parameter values (VIMH 2.2)
+├── test_true_values.npy       # float32 [n_test, N]
 ├── train_batch                # Optional pickle cache
 ├── test_batch                 # Optional pickle cache
 └── vimh_dataset_info.json     # Metadata
 ```
+
+### Sampling and true values (VIMH 2.2)
+
+`generate_vimh.py` draws each varying parameter's class from a stratified sequence (class counts within each split differ by at most one), then jitters the rendered value uniformly within that class's bin (reflected at the range ends). The binary stores the class center; the rendered value goes to the `*_true_values.npy` sidecars named in the JSON `true_values` entry.
+
+- **Classification** trains on the exact class index.
+- **Regression** (`data.label_mode=regression`) trains on the true values; datasets without the sidecars (pre-2.2) are rejected.
+- **Audio evaluation** resynthesizes the reference sound from the true values, so it is the sound behind the input spectrogram.
+- Without jitter, a deterministic synth renders one image per grid point and the test split duplicates training images. Generation now fails if any test image is byte-identical to a training image.
 
 `vimh_dataset_info.json` fields you should pay attention to:
 
 - `height`, `width`, `channels`: Input tensor shape (C,H,W after torch conversion).
 - `parameter_names`: Ordered list matching the varying heads.
 - `parameter_mappings`: Dict describing `min`, `max`, `step`, optional `num_classes`, and textual notes.
+- `true_values`: Sidecar file names per split, dtype, and column order (= `parameter_names`).
 - `audio_settings`: STFT/mel configuration used during synthesis (present for generated datasets).
 
 ## Tooling
 
 - Generate datasets: `make gds` (256-sample wah) and `make gdl` (16K-sample wah).
 - Inspect metadata: `make vdr` (latest), `make vds` (small wah), `make vdl` (large wah).
-- Analyze parameter coverage: `make vpr|vps|vpl` – emits stats, ranges, and chi-square uniformity heuristics.
+- Analyze parameter coverage: `make vpr|vps|vpl` – per-class label counts (one bin per step), a chi-square uniformity p-value, and the true-value range and offset from class centers.
 - Visualize samples: `make ddr|dds|ddl` – renders spectrogram grids for quick sanity checks.
 
 `vimhd.py` powers the `vd*` and `vp*` targets. Run it directly to point at custom paths:

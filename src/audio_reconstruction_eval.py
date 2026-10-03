@@ -534,24 +534,25 @@ class AudioReconstructionEvaluator:
         if sample_idx < 3:
             print(f"🔍 Sample {sample_idx} metadata keys: {list(sample_metadata.keys())}")
             for key, value in sample_metadata.items():
-                if isinstance(value, dict) and "actual_value" in value:
-                    print(f"   {key}: actual_value = {value['actual_value']}")
+                if isinstance(value, dict) and "true_value" in value:
+                    print(f"   {key}: true_value = {value['true_value']}")
 
-        # Extract actual parameter values
+        # The rendered parameter values, so the reference audio is the sound behind the
+        # input spectrogram (class centers can be up to half a step away from it)
         true_params = {}
         for param_name in self.param_names + self.auxiliary_params:
             param_info_key = f"{param_name}_info"
-            if param_info_key in sample_metadata:
-                # The 8-bit label code encodes the class; snap its dequantized value to
-                # the class center (e.g. -0.50039 -> -0.5), the value predictions use
-                actual_value = sample_metadata[param_info_key]["actual_value"]
-                mapping = self.param_mappings[param_name]
-                pmin, step = float(mapping["min"]), float(mapping["step"])
-                true_params[param_name] = pmin + round((actual_value - pmin) / step) * step
-            else:
+            if param_info_key not in sample_metadata:
                 raise ValueError(
                     f"Could not find true value for parameter {param_name} in sample metadata"
                 )
+            true_value = sample_metadata[param_info_key]["true_value"]
+            if true_value is None:
+                raise ValueError(
+                    f"Dataset has no stored true values (predates VIMH 2.2), so the input "
+                    f"sound cannot be resynthesized; regenerate it with generate_vimh.py"
+                )
+            true_params[param_name] = true_value
 
         return true_params
 
@@ -2175,6 +2176,7 @@ def _run_evaluation(
     interactive = cfg.get("interactive", False)
     save_audio = cfg.get("save_audio", False)
     output_dir = cfg.get("output_dir", "audio_eval_results")
+    pnp_comparison = bool(cfg.pnp_comparison)
 
     if interactive:
         log.info("Launching interactive evaluator...")
@@ -2182,11 +2184,17 @@ def _run_evaluation(
         plt.show()
         return {"message": "Interactive evaluation launched"}, None
     else:
-        return _run_batch_evaluation(evaluator, num_samples, save_audio, output_dir)
+        return _run_batch_evaluation(
+            evaluator, num_samples, save_audio, output_dir, pnp_comparison
+        )
 
 
 def _run_batch_evaluation(
-    evaluator: AudioReconstructionEvaluator, num_samples: int, save_audio: bool, output_dir: str
+    evaluator: AudioReconstructionEvaluator,
+    num_samples: int,
+    save_audio: bool,
+    output_dir: str,
+    pnp_comparison: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[None]]:
     """Run batch evaluation on multiple samples."""
     log.info(f"Evaluating {num_samples} samples...")
@@ -2207,7 +2215,7 @@ def _run_batch_evaluation(
         log.info(f"  {metric}: {value:.6f}")
 
     # Print publication-ready results table
-    _print_results_table(aggregate_metrics, len(results))
+    _print_results_table(aggregate_metrics, len(results), pnp_comparison)
 
     return {
         "individual_results": results,
@@ -2242,12 +2250,17 @@ def _compute_aggregate_metrics(results: List[Dict[str, Any]]) -> Dict[str, float
     return aggregate_metrics
 
 
-def _print_results_table(aggregate_metrics: Dict[str, float], num_samples: int) -> None:
-    """Print publication-ready results table comparing to PNP baseline.
+def _print_results_table(
+    aggregate_metrics: Dict[str, float], num_samples: int, pnp_comparison: bool = False
+) -> None:
+    """Print publication-ready results table, optionally next to the PNP paper's figure.
 
     Args:
         aggregate_metrics: Dictionary with mean_ and std_ prefixed metrics
         num_samples: Number of samples evaluated
+        pnp_comparison: Also print PNP's published MSS distance and the "improvement"
+            over it. Only meaningful when evaluating on PNP's task and data; the number
+            is the paper's, not measured here.
     """
     print("\n" + "="*80)
     print("📊 PUBLICATION-READY RESULTS TABLE (PNP Format)")
@@ -2303,8 +2316,12 @@ def _print_results_table(aggregate_metrics: Dict[str, float], num_samples: int) 
     if latex_parts:
         print("NSMT (this work) & " + " & ".join(latex_parts) + " \\\\")
 
+    if not pnp_comparison:
+        print("="*80 + "\n")
+        return
+
     print("\n" + "="*80)
-    print("📋 Comparison with PNP baseline (from paper):")
+    print("📋 Comparison with PNP baseline (from paper; meaningful only on PNP's task and data):")
     print("="*80)
     print("Method                   MSS Distance")
     print("-" * 40)

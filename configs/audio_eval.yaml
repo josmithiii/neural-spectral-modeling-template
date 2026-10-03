@@ -26,6 +26,10 @@ output_dir: "audio_eval_results" # Output directory for audio files
 # Audio playback (works in Jupyter notebooks)
 enable_playback: true
 
+# Print PNP's published MSS distance (Han et al. 2024) and the "improvement" over it.
+# Only meaningful when evaluating on PNP's task and data; off by default.
+pnp_comparison: false
+
 # Metrics configuration
 compute_spectral_metrics: true
 compute_perceptual_metrics: true

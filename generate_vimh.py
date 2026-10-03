@@ -4,6 +4,7 @@ Clean SimpleSawSynth dataset generation for VIMH format.
 This is a rewrite for the current template-based project structure.
 """
 import argparse
+import hashlib
 import json
 import logging
 import math
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 TRAIN_TEST_SPLIT = 0.8
+TRUE_VALUES_FILES = {"train": "train_true_values.npy", "test": "test_true_values.npy"}
 
 
 def get_default_channel_labels(channels: int) -> List[str]:
@@ -341,22 +343,74 @@ def validate_parameter_grid(params_config: Dict[str, Dict[str, Any]]) -> None:
             )
 
 
-class ParameterGenerator:
-    """Handles parameter generation and validation."""
+def split_sizes(dataset_size: int) -> Tuple[int, int]:
+    """(train, test) sample counts; save_vimh_dataset splits at the same index."""
+    n_train = int(TRAIN_TEST_SPLIT * dataset_size)
+    return n_train, dataset_size - n_train
 
-    def __init__(self, params_config: Dict[str, Dict[str, Any]]):
+
+def balanced_class_sequence(n: int, num_classes: int) -> np.ndarray:
+    """Shuffled sequence of n class indices whose class counts differ by at most one.
+
+    i.i.d. draws are balanced only in expectation (seed 42 gave wah_position train
+    counts 593..755, chi-square p = 0.0015); stratifying makes them balanced exactly.
+    """
+    counts = np.full(num_classes, n // num_classes, dtype=int)
+    counts[np.random.choice(num_classes, n % num_classes, replace=False)] += 1
+    seq = np.repeat(np.arange(num_classes), counts)
+    np.random.shuffle(seq)
+    return seq
+
+
+class ParameterGenerator:
+    """Draws per-sample synth parameters with class-balanced labels.
+
+    Each varying parameter gets a stratified class sequence per split (train, then
+    test), so every split has class counts that differ by at most one. Each sample's
+    value is jittered uniformly within its class bin.
+    """
+
+    def __init__(self, params_config: Dict[str, Dict[str, Any]], split_sizes: List[int]):
+        """:param split_sizes: samples per split in generation order, e.g. [n_train, n_test]."""
         self.params_config = params_config
         self.varying_params = []
         self.fixed_params = {}  # For synthesizer-level fixed parameters
+        self.num_samples = int(sum(split_sizes))
+        self._next_sample = 0
+        self._class_sequences: Dict[str, np.ndarray] = {}
 
         for param_name, param_info in params_config.items():
             if param_info["min_value"] != param_info["max_value"]:
                 self.varying_params.append(param_name)
+                n_steps = self._n_steps(param_info)
+                self._class_sequences[param_name] = np.concatenate(
+                    [balanced_class_sequence(int(n), n_steps + 1) for n in split_sizes]
+                )
 
-    def generate_random_parameters(self, duration: float) -> Tuple[Dict[str, float], List[float]]:
-        """Generate random parameters and normalized label vector."""
+    @staticmethod
+    def _n_steps(param_info: Dict[str, Any]) -> int:
+        span = float(param_info["max_value"]) - float(param_info["min_value"])
+        return int(round(span / float(param_info["step"])))
+
+    def generate_random_parameters(
+        self, duration: float
+    ) -> Tuple[Dict[str, float], List[float], List[float]]:
+        """Parameters for the next sample.
+
+        :return: (synth params, normalized class-center labels in [0, 1], true values)
+            where the labels and true values follow ``varying_params`` order. The true
+            values are what the synth renders; the labels are their class centers.
+        """
+        if self._next_sample >= self.num_samples:
+            raise RuntimeError(
+                f"ParameterGenerator exhausted: all {self.num_samples} planned samples drawn"
+            )
+        sample = self._next_sample
+        self._next_sample += 1
+
         params = {"duration": duration}
         label_vector = []
+        true_vector = []
 
         # Add fixed parameters from synthesizer config
         params.update(self.fixed_params)
@@ -369,24 +423,26 @@ class ParameterGenerator:
                 params[param_name] = min_val
                 continue
 
-            # Pick class k uniformly (balanced classes), then jitter the value uniformly
+            # Class k comes from the stratified sequence; the value is jittered uniformly
             # within its bin, min + (k + u)*step with u in [-1/2, 1/2), reflecting at the
-            # range ends so it stays in bin k and inside [min, max]. The label is the
-            # class k itself, exact through the 8-bit code. Plain grid values made the
-            # deterministic synth produce only one spectrogram per grid point, so test
-            # images duplicated training images; plain continuous sampling half-populated
-            # the end classes and mislabeled 2-8% of samples.
-            n_steps = int(round((max_val - min_val) / float(param_info["step"])))
-            k = np.random.randint(0, n_steps + 1)
+            # range ends so it stays in bin k and inside [min, max]. The label is the class
+            # center (exact through the 8-bit code); the true value is stored separately
+            # (see save_vimh_dataset). Plain grid values made the deterministic synth
+            # produce one spectrogram per grid point, so test images duplicated training
+            # images; plain continuous 8-bit labels mislabeled 2-8% of samples.
+            n_steps = self._n_steps(param_info)
+            k = int(self._class_sequences[param_name][sample])
             offset = k + np.random.uniform(-0.5, 0.5)
             if offset < 0.0:
                 offset = -offset
             elif offset > n_steps:
                 offset = 2 * n_steps - offset
-            params[param_name] = min_val + offset * (max_val - min_val) / n_steps
+            value = min_val + offset * (max_val - min_val) / n_steps
+            params[param_name] = value
             label_vector.append(k / n_steps)  # normalized class center in [0, 1]
+            true_vector.append(value)
 
-        return params, label_vector
+        return params, label_vector, true_vector
 
 
 def generate_sample_batch(
@@ -401,22 +457,26 @@ def generate_sample_batch(
     add_spectral_envelope: bool = False,
     normalize: bool = False,
     eps: float = 1e-10,
-) -> Tuple[List[np.ndarray], List[np.ndarray], List[Tuple[float, float]]]:
+) -> Tuple[List[np.ndarray], List[np.ndarray], List[Tuple[float, float]], List[np.ndarray]]:
     """Generate a batch of spectrograms with scale factors.
 
     Returns:
         spectrograms: List of normalized spectrograms
-        labels: List of parameter label vectors
+        labels: List of parameter label vectors (normalized class centers)
         scale_factors: List of (spec_min, spec_max) tuples for each spectrogram
+        true_values: List of rendered parameter values (physical units)
     """
     spectrograms = []
     labels = []
     scale_factors = []
+    true_values = []
 
     for _ in range(batch_size):
         try:
             # Generate parameters
-            params, label_vector = param_generator.generate_random_parameters(duration)
+            params, label_vector, true_vector = param_generator.generate_random_parameters(
+                duration
+            )
 
             # Generate audio
             audio = synth.generate_audio(params)
@@ -460,18 +520,49 @@ def generate_sample_batch(
             spectrograms.append(final_spectrogram)
             labels.append(np.array(label_vector))
             scale_factors.append((spec_min, spec_max))
+            true_values.append(np.array(true_vector))
 
         except Exception as e:
             logger.error(f"Error generating sample: {e}")
             raise
 
-    return spectrograms, labels, scale_factors
+    return spectrograms, labels, scale_factors, true_values
+
+
+def check_split_leakage(train_images: List[bytes], test_images: List[bytes]) -> None:
+    """Fail if any test image is byte-identical to a training image.
+
+    A deterministic synth rendering the same parameters twice gives the same image;
+    plain grid sampling (1fa955f) put a copy of every test image in the training set,
+    so test accuracy measured memorization. Duplicates within a split do not leak and
+    only get a warning.
+    """
+    train_hashes = [hashlib.md5(img).hexdigest() for img in train_images]
+    test_hashes = [hashlib.md5(img).hexdigest() for img in test_images]
+    train_set = set(train_hashes)
+    leaked = sum(h in train_set for h in test_hashes)
+    if leaked:
+        raise ValueError(
+            f"{leaked}/{len(test_hashes)} test images are identical to a training image "
+            f"({len(train_set)} unique images in {len(train_hashes)} training samples); "
+            f"the test split would measure memorization"
+        )
+    for split, hashes in (("train", train_hashes), ("test", test_hashes)):
+        n_dup = len(hashes) - len(set(hashes))
+        if n_dup:
+            logger.warning(
+                f"*** {n_dup}/{len(hashes)} {split} images duplicate another {split} image"
+            )
+    logger.info(
+        f"Leakage check passed: {len(train_set)} unique train images, 0 test images in train"
+    )
 
 
 def save_vimh_dataset(
     all_spectrograms: List[np.ndarray],
     all_labels: List[np.ndarray],
     all_scale_factors: List[Tuple[float, float]],
+    all_true_values: List[np.ndarray],
     param_names: List[str],
     params_config: Dict[str, Dict[str, Any]],
     dataset_name: str,
@@ -489,8 +580,18 @@ def save_vimh_dataset(
     pickle_format: bool = False,
     channel_labels: Optional[List[str]] = None,
 ) -> None:
-    """Save dataset in VIMH format."""
+    """Save dataset in VIMH format.
+
+    Labels in the binary are the 8-bit class-center codes. The rendered (jittered)
+    parameter values go to float32 sidecars ``TRUE_VALUES_FILES``, one row per sample
+    in file order and one column per ``param_names`` entry; regression trains on them
+    and audio evaluation resynthesizes the true sound from them.
+    """
     logger.info("🎯 Saving dataset in VIMH format")
+    if len(all_true_values) != len(all_spectrograms):
+        raise ValueError(
+            f"{len(all_true_values)} true-value rows for {len(all_spectrograms)} samples"
+        )
 
     # Set up channel labels (use defaults if not provided)
     if channel_labels is None:
@@ -508,6 +609,7 @@ def save_vimh_dataset(
 
     # Create VIMH binary data
     vimh_data = []
+    image_bytes = []
 
     for i, (spectrogram, label_vector, scale_factors) in enumerate(
         zip(all_spectrograms, all_labels, all_scale_factors)
@@ -544,11 +646,17 @@ def save_vimh_dataset(
         # Combine all data for this sample (now includes scale factors)
         sample_data = metadata + scale_data + label_data + image_data
         vimh_data.append(sample_data)
+        image_bytes.append(image_data)
 
     # Split into train/test
-    split_idx = int(TRAIN_TEST_SPLIT * len(vimh_data))
+    split_idx = split_sizes(len(vimh_data))[0]
     train_data = vimh_data[:split_idx]
     test_data = vimh_data[split_idx:]
+    check_split_leakage(image_bytes[:split_idx], image_bytes[split_idx:])
+
+    true_values = np.asarray(all_true_values, dtype=np.float32).reshape(
+        len(all_true_values), len(param_names)
+    )
 
     # Save binary files
     os.makedirs(output_dir, exist_ok=True)
@@ -565,6 +673,10 @@ def save_vimh_dataset(
 
     logger.info(f"Saved {len(train_data)} training samples to {train_path}")
     logger.info(f"Saved {len(test_data)} test samples to {test_path}")
+
+    np.save(os.path.join(output_dir, TRUE_VALUES_FILES["train"]), true_values[:split_idx])
+    np.save(os.path.join(output_dir, TRUE_VALUES_FILES["test"]), true_values[split_idx:])
+    logger.info(f"Saved true parameter values to {list(TRUE_VALUES_FILES.values())}")
 
     # Save pickle format only if requested; otherwise remove pickles from an earlier
     # generation, which the loader would reject as stale next to the new binary files
@@ -679,7 +791,7 @@ def save_vimh_dataset(
     # Create VIMH dataset info
     vimh_info = {
         "format": "VIMH",
-        "version": "2.1",
+        "version": "2.2",
         "dataset_name": dataset_name,
         "output_format": "both" if pickle_format else "binary",
         "height": height,
@@ -724,6 +836,14 @@ def save_vimh_dataset(
             "N_range": [0, QUANTIZATION_LEVELS],
             "param_id_range": [0, QUANTIZATION_LEVELS],
             "param_val_range": [0, QUANTIZATION_LEVELS],
+            "param_val": "class center code: round(k / (num_classes - 1) * 255)",
+        },
+        "true_values": {
+            **TRUE_VALUES_FILES,
+            "dtype": "float32",
+            "columns": list(param_names),
+            "description": "rendered parameter values (physical units), one row per sample "
+            "in file order; each lies within half a step of its class center",
         },
     }
 
@@ -858,7 +978,9 @@ def main(cfg: DictConfig) -> None:
         mel_config = cfg.mel
 
         # Create parameter generator
-        param_generator = ParameterGenerator(cfg.synthesizer.parameters)
+        param_generator = ParameterGenerator(
+            cfg.synthesizer.parameters, split_sizes=list(split_sizes(dataset_size))
+        )
 
         # Add fixed synthesizer-level parameters if they exist
         if hasattr(cfg.synthesizer, "filter_type"):
@@ -920,6 +1042,7 @@ def main(cfg: DictConfig) -> None:
         all_spectrograms = []
         all_labels = []
         all_scale_factors = []
+        all_true_values = []
 
         logger.info(f"Generating {num_batches} batches...")
 
@@ -927,7 +1050,7 @@ def main(cfg: DictConfig) -> None:
             current_batch_size = min(batch_size, dataset_size - batch_idx * batch_size)
 
             # Random parameter generation
-            spectrograms, labels, scale_factors = generate_sample_batch(
+            spectrograms, labels, scale_factors, true_values = generate_sample_batch(
                 synth,
                 param_generator,
                 spectrogram_processor,
@@ -943,6 +1066,7 @@ def main(cfg: DictConfig) -> None:
             all_spectrograms.extend(spectrograms)
             all_labels.extend(labels)
             all_scale_factors.extend(scale_factors)
+            all_true_values.extend(true_values)
 
             if (batch_idx + 1) % 100 == 0:
                 logger.info(f"Completed batch {batch_idx + 1}/{num_batches}")
@@ -958,6 +1082,7 @@ def main(cfg: DictConfig) -> None:
             all_spectrograms = [all_spectrograms[i] for i in indices]
             all_labels = [all_labels[i] for i in indices]
             all_scale_factors = [all_scale_factors[i] for i in indices]
+            all_true_values = [all_true_values[i] for i in indices]
 
             logger.info(f"Shuffled {len(indices)} samples")
 
@@ -980,6 +1105,7 @@ def main(cfg: DictConfig) -> None:
             all_spectrograms,
             all_labels,
             all_scale_factors,
+            all_true_values,
             varying_params,
             params_config,
             dataset_name,

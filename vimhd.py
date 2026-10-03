@@ -18,7 +18,7 @@ import json
 import struct
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -143,53 +143,64 @@ def extract_parameter_values(
     return param_values, param_names
 
 
+def class_counts(values: np.ndarray, pmin: float, step: float, num_classes: int) -> np.ndarray:
+    """Samples per class, one bin per step (labels are class centers pmin + k*step).
+
+    Fixed-width histograms over [min, max] alias against the class grid: with 14 or 19
+    classes in 10 bins, each bin holds one or two classes, so flat class counts print
+    as a comb.
+    """
+    k = np.rint((np.asarray(values, dtype=np.float64) - pmin) / step).astype(int)
+    if k.size and (k.min() < 0 or k.max() >= num_classes):
+        raise ValueError(f"class indices {k.min()}..{k.max()} outside [0, {num_classes - 1}]")
+    return np.bincount(k, minlength=num_classes)
+
+
 def analyze_parameter_distributions(
-    param_values: List[List[float]], param_names: List[str], param_mappings: Dict[str, Any]
+    param_values: List[List[float]],
+    param_names: List[str],
+    param_mappings: Dict[str, Any],
+    true_values: Optional[np.ndarray] = None,
 ) -> None:
-    """Analyze and print parameter distribution statistics."""
+    """Print per-class label counts (with a chi-square uniformity test) for each parameter.
+
+    :param true_values: Optional rendered values (VIMH 2.2 sidecar), one column per
+        parameter; their range and offset from the class centers are reported too.
+    """
+    from scipy.stats import chisquare
+
     if not param_values or not param_names:
         print("No parameter values to analyze")
         return
 
-    print("Parameter Distribution Analysis:")
+    print("Parameter Distribution Analysis (labels are class centers):")
     print("=" * 50)
 
-    # Convert to numpy array for easier analysis
     param_array = np.array(param_values)
 
     for i, param_name in enumerate(param_names):
-        if i >= param_array.shape[1]:
-            continue
-
         values = param_array[:, i]
-        param_info = param_mappings.get(param_name, {})
-        min_expected = param_info.get("min", 0.0)
-        max_expected = param_info.get("max", 1.0)
+        info = param_mappings[param_name]
+        pmin, pmax, step = float(info["min"]), float(info["max"]), float(info["step"])
+        num_classes = int(round((pmax - pmin) / step)) + 1
+        counts = class_counts(values, pmin, step, num_classes)
 
-        print(f"\n{param_name}:")
-        print(f"  Expected range: [{min_expected:.3f}, {max_expected:.3f}]")
-        print(f"  Actual range:   [{values.min():.3f}, {values.max():.3f}]")
-        print(f"  Mean: {values.mean():.3f}")
-        print(f"  Std:  {values.std():.3f}")
-        print(f"  Median: {np.median(values):.3f}")
-
-        # Check for uniform distribution by looking at histogram
-        hist, bin_edges = np.histogram(values, bins=10)
-        expected_per_bin = len(values) / 10
-
-        # Chi-square-like test for uniformity (simplified)
-        chi_stat = np.sum((hist - expected_per_bin) ** 2 / expected_per_bin)
-        print(f"  Uniformity test (chi-square like): {chi_stat:.2f}")
-        print(f"    (Lower values indicate more uniform distribution)")
-
-        # Show histogram bins
-        print("  Histogram (10 bins):")
-        for j, (count, left_edge, right_edge) in enumerate(
-            zip(hist, bin_edges[:-1], bin_edges[1:])
-        ):
-            bar_width = int(count * 40 / max(hist))  # Scale to 40 chars max
-            bar = "█" * bar_width
-            print(f"    [{left_edge:.3f}-{right_edge:.3f}]: {count:3d} {bar}")
+        print(f"\n{param_name}: {num_classes} classes, range [{pmin:.4g}, {pmax:.4g}], step {step:.4g}")
+        print(f"  Samples per class: min {counts.min()}, max {counts.max()}, "
+              f"expected {len(values) / num_classes:.1f}")
+        if len(values) >= 5 * num_classes:
+            print(f"  Chi-square uniformity p = {chisquare(counts).pvalue:.3g} "
+                  f"(small p: classes not uniform)")
+        if true_values is not None:
+            tv = true_values[:, i].astype(np.float64)
+            centers = pmin + step * np.rint((values - pmin) / step)
+            print(f"  True values: [{tv.min():.4g}, {tv.max():.4g}], "
+                  f"max |true - center| = {np.abs(tv - centers).max() / step:.3f} step")
+        print("  Class histogram:")
+        peak = max(int(counts.max()), 1)
+        for k, count in enumerate(counts):
+            bar = "█" * int(count * 40 / peak)
+            print(f"    {pmin + k * step:>9.4g}: {count:5d} {bar}")
 
 
 def print_dataset_metadata(metadata: Dict[str, Any], dataset_path: Path) -> None:
@@ -357,15 +368,15 @@ def main():
                     binary_file = dataset_path / split
                     if binary_file.exists():
                         print(f"\n{split.upper()} SET:")
-                        try:
-                            param_values, _ = extract_parameter_values(
-                                binary_file, param_names, param_mappings
-                            )
-                            analyze_parameter_distributions(
-                                param_values, param_names, param_mappings
-                            )
-                        except Exception as e:
-                            print(f"Error analyzing {split} parameters: {e}")
+                        param_values, _ = extract_parameter_values(
+                            binary_file, param_names, param_mappings
+                        )
+                        true_values = None
+                        if "true_values" in metadata:
+                            true_values = np.load(dataset_path / metadata["true_values"][split])
+                        analyze_parameter_distributions(
+                            param_values, param_names, param_mappings, true_values
+                        )
                     else:
                         print(f"\n{split.upper()} SET: file not found")
 

@@ -145,34 +145,6 @@ class VIMHDataModule(LightningDataModule):
         )  # Parameter (min, max) for regression
         self.image_shape: Tuple[int, int, int] = (3, 32, 32)  # Default, will be updated
 
-    def _build_regression_target_transform(self):
-        """Create a target transform that converts class indices to actual parameter values.
-
-        Uses heads_config and parameter_bounds loaded in setup().
-        """
-        heads_config = self.heads_config
-        param_bounds = self.parameter_bounds
-
-        def to_actual(labels: Dict[str, Any]) -> Dict[str, torch.Tensor]:
-            out: Dict[str, torch.Tensor] = {}
-            for name, idx in labels.items():
-                # Convert index to float tensor
-                if isinstance(idx, torch.Tensor):
-                    idx_t = idx.to(torch.float32)
-                else:
-                    idx_t = torch.tensor(idx, dtype=torch.float32)
-
-                if name not in heads_config or name not in param_bounds:
-                    raise KeyError(f"No class count / bounds in dataset metadata for '{name}'")
-                num_classes = float(heads_config[name])
-                if num_classes < 2:
-                    raise ValueError(f"Parameter '{name}' has {num_classes} class(es); need >= 2")
-                pmin, pmax = param_bounds[name]
-                out[name] = pmin + idx_t * (pmax - pmin) / (num_classes - 1.0)
-            return out
-
-        return to_actual
-
     def _parse_image_dims_from_path(self, data_dir: str) -> Optional[Tuple[int, int, int]]:
         """Extract image dimensions from dataset directory name.
 
@@ -594,10 +566,8 @@ class VIMHDataModule(LightningDataModule):
                 # Load parameter bounds for regression mode
                 self.parameter_bounds = self._load_parameter_bounds(self.hparams.data_dir)
 
-                # Optionally map labels to continuous values for regression
-                target_transform = None
-                if getattr(self.hparams, "label_mode", "classification").lower() == "regression":
-                    target_transform = self._build_regression_target_transform()
+                # Regression targets are the stored true (rendered) parameter values
+                label_mode = str(self.hparams.label_mode).lower()
 
                 # Now load datasets with correctly adjusted transforms.
                 # data_train and data_val both wrap the training file (data_val with
@@ -608,7 +578,7 @@ class VIMHDataModule(LightningDataModule):
                     self.hparams.data_dir,
                     train=True,
                     transform=self.train_transform,
-                    target_transform=target_transform,
+                    label_mode=label_mode,
                     target_width=self.hparams.target_width,
                     auxiliary_features=self.hparams.auxiliary_features,
                 )
@@ -617,7 +587,7 @@ class VIMHDataModule(LightningDataModule):
                     self.hparams.data_dir,
                     train=True,
                     transform=self.val_transform,
-                    target_transform=target_transform,
+                    label_mode=label_mode,
                     target_width=self.hparams.target_width,
                     auxiliary_features=self.hparams.auxiliary_features,
                 )
@@ -626,7 +596,7 @@ class VIMHDataModule(LightningDataModule):
                     self.hparams.data_dir,
                     train=False,
                     transform=self.test_transform,
-                    target_transform=target_transform,
+                    label_mode=label_mode,
                     target_width=self.hparams.target_width,
                     auxiliary_features=self.hparams.auxiliary_features,
                 )

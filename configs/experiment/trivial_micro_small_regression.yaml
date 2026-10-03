@@ -32,9 +32,13 @@ tags: ["trivial", "micro", "small_data", "regression"]
 
 seed: 12345
 
+# Long enough to show learning (early stopping ends it at convergence, ~5 s on MPS).
+# Predicting the mean scores val/mae_best ~0.25 (range-normalized); a working
+# regression pipeline reaches ~0.02-0.03. At 5 epochs it could not be told apart
+# from the mean (0.26 in the 2026-10-02 baselines).
 trainer:
   min_epochs: 3
-  max_epochs: 5
+  max_epochs: 50
 
 model:
   optimizer:
