@@ -150,9 +150,11 @@ def test_auto_configured_normalized_regression_gets_dataset_bounds():
         assert crit.param_max == pmax
         assert crit.param_range == pmax - pmin
     assert module.param_bounds == bounds
-    # JND weights: wah_position spans 18 steps, log10_decay_time 13
-    assert module.loss_weights["wah_position"] == pytest.approx(1.0)
-    assert module.loss_weights["log10_decay_time"] == pytest.approx(13 / 18)
+    # Each criterion knows its JND step count (dataset class counts)...
+    assert module.criteria["wah_position"].num_classes == 19
+    assert module.criteria["log10_decay_time"].num_classes == 14
+    # ...so regression losses are in JND steps and head weights are uniform
+    assert module.loss_weights == {"wah_position": 1.0, "log10_decay_time": 1.0}
 
 
 def test_auto_configuration_runs_once_and_keeps_trained_heads():
@@ -228,7 +230,7 @@ def test_model_step_rejects_wrong_label_space_and_missing_heads():
     module = _regression_module(
         {"a": 10, "b": 10},
         {"a": (0.0, 0.9), "b": (0.0, 0.9)},
-        criteria={h: NormalizedRegressionLoss(param_range=(0.0, 0.9)) for h in "ab"},
+        criteria={h: NormalizedRegressionLoss(param_range=(0.0, 0.9), num_classes=10) for h in "ab"},
     )
     module.net = net
     x = torch.rand(4, 1, 32, 32)

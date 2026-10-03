@@ -140,9 +140,17 @@ class TestDistanceLoss:
         y = torch.tensor([1.5, 2.5, 3.5])
 
         distance = loss.dist(x, y)
-        expected = torch.norm(x - y, p=2.0)  # L2 norm
+        expected = torch.sqrt(((x - y) ** 2).mean())  # RMS (per-element p-mean, p=2)
 
         assert torch.allclose(distance, expected)
+
+    def test_distance_loss_invariant_to_repetition(self):
+        """Repeating the same data (larger batch) must not change the distance, for any p."""
+        x = torch.tensor([1.0, 2.0, 3.0])
+        y = torch.tensor([1.5, 2.0, 4.0])
+        for p in (1.0, 2.0, 3.0):
+            loss = DistanceLoss(p=p)
+            assert torch.allclose(loss.dist(x, y), loss.dist(x.repeat(4), y.repeat(4)))
 
     def test_distance_loss_forward_no_ops(self):
         """Test forward pass with no operations defined."""

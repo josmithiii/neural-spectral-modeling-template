@@ -93,19 +93,17 @@ class TestRegressionNetworkArchitecture:
 
 
 class TestNormalizedRegressionLoss:
-    """Test the NormalizedRegressionLoss function."""
+    """Test the NormalizedRegressionLoss function (loss in JND-step units)."""
 
     def test_normalized_regression_loss_initialization(self):
         """Test that NormalizedRegressionLoss initializes correctly."""
-        loss_fn = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0), loss_type="l1", return_perceptual_units=True
-        )
+        loss_fn = NormalizedRegressionLoss(param_range=(50.0, 52.0), num_classes=21, loss_type="l1")
 
         assert loss_fn.param_min == 50.0
         assert loss_fn.param_max == 52.0
         assert loss_fn.param_range == 2.0
         assert loss_fn.loss_type == "l1"
-        assert loss_fn.return_perceptual_units is True
+        assert loss_fn.num_classes == 21
 
     def test_normalized_regression_loss_invalid_range(self):
         """Test that invalid parameter ranges raise errors."""
@@ -116,11 +114,9 @@ class TestNormalizedRegressionLoss:
     def test_normalized_regression_loss_types(self, loss_type):
         """Test different loss types work correctly."""
         loss_fn = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0), loss_type=loss_type, return_perceptual_units=True
+            param_range=(50.0, 52.0), num_classes=21, loss_type=loss_type
         )
 
-        # Test data
-        batch_size = 4
         preds = torch.tensor([[0.5], [0.3], [0.7], [0.9]])
         targets = torch.tensor([51.0, 50.6, 51.4, 51.8])
 
@@ -130,34 +126,31 @@ class TestNormalizedRegressionLoss:
         assert loss.item() >= 0
 
     def test_normalized_regression_loss_unknown_type(self):
-        """Test that unknown loss types raise errors."""
-        loss_fn = NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="unknown")
-
-        preds = torch.tensor([[0.5]])
-        targets = torch.tensor([51.0])
-
+        """Unknown loss types are rejected at construction."""
         with pytest.raises(ValueError, match="Unknown loss type"):
-            loss_fn(preds, targets)
+            NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="unknown")
 
-    def test_normalized_regression_loss_perceptual_units(self):
-        """Test that perceptual units scaling works correctly."""
-        loss_fn_perceptual = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0), loss_type="l1", return_perceptual_units=True
-        )
+    @pytest.mark.parametrize("loss_type, expected", [("l1", 1.0), ("mse", 1.0), ("huber", 0.5)])
+    def test_one_step_miss_costs_one_step_on_any_head(self, loss_type, expected):
+        """A one-JND-step error costs the same whatever the parameter's units or range."""
+        for param_range, num_classes in [((50.0, 52.0), 21), ((-2.0, 0.3), 24), ((0.0, 80.0), 9)]:
+            loss_fn = NormalizedRegressionLoss(
+                param_range=param_range, num_classes=num_classes, loss_type=loss_type
+            )
+            step = (param_range[1] - param_range[0]) / (num_classes - 1)
+            target = torch.tensor([param_range[0] + 3 * step])
+            pred = torch.tensor([[4.0 / (num_classes - 1)]])  # one step above the target
+            assert loss_fn(pred, target).item() == pytest.approx(expected, rel=1e-4)
 
-        loss_fn_normalized = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0), loss_type="mse", return_perceptual_units=False
-        )
+    def test_mse_is_squared_steps(self):
+        loss_fn = NormalizedRegressionLoss(param_range=(0.0, 1.0), num_classes=11, loss_type="mse")
+        # 3-step error -> 9 squared steps
+        assert loss_fn(torch.tensor([[0.5]]), torch.tensor([0.2])).item() == pytest.approx(9.0)
 
-        # Test data
-        preds = torch.tensor([[0.5]])
-        targets = torch.tensor([51.0])
-
-        loss_perceptual = loss_fn_perceptual(preds, targets)
-        loss_normalized = loss_fn_normalized(preds, targets)
-
-        # Perceptual loss should be scaled by parameter range
-        assert torch.allclose(loss_perceptual, loss_normalized * 2.0)
+    def test_num_classes_required_before_forward(self):
+        loss_fn = NormalizedRegressionLoss(param_range=(50.0, 52.0))
+        with pytest.raises(RuntimeError, match="num_classes is unset"):
+            loss_fn(torch.tensor([[0.5]]), torch.tensor([51.0]))
 
     def test_normalized_regression_loss_rejects_out_of_range_targets(self):
         """Targets outside [min, max] are in the wrong units: fail instead of clamping.
@@ -165,9 +158,7 @@ class TestNormalizedRegressionLoss:
         Regression test: class-index targets fed to a regression loss were silently
         clamped to the parameter range, so training "succeeded" on garbage.
         """
-        loss_fn = NormalizedRegressionLoss(
-            param_range=(50.0, 52.0), loss_type="l1", return_perceptual_units=False
-        )
+        loss_fn = NormalizedRegressionLoss(param_range=(50.0, 52.0), num_classes=21, loss_type="l1")
         preds = torch.tensor([[0.5]])
         with pytest.raises(ValueError, match="outside"):
             loss_fn(preds, torch.tensor([55.0]))  # Outside [50, 52]
@@ -189,8 +180,8 @@ class TestMultiheadRegressionModule:
         )
 
         criteria = {
-            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="l1"),
-            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), loss_type="l1"),
+            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), num_classes=21, loss_type="l1"),
+            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), num_classes=21, loss_type="l1"),
         }
 
         module = VIMHLitModule(
@@ -217,8 +208,8 @@ class TestMultiheadRegressionModule:
         )
 
         criteria = {
-            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="l1"),
-            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), loss_type="l1"),
+            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), num_classes=21, loss_type="l1"),
+            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), num_classes=21, loss_type="l1"),
         }
 
         module = VIMHLitModule(
@@ -270,8 +261,8 @@ class TestMultiheadRegressionModule:
         )
 
         criteria = {
-            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="l1"),
-            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), loss_type="l1"),
+            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), num_classes=21, loss_type="l1"),
+            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), num_classes=21, loss_type="l1"),
         }
 
         module = VIMHLitModule(
@@ -315,8 +306,8 @@ class TestRegressionModeIntegration:
 
         # Create loss functions
         criteria = {
-            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), loss_type="l1"),
-            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), loss_type="l1"),
+            "note_number": NormalizedRegressionLoss(param_range=(50.0, 52.0), num_classes=21, loss_type="l1"),
+            "note_velocity": NormalizedRegressionLoss(param_range=(80.0, 82.0), num_classes=21, loss_type="l1"),
         }
 
         # Create module

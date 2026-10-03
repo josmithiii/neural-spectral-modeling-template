@@ -17,7 +17,7 @@ def test_simple_dense_net_forward_pass(batch_size: int) -> None:
     model_single = SimpleDenseNet(output_size=10)
     model_single.eval()  # Set to eval mode to avoid BatchNorm issues
     x = torch.randn(batch_size, 1, 28, 28)
-    output = model_single(x)
+    output = model_single(x)["digit"]  # single head also returns a dict
 
     assert output.shape == (batch_size, 10)
     assert output.dtype == torch.float32
@@ -143,9 +143,9 @@ def test_backward_compatibility_simple_dense_net() -> None:
     output_old = model_old(x)
     output_new = model_new(x)
 
-    assert output_old.shape == output_new.shape == (2, 10)
-    assert isinstance(output_old, torch.Tensor)
-    assert isinstance(output_new, torch.Tensor)
+    # SimpleDenseNet always returns a dict (also for a single head), like SimpleCNN
+    assert isinstance(output_old, dict) and isinstance(output_new, dict)
+    assert output_old["digit"].shape == output_new["digit"].shape == (2, 10)
 
 
 def test_backward_compatibility_simple_efficientnet() -> None:
@@ -175,7 +175,7 @@ def test_gradient_flow_simple_dense_net() -> None:
     model = SimpleDenseNet(output_size=10)
     x = torch.randn(2, 1, 28, 28, requires_grad=True)
 
-    output = model(x)
+    output = model(x)["digit"]
     loss = output.sum()
     loss.backward()
 
@@ -211,18 +211,16 @@ def test_multihead_consistency() -> None:
 
     x = torch.randn(2, 1, 28, 28)
 
-    # Single head models return tensors
-    dense_single_out = dense_single(x)
+    # SimpleDenseNet returns a dict for any number of heads; EfficientNet returns a
+    # tensor for a single head.
+    dense_single_out = dense_single(x)["digit"]
     efficientnet_single_out = efficientnet_single(x)
 
-    assert isinstance(dense_single_out, torch.Tensor)
     assert isinstance(efficientnet_single_out, torch.Tensor)
 
-    # Multihead models with single head return tensors too
-    dense_multi_out = dense_multi(x)
+    dense_multi_out = dense_multi(x)["digit"]
     efficientnet_multi_out = efficientnet_multi(x)
 
-    assert isinstance(dense_multi_out, torch.Tensor)
     assert isinstance(efficientnet_multi_out, torch.Tensor)
 
     # Shapes should match
@@ -275,6 +273,9 @@ def test_model_training_mode(model_class) -> None:
     # Eval mode
     model.eval()
     output_eval = model(x)
+
+    if isinstance(output_train, dict):  # SimpleDenseNet returns a dict even for one head
+        output_train, output_eval = output_train["digit"], output_eval["digit"]
 
     assert output_train.shape == output_eval.shape
     assert not torch.isnan(output_train).any()
